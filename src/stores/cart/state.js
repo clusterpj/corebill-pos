@@ -59,47 +59,5 @@ export const mutations = {
     state.holdOrderDescription = null
     state.type = null // Reset type when clearing cart
     state.editingInvoiceId = null // Reset editing invoice ID
-  },
-
-  splitItem(state, { index, splitQuantity }) {
-    const item = state.items[index]
-    if (!item || splitQuantity >= item.quantity) return
-
-    // Create new item with split quantity
-    const splitItem = {
-      ...item,
-      quantity: splitQuantity,
-      modifications: [...(item.modifications || [])]
-    }
-
-    // Update original item quantity
-    state.items[index].quantity -= splitQuantity
-
-    // Insert split item after original
-    state.items.splice(index + 1, 0, splitItem)
-  },
-
-  addModification(state, { itemIndex, modification }) {
-    const item = state.items[itemIndex]
-    if (!item) return
-
-    if (!item.modifications) {
-      item.modifications = []
-    }
-    item.modifications.push(modification)
-  },
-
-  removeModification(state, { itemIndex, modificationIndex }) {
-    const item = state.items[itemIndex]
-    if (!item?.modifications) return
-
-    item.modifications.splice(modificationIndex, 1)
-  },
-
-  addItem(state, item) {
-    state.items.push({
-      ...item,
-      modifications: [] // Initialize modifications array
-    })
   }
 }

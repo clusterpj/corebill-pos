@@ -22,15 +22,7 @@ export const useCartStore = defineStore('cart', {
     },
 
     splitItem(index, splitQuantity) {
-      mutations.splitItem(this, { index, splitQuantity })
-    },
-
-    addModification(itemIndex, modification) {
-      mutations.addModification(this, { itemIndex, modification })
-    },
-
-    removeModification(itemIndex, modificationIndex) {
-      mutations.removeModification(this, { itemIndex, modificationIndex })
+      actions.splitItem(this, index, splitQuantity)
     },
 
     // State mutations

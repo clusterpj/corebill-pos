@@ -19,7 +19,8 @@
           <v-row no-gutters class="fill-height" style="width: 100%; margin: 0;">
             <!-- Left Side - Cart -->
             <v-col 
-              cols="12"
+              cols="12" 
+              sm="12" 
               md="5" 
               lg="4" 
               xl="3" 
@@ -33,7 +34,8 @@
 
             <!-- Right Side - Products -->
             <v-col 
-              cols="12"
+              cols="12" 
+              sm="12" 
               md="7" 
               lg="8" 
               xl="9" 

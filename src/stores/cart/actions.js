@@ -55,8 +55,7 @@ export const actions = {
           discount_type: 'fixed',
           discount: 0,
           discount_val: 0,
-          item_id: product.id,
-          modifications: []
+          item_id: product.id
         }
         state.items.push(newItem)
         logger.info('Added new item:', {
