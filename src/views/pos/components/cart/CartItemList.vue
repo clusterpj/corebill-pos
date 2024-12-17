@@ -22,6 +22,18 @@
             <div class="item-price text-caption text-grey-darken-1">
               {{ formatPrice(item.price) }} each
             </div>
+            <div v-if="item.modifications?.length" class="item-modifications">
+              <v-chip
+                v-for="(mod, modIndex) in item.modifications"
+                :key="modIndex"
+                size="x-small"
+                class="me-1 mb-1"
+                color="grey-lighten-1"
+                variant="flat"
+              >
+                {{ mod }}
+              </v-chip>
+            </div>
           </div>
 
           <!-- Total and Actions -->
@@ -31,6 +43,15 @@
             </span>
             
             <div class="action-buttons d-flex">
+              <v-btn
+                icon="mdi-pencil"
+                size="small"
+                variant="tonal"
+                density="comfortable"
+                color="primary"
+                @click="openEditDialog(item, index)"
+                class="touch-btn"
+              />
               <v-btn
                 icon="mdi-minus"
                 size="small"
@@ -64,13 +85,21 @@
         </div>
       </v-list-item>
     </v-list>
+
+    <!-- Add EditItemDialog -->
+    <EditItemDialog
+      v-model="showEditDialog"
+      :item="selectedItem"
+      :index="selectedIndex"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, watch, ref } from 'vue'
 import { logger } from '@/utils/logger'
 import { PriceUtils } from '@/utils/price'
+import EditItemDialog from './EditItemDialog.vue'
 
 const props = defineProps({
   items: {
@@ -172,6 +201,18 @@ const handleEditItem = (itemId, index) => {
   })
   emit('edit', itemId, index)
 }
+
+// Add these refs for edit dialog
+const showEditDialog = ref(false)
+const selectedItem = ref(null)
+const selectedIndex = ref(null)
+
+// Add this method to handle opening the edit dialog
+const openEditDialog = (item, index) => {
+  selectedItem.value = item
+  selectedIndex.value = index
+  showEditDialog.value = true
+}
 </script>
 
 <style scoped>
@@ -266,5 +307,9 @@ const handleEditItem = (itemId, index) => {
   .action-buttons {
     gap: 4px;
   }
+}
+
+.item-modifications {
+  margin-top: 4px;
 }
 </style>
