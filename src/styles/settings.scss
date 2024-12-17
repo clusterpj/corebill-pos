@@ -1,0 +1,5 @@
+// src/styles/settings.scss
+@use 'vuetify/settings' with (
+  $button-border-radius: 8px,
+  $button-text-transform: none
+);

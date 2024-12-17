@@ -1,0 +1,124 @@
+Searching for price-related components...
+Searching for term: price
+  In directory: src/views/pos
+src/views/pos/components/cart/CartItemList.vue
+src/views/pos/components/cart/CartSummary.vue
+src/views/pos/components/ItemManagementModal.vue
+src/views/pos/components/order-types/ToGoModal.vue
+src/views/pos/components/order-types/DeliveryModal.vue
+src/views/pos/components/order-types/PickupModal.vue
+src/views/pos/components/products/ProductGrid.vue
+src/views/pos/components/held-orders/components/OrderInvoicesTable.vue
+src/views/pos/components/held-orders/composables/useHeldOrders.js
+src/views/pos/components/held-orders/HeldOrdersModal.vue
+src/views/pos/components/held-orders/utils/invoiceConverter.js
+src/views/pos/components/held-orders/utils/validators.js
+src/views/pos/components/held-orders/utils/formatters.js
+src/views/pos/components/dialogs/PaymentDialog.vue
+src/views/pos/components/PosFooter.vue
+  In directory: src/components
+src/components/items/ItemManagementModal.vue
+  In directory: src/stores
+src/stores/cart/getters.js
+src/stores/cart/invoice.js
+src/stores/cart/helpers.js
+src/stores/cart/actions.js
+src/stores/pos/orders.js
+
+Searching for term: toCents
+  In directory: src/views/pos
+src/views/pos/components/order-types/DeliveryModal.vue
+src/views/pos/components/held-orders/HeldOrdersModal.vue
+src/views/pos/components/held-orders/utils/invoiceConverter.js
+src/views/pos/components/held-orders/utils/formatters.js
+src/views/pos/components/dialogs/PaymentDialog.vue
+  In directory: src/components
+  In directory: src/stores
+src/stores/cart/getters.js
+src/stores/cart/invoice.js
+src/stores/cart/helpers.js
+src/stores/cart/actions.js
+
+Searching for term: toDollars
+  In directory: src/views/pos
+src/views/pos/components/held-orders/HeldOrdersModal.vue
+src/views/pos/components/held-orders/utils/formatters.js
+src/views/pos/components/dialogs/PaymentDialog.vue
+  In directory: src/components
+  In directory: src/stores
+src/stores/cart/helpers.js
+
+Searching for term: formatCurrency
+  In directory: src/views/pos
+src/views/pos/components/held-orders/components/HeldOrdersTable.vue
+src/views/pos/components/held-orders/composables/useHeldOrders.js
+src/views/pos/components/held-orders/HeldOrdersModal.vue
+src/views/pos/components/held-orders/utils/formatters.js
+src/views/pos/components/dialogs/PaymentDialog.vue
+src/views/pos/components/dialogs/PaymentInvoiceDialog.vue
+src/views/pos/components/dialogs/DeliveryPaymentDialog.vue
+src/views/pos/components/PosFooter.vue
+  In directory: src/components
+  In directory: src/stores
+
+Searching for term: .price
+  In directory: src/views/pos
+src/views/pos/components/cart/CartItemList.vue
+src/views/pos/components/cart/CartSummary.vue
+src/views/pos/components/ItemManagementModal.vue
+src/views/pos/components/order-types/ToGoModal.vue
+src/views/pos/components/order-types/DeliveryModal.vue
+src/views/pos/components/order-types/PickupModal.vue
+src/views/pos/components/products/ProductGrid.vue
+src/views/pos/components/held-orders/components/OrderInvoicesTable.vue
+src/views/pos/components/held-orders/composables/useHeldOrders.js
+src/views/pos/components/held-orders/HeldOrdersModal.vue
+src/views/pos/components/held-orders/utils/invoiceConverter.js
+src/views/pos/components/held-orders/utils/validators.js
+src/views/pos/components/held-orders/utils/formatters.js
+src/views/pos/components/dialogs/PaymentDialog.vue
+src/views/pos/components/PosFooter.vue
+  In directory: src/components
+src/components/items/ItemManagementModal.vue
+  In directory: src/stores
+src/stores/cart/getters.js
+src/stores/cart/invoice.js
+src/stores/cart/helpers.js
+src/stores/cart/actions.js
+src/stores/pos/orders.js
+
+Searching for term: total
+  In directory: src/views/pos
+src/views/pos/components/cart/CartItemList.vue
+src/views/pos/components/cart/composables/useCart.js
+src/views/pos/components/cart/CartSummary.vue
+src/views/pos/components/PosCart.vue
+src/views/pos/components/order-types/ToGoModal.vue
+src/views/pos/components/order-types/DineInModal.vue
+src/views/pos/components/order-types/DeliveryModal.vue
+src/views/pos/components/order-types/PickupModal.vue
+src/views/pos/components/products/ProductGrid.vue
+src/views/pos/components/held-orders/components/OrderInvoicesTable.vue
+src/views/pos/components/held-orders/components/HeldOrdersTable.vue
+src/views/pos/components/held-orders/composables/useHeldOrders.js
+src/views/pos/components/held-orders/composables/useInvoices.js
+src/views/pos/components/held-orders/HeldOrdersModal.vue
+src/views/pos/components/held-orders/utils/invoiceConverter.js
+src/views/pos/components/held-orders/utils/validators.js
+src/views/pos/components/dialogs/PaymentDialog.vue
+src/views/pos/components/dialogs/PaymentInvoiceDialog.vue
+src/views/pos/components/dialogs/DeliveryPaymentDialog.vue
+src/views/pos/components/PosFooter.vue
+src/views/pos/composables/usePayment.js
+src/views/pos/composables/useOrderManagement.js
+  In directory: src/components
+  In directory: src/stores
+src/stores/cart/getters.js
+src/stores/cart/invoice.js
+src/stores/cart/helpers.js
+src/stores/cart/actions.js
+src/stores/pos/state.js
+src/stores/pos/orders.js
+src/stores/pos/products.js
+src/stores/pos/actions.js
+
