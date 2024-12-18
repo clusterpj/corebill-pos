@@ -164,7 +164,10 @@ const { holdInvoices } = storeToRefs(posStore)
 // Local state
 const activeTab = ref('active')
 const showError = ref(false)
+const refreshing = ref(false)
+const autoRefresh = ref(true)
 let pollInterval = null // Store interval reference
+let refreshInterval = null
 
 // Watch for errors
 watch(error, (newError) => {
@@ -181,11 +184,46 @@ watch(holdInvoices, (newInvoices) => {
   }
 }, { deep: true })
 
+// Watch for auto-refresh changes
+watch(autoRefresh, (enabled) => {
+  if (enabled) {
+    startRefreshInterval()
+  } else {
+    stopRefreshInterval()
+  }
+})
+
 // Methods
 const handleOrderComplete = async (orderId) => {
   const success = await kitchenStore.completeOrder(orderId)
   if (success) {
     // Optional: Play a sound or show a success notification
+  }
+}
+
+const refreshOrders = async () => {
+  if (refreshing.value) return
+  
+  refreshing.value = true
+  try {
+    await posStore.fetchHoldInvoices()
+  } catch (err) {
+    logger.error('Failed to refresh orders:', err)
+    error.value = 'Failed to refresh orders. Please try again.'
+  } finally {
+    refreshing.value = false
+  }
+}
+
+const startRefreshInterval = () => {
+  stopRefreshInterval() // Clear any existing interval
+  refreshInterval = setInterval(refreshOrders, 15000) // 15 seconds
+}
+
+const stopRefreshInterval = () => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+    refreshInterval = null
   }
 }
 
@@ -200,6 +238,11 @@ onMounted(async () => {
     pollInterval = setInterval(async () => {
       await posStore.fetchHoldInvoices()
     }, 30000) // Poll every 30 seconds
+    
+    // Start auto-refresh if enabled
+    if (autoRefresh.value) {
+      startRefreshInterval()
+    }
   } catch (err) {
     logger.error('Failed to initialize kitchen orders:', err)
     error.value = 'Failed to load orders. Please refresh the page.'
@@ -212,6 +255,7 @@ onUnmounted(() => {
     clearInterval(pollInterval)
     pollInterval = null
   }
+  stopRefreshInterval()
 })
 </script>
 
