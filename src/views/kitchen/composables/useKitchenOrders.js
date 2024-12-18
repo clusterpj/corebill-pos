@@ -1,11 +1,11 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { usePosStore } from '@/stores/pos-store'
+import { useKitchenStore } from '@/stores/kitchen'
 import { logger } from '@/utils/logger'
 
 export function useKitchenOrders() {
   const posStore = usePosStore()
-  const activeOrders = ref([])
-  const completedOrders = ref([])
+  const kitchenStore = useKitchenStore()
   const loading = ref(false)
   const error = ref(null)
   let pollingInterval
@@ -21,15 +21,10 @@ export function useKitchenOrders() {
       // Get orders from the store
       const orders = posStore.holdInvoices || []
       
-      // Split orders into active and completed
-      activeOrders.value = orders.filter(order => 
-        !order.completed_at && order.status !== 'cancelled'
-      )
-      completedOrders.value = orders.filter(order => 
-        order.completed_at || order.status === 'completed'
-      )
+      // Initialize kitchen orders
+      kitchenStore.initializeOrders(orders)
 
-      logger.info(`Fetched ${activeOrders.value.length} active orders and ${completedOrders.value.length} completed orders`)
+      logger.info(`Fetched ${kitchenStore.activeOrders.length} active orders and ${kitchenStore.completedOrders.length} completed orders`)
     } catch (err) {
       error.value = err.message
       logger.error('Error fetching kitchen orders:', err)
@@ -49,8 +44,8 @@ export function useKitchenOrders() {
         completed_at: new Date().toISOString()
       })
 
-      // Refresh orders after update
-      await fetchOrders()
+      // Update kitchen store
+      await kitchenStore.completeOrder(orderId)
       
       logger.info(`Order ${orderId} marked as complete`)
     } catch (err) {
@@ -61,10 +56,26 @@ export function useKitchenOrders() {
     }
   }
 
+  // Watch for new orders
+  const watchForNewOrders = () => {
+    if (posStore.holdInvoices) {
+      posStore.holdInvoices.forEach(order => {
+        // Check if this is a new order that should be added to kitchen
+        const existingOrder = kitchenStore.orders.find(o => o.id === order.id)
+        if (!existingOrder) {
+          kitchenStore.addOrder(order)
+        }
+      })
+    }
+  }
+
   // Set up polling for real-time updates
   onMounted(() => {
     fetchOrders()
-    pollingInterval = setInterval(fetchOrders, 30000) // Poll every 30 seconds
+    pollingInterval = setInterval(async () => {
+      await fetchOrders()
+      watchForNewOrders()
+    }, 30000) // Poll every 30 seconds
     logger.info('Kitchen orders polling initialized')
   })
 
@@ -76,8 +87,8 @@ export function useKitchenOrders() {
   })
 
   return {
-    activeOrders,
-    completedOrders,
+    activeOrders: kitchenStore.activeOrders,
+    completedOrders: kitchenStore.completedOrders,
     loading,
     error,
     markOrderComplete,

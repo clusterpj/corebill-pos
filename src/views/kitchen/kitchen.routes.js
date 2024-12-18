@@ -3,6 +3,8 @@ export default {
   name: 'kitchen',
   component: () => import('./KitchenDisplay.vue'),
   meta: {
-    title: 'Kitchen Display'
+    title: 'Kitchen Display',
+    requiresAuth: true,
+    skipCashierCheck: true
   }
 }

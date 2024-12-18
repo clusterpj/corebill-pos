@@ -3,31 +3,60 @@
   <v-card
     :class="[
       'order-card rounded-lg overflow-hidden',
+      `order-card--${order.status}`,
       { 'order-card--completed': isCompleted }
     ]"
     :elevation="isCompleted ? 1 : 4"
+    :color="isCompleted ? 'grey-lighten-4' : undefined"
   >
-    <div class="p-4">
-      <div class="flex justify-between items-center mb-2">
-        <h2 class="text-lg font-semibold">Order #{{ order.id }}</h2>
+    <!-- Header Section -->
+    <div class="order-header pa-4" :class="{ 'completed': isCompleted }">
+      <div class="d-flex justify-space-between align-center">
+        <div class="order-id">
+          <h2 class="text-h6 font-weight-bold mb-0">
+            Order #{{ order.id }}
+          </h2>
+          <div class="order-time d-flex align-center mt-1">
+            <v-icon size="small" icon="mdi-clock-outline" class="mr-1" />
+            <time :datetime="order.created_at" class="text-body-2 text-medium-emphasis">
+              {{ formatTime(order.created_at) }}
+            </time>
+            <v-chip
+              v-if="getElapsedTime(order.created_at) > 15"
+              size="x-small"
+              color="error"
+              class="ml-2"
+            >
+              {{ getElapsedTime(order.created_at) }}m
+            </v-chip>
+          </div>
+        </div>
+        
         <v-chip
           :color="statusColor"
           size="small"
-          class="rounded-full px-3"
+          class="status-chip"
+          :class="{ 'completed': isCompleted }"
         >
+          <v-icon size="small" :icon="statusIcon" start class="mr-1" />
           {{ isCompleted ? 'Completed' : 'Pending' }}
         </v-chip>
       </div>
 
-      <div class="text-sm text-gray-600 flex items-center mb-4">
-        <v-icon size="small" icon="mdi-clock-outline" class="mr-1" />
-        {{ formatTime(order.created_at) }}
-        <template v-if="isCompleted && order.completed_at">
-          <v-icon size="small" icon="mdi-check-circle" class="ml-2 mr-1" />
-          Completed at: {{ formatTime(order.completed_at) }}
-        </template>
+      <!-- Completion Time -->
+      <div v-if="isCompleted && order.completed_at" 
+           class="completed-time d-flex align-center mt-2">
+        <v-icon size="small" icon="mdi-check-circle" class="mr-1 text-success" />
+        <span class="text-body-2 text-success">
+          Completed at {{ formatTime(order.completed_at) }}
+        </span>
       </div>
+    </div>
 
+    <!-- Order Content -->
+    <v-divider></v-divider>
+    
+    <div class="order-content pa-4">
       <!-- Order Notes -->
       <div v-if="orderNotes" class="order-notes mb-4">
         <v-alert
@@ -35,6 +64,7 @@
           variant="tonal"
           density="comfortable"
           class="mb-0"
+          role="alert"
         >
           <template v-slot:prepend>
             <v-icon size="small">mdi-note-text-outline</v-icon>
@@ -43,32 +73,58 @@
         </v-alert>
       </div>
 
-      <div class="space-y-4 max-h-48 overflow-y-auto">
-        <template v-for="(item, index) in order.hold_items" :key="index">
-          <div class="mb-3">
-            <h3 class="font-semibold">
+      <!-- Items List -->
+      <div class="items-list">
+        <v-list density="compact">
+          <v-list-item
+            v-for="(item, index) in order.hold_items"
+            :key="index"
+            :class="{ 'item--with-note': item.notes }"
+          >
+            <template v-slot:prepend>
+              <v-chip
+                size="small"
+                color="primary"
+                variant="flat"
+                class="quantity-chip mr-2"
+              >
+                {{ item.quantity }}
+              </v-chip>
+            </template>
+
+            <v-list-item-title class="font-weight-medium">
               {{ item.name }}
-              <span v-if="item.quantity > 1" class="text-sm text-gray-600 ml-2">
-                x{{ item.quantity }}
-              </span>
-            </h3>
-            
-            <div v-if="item.notes" class="text-sm text-gray-600 mt-1 italic">
-              Note: {{ item.notes }}
-            </div>
-          </div>
-        </template>
+            </v-list-item-title>
+
+            <v-list-item-subtitle
+              v-if="item.notes"
+              class="mt-1 text-warning-darken-1"
+            >
+              <v-icon
+                size="x-small"
+                icon="mdi-note-text"
+                class="mr-1"
+              />
+              {{ item.notes }}
+            </v-list-item-subtitle>
+          </v-list-item>
+        </v-list>
       </div>
     </div>
 
-    <div v-if="!isCompleted" class="p-4 bg-gray-50">
+    <!-- Action Footer -->
+    <v-divider v-if="!isCompleted"></v-divider>
+    
+    <div v-if="!isCompleted" class="order-actions pa-4">
       <v-btn
         block
         color="success"
         variant="elevated"
         :loading="loading"
-        @click="$emit('complete', order.id)"
-        class="text-none"
+        @click="handleComplete"
+        class="complete-btn"
+        :disabled="loading"
+        elevation="2"
       >
         <v-icon icon="mdi-check-circle" class="mr-2" />
         Mark as Complete
@@ -88,7 +144,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['complete'])
+const emit = defineEmits(['complete'])
 
 const loading = ref(false)
 const isCompleted = computed(() => 
@@ -99,6 +155,12 @@ const statusColor = computed(() => {
   if (isCompleted.value) return 'success'
   if (props.order.status === 'in_progress') return 'info'
   return 'warning'
+})
+
+const statusIcon = computed(() => {
+  if (isCompleted.value) return 'mdi-check-circle'
+  if (props.order.status === 'in_progress') return 'mdi-progress-clock'
+  return 'mdi-clock-alert'
 })
 
 const orderNotes = computed(() => {
@@ -112,42 +174,116 @@ const formatTime = (timestamp) => {
     minute: '2-digit'
   })
 }
+
+const getElapsedTime = (timestamp) => {
+  const start = new Date(timestamp)
+  const now = new Date()
+  return Math.floor((now - start) / (1000 * 60))
+}
+
+const handleComplete = async () => {
+  loading.value = true
+  try {
+    await emit('complete', props.order.id)
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <style scoped>
 .order-card {
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   height: 100%;
   display: flex;
   flex-direction: column;
+  border: 2px solid transparent;
 }
 
 .order-card--completed {
+  opacity: 0.85;
+}
+
+.order-card:not(.order-card--completed):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 25px 0 rgba(0, 0, 0, 0.1);
+}
+
+.order-header {
+  background: linear-gradient(to right, var(--v-theme-surface), var(--v-theme-surface-variant));
+  transition: background-color 0.3s ease;
+}
+
+.order-header.completed {
+  background: var(--v-theme-surface-variant);
+}
+
+.status-chip {
+  font-weight: 600 !important;
+  letter-spacing: 0.5px;
+}
+
+.status-chip.completed {
   opacity: 0.75;
 }
 
-.space-y-4 > * + * {
-  margin-top: 1rem;
-}
-
-.max-h-48 {
-  max-height: 12rem;
-}
-
-.overflow-y-auto {
+.items-list {
+  max-height: 300px;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
-:deep(.v-btn) {
-  text-transform: none !important;
-  letter-spacing: normal !important;
+.items-list::-webkit-scrollbar {
+  width: 6px;
 }
 
-:deep(.v-chip) {
-  font-weight: 500 !important;
+.items-list::-webkit-scrollbar-track {
+  background: var(--v-theme-surface);
+}
+
+.items-list::-webkit-scrollbar-thumb {
+  background-color: var(--v-theme-surface-variant);
+  border-radius: 3px;
+}
+
+.quantity-chip {
+  min-width: 32px;
+  justify-content: center;
+}
+
+.item--with-note {
+  padding-bottom: 8px;
+}
+
+.complete-btn {
+  transition: transform 0.2s ease;
+}
+
+.complete-btn:hover:not(:disabled) {
+  transform: scale(1.02);
 }
 
 .order-notes :deep(.v-alert) {
   padding: 8px 16px;
+}
+
+/* Status-specific styles */
+.order-card--pending {
+  border-color: var(--v-theme-warning);
+}
+
+.order-card--in_progress {
+  border-color: var(--v-theme-info);
+}
+
+.order-card--completed {
+  border-color: var(--v-theme-success);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-card,
+  .complete-btn {
+    transition: none;
+  }
 }
 </style>

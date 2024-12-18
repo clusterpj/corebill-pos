@@ -63,6 +63,7 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const skipCashierCheck = to.matched.some(record => record.meta.skipCashierCheck)
 
   // Always allow login page
   if (to.path === '/login') {
@@ -79,8 +80,8 @@ router.beforeEach(async (to, from, next) => {
     }
 
     // If authenticated but no cashier selected, redirect to cashier selection
-    // Only do this if we're not already on the select-cashier page
-    if (to.path !== '/select-cashier' && !authStore.hasCashiers) {
+    // Only do this if we're not already on the select-cashier page and the route doesn't skip cashier check
+    if (to.path !== '/select-cashier' && !skipCashierCheck && !authStore.hasCashiers) {
       next('/select-cashier')
       return
     }

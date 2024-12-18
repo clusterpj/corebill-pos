@@ -1,90 +1,238 @@
 <template>
-  <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Kitchen Display System</h1>
-    
-    <v-tabs v-model="activeTab" class="mb-4">
-      <v-tab value="active" class="px-4 py-2">
-        Active Orders
-      </v-tab>
-      <v-tab value="history" class="px-4 py-2">
-        Order History
-      </v-tab>
-    </v-tabs>
+  <div class="kitchen-display">
+    <v-container fluid class="pa-4">
+      <!-- Header -->
+      <div class="d-flex align-center justify-space-between mb-6">
+        <h1 class="text-h4 font-weight-bold">Kitchen Display</h1>
+        <v-chip
+          :color="activeOrders.length > 0 ? 'warning' : 'success'"
+          size="large"
+          class="orders-count"
+        >
+          {{ activeOrders.length }} Active Orders
+        </v-chip>
+      </div>
 
-    <v-window v-model="activeTab">
-      <v-window-item value="active">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <kitchen-order-card
-            v-for="order in activeOrders"
-            :key="order.id"
-            :order="order"
-            @complete="markOrderComplete"
-          />
-        </div>
-        <div v-if="!activeOrders.length" class="text-center py-8">
-          <p class="text-gray-600">No active orders</p>
-        </div>
-      </v-window-item>
+      <!-- Tabs -->
+      <v-tabs
+        v-model="activeTab"
+        color="primary"
+        class="mb-4"
+        grow
+      >
+        <v-tab value="active" class="text-subtitle-1">
+          <v-icon icon="mdi-clock-outline" class="mr-2" />
+          Active Orders
+          <v-chip
+            size="x-small"
+            color="warning"
+            class="ml-2"
+            v-if="activeOrders.length"
+          >
+            {{ activeOrders.length }}
+          </v-chip>
+        </v-tab>
+        <v-tab value="history" class="text-subtitle-1">
+          <v-icon icon="mdi-history" class="mr-2" />
+          Order History
+          <v-chip
+            size="x-small"
+            color="success"
+            class="ml-2"
+            v-if="completedOrders.length"
+          >
+            {{ completedOrders.length }}
+          </v-chip>
+        </v-tab>
+      </v-tabs>
 
-      <v-window-item value="history">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <kitchen-order-card
-            v-for="order in completedOrders"
-            :key="order.id"
-            :order="order"
-          />
-        </div>
-        <div v-if="!completedOrders.length" class="text-center py-8">
-          <p class="text-gray-600">No completed orders</p>
-        </div>
-      </v-window-item>
-    </v-window>
+      <!-- Tab Content -->
+      <v-window v-model="activeTab">
+        <!-- Active Orders -->
+        <v-window-item value="active">
+          <div v-if="loading" class="d-flex justify-center py-8">
+            <v-progress-circular
+              indeterminate
+              color="primary"
+              size="64"
+            />
+          </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <v-progress-circular indeterminate color="primary" size="64" />
-    </div>
+          <div v-else-if="activeOrders.length === 0" class="text-center py-8">
+            <v-icon
+              icon="mdi-coffee-outline"
+              size="64"
+              color="grey-lighten-1"
+              class="mb-4"
+            />
+            <h3 class="text-h6 text-grey-darken-1">No Active Orders</h3>
+            <p class="text-body-1 text-medium-emphasis">
+              All orders have been completed
+            </p>
+          </div>
+
+          <v-row v-else>
+            <v-col
+              v-for="order in activeOrders"
+              :key="order.id"
+              cols="12"
+              sm="6"
+              lg="4"
+            >
+              <kitchen-order-card
+                :order="order"
+                @complete="handleOrderComplete"
+              />
+            </v-col>
+          </v-row>
+        </v-window-item>
+
+        <!-- Order History -->
+        <v-window-item value="history">
+          <div v-if="loading" class="d-flex justify-center py-8">
+            <v-progress-circular
+              indeterminate
+              color="primary"
+              size="64"
+            />
+          </div>
+
+          <div v-else-if="completedOrders.length === 0" class="text-center py-8">
+            <v-icon
+              icon="mdi-history"
+              size="64"
+              color="grey-lighten-1"
+              class="mb-4"
+            />
+            <h3 class="text-h6 text-grey-darken-1">No Completed Orders</h3>
+            <p class="text-body-1 text-medium-emphasis">
+              Completed orders will appear here
+            </p>
+          </div>
+
+          <v-row v-else>
+            <v-col
+              v-for="order in completedOrders"
+              :key="order.id"
+              cols="12"
+              sm="6"
+              lg="4"
+            >
+              <kitchen-order-card
+                :order="order"
+              />
+            </v-col>
+          </v-row>
+        </v-window-item>
+      </v-window>
+    </v-container>
+
+    <!-- Error Snackbar -->
+    <v-snackbar
+      v-model="showError"
+      color="error"
+      timeout="3000"
+    >
+      {{ error }}
+      <template v-slot:actions>
+        <v-btn
+          color="white"
+          variant="text"
+          @click="showError = false"
+        >
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useKitchenStore } from '@/stores/kitchen'
+import { usePosStore } from '@/stores/pos-store'
 import KitchenOrderCard from './components/KitchenOrderCard.vue'
-import { useKitchenOrders } from './composables/useKitchenOrders'
+import { logger } from '@/utils/logger'
 
+// Store setup
+const kitchenStore = useKitchenStore()
+const posStore = usePosStore()
+const { activeOrders, completedOrders, loading, error } = storeToRefs(kitchenStore)
+const { holdInvoices } = storeToRefs(posStore)
+
+// Local state
 const activeTab = ref('active')
-const { activeOrders, completedOrders, loading, markOrderComplete } = useKitchenOrders()
+const showError = ref(false)
+let pollInterval = null // Store interval reference
+
+// Watch for errors
+watch(error, (newError) => {
+  if (newError) {
+    showError.value = true
+  }
+})
+
+// Watch for changes in hold invoices
+watch(holdInvoices, (newInvoices) => {
+  if (newInvoices) {
+    logger.debug('Updating kitchen orders from hold invoices:', newInvoices.length)
+    kitchenStore.initializeOrders(newInvoices)
+  }
+}, { deep: true })
+
+// Methods
+const handleOrderComplete = async (orderId) => {
+  const success = await kitchenStore.completeOrder(orderId)
+  if (success) {
+    // Optional: Play a sound or show a success notification
+  }
+}
+
+// Initialize orders from POS store
+onMounted(async () => {
+  try {
+    logger.debug('Initializing kitchen display')
+    await posStore.fetchHoldInvoices()
+    kitchenStore.initializeOrders(posStore.holdInvoices || [])
+    
+    // Start polling for updates
+    pollInterval = setInterval(async () => {
+      await posStore.fetchHoldInvoices()
+    }, 30000) // Poll every 30 seconds
+  } catch (err) {
+    logger.error('Failed to initialize kitchen orders:', err)
+    error.value = 'Failed to load orders. Please refresh the page.'
+  }
+})
+
+// Clean up on unmount
+onUnmounted(() => {
+  if (pollInterval) {
+    clearInterval(pollInterval)
+    pollInterval = null
+  }
+})
 </script>
 
 <style scoped>
-.container {
-  max-width: 1400px;
+.kitchen-display {
+  min-height: 100vh;
+  background-color: var(--v-background);
 }
 
-.grid {
-  display: grid;
-  gap: 1rem;
-}
-
-@media (min-width: 768px) {
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+.orders-count {
+  font-weight: 600;
 }
 
 :deep(.v-tab) {
-  text-transform: none !important;
-  font-size: 1rem !important;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-:deep(.v-tab--selected) {
-  background-color: rgb(var(--v-theme-primary)) !important;
-  color: white !important;
+@media (max-width: 600px) {
+  .text-h4 {
+    font-size: 1.5rem !important;
+  }
 }
 </style>
