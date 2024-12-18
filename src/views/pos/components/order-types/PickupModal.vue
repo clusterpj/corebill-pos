@@ -118,6 +118,18 @@
                   v-model="showCreateCustomer"
                   @customer-created="onCustomerCreated"
                 />
+                
+                <!-- Add Notes Field -->
+                <v-textarea
+                  v-model="customerNotes"
+                  label="Order Notes"
+                  variant="outlined"
+                  density="comfortable"
+                  rows="3"
+                  class="mt-4"
+                  hide-details
+                  placeholder="Add any special instructions or notes for this order"
+                ></v-textarea>
               </v-col>
             </v-row>
 
@@ -149,20 +161,6 @@
                   @input="clearError('pickupTime')"
                   required
                 ></v-text-field>
-              </v-col>
-            </v-row>
-
-            <!-- Pickup Instructions -->
-            <v-row>
-              <v-col cols="12">
-                <v-textarea
-                  v-model="customerInfo.instructions"
-                  label="Pickup Instructions (Optional)"
-                  variant="outlined"
-                  density="comfortable"
-                  rows="2"
-                  hint="Special instructions for pickup"
-                ></v-textarea>
               </v-col>
             </v-row>
 
@@ -219,24 +217,11 @@ import { PriceUtils } from '@/utils/price'
 // Initialize composables and stores
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
-const { setOrderType, setCustomerInfo } = useOrderType()
+const { setOrderType, setCustomerInfo, customerNotes } = useOrderType()
 
-// Customer search integration
-const { 
-  searchResults,
-  isSearching,
-  searchError,
-  searchCustomers,
-  createCustomer
-} = useCustomerSearch()
-
-// Props
-const props = defineProps({
-  disabled: {
-    type: Boolean,
-    default: false
-  }
-})
+// Add computed properties for store and cashier
+const selectedStore = computed(() => companyStore.selectedStore)
+const selectedCashier = computed(() => companyStore.selectedCashier)
 
 // Local state
 const dialog = ref(false)
@@ -248,6 +233,15 @@ const error = computed(() => searchError.value)
 const customerSearch = ref('')
 const selectedCustomer = ref(null)
 const showCreateCustomer = ref(false)
+
+// Customer search integration
+const { 
+  searchResults,
+  isSearching,
+  searchError,
+  searchCustomers,
+  createCustomer
+} = useCustomerSearch()
 
 // Customer search handlers
 const onCustomerSearch = async (search) => {
@@ -298,7 +292,6 @@ const onCustomerSelect = async (selection) => {
       customerInfo.name = fullCustomer?.name?.trim() || fullCustomer?.first_name?.trim() || customer.name || ''
       customerInfo.phone = fullCustomer?.phone?.trim() || customer.phone || ''
       customerInfo.email = fullCustomer?.email?.trim() || customer.email || ''
-      customerInfo.instructions = fullCustomer?.notes || ''
 
       // Update selected customer with full data
       selectedCustomer.value = fullCustomer
@@ -327,7 +320,6 @@ const clearSelectedCustomer = () => {
   customerInfo.phone = ''
   customerInfo.email = ''
   customerInfo.pickupTime = ''
-  customerInfo.instructions = ''
 }
 
 const onCustomerCreated = (customer) => {
@@ -346,13 +338,64 @@ const onCustomerCreated = (customer) => {
   customerInfo.email = customer.email
 }
 
+// Initialize notes from cart when dialog opens
+watch(dialog, (isOpen) => {
+  if (isOpen && cartStore.notes) {
+    try {
+      const notesObj = JSON.parse(cartStore.notes)
+      customerNotes.value = notesObj.customerNotes || ''
+    } catch (e) {
+      // If parsing fails, treat as legacy format
+      customerNotes.value = cartStore.notes
+    }
+  }
+})
+
+// Watch for changes in cart notes and sync with order type notes
+watch(() => cartStore.notes, (newNotes) => {
+  if (newNotes) {
+    try {
+      const notesObj = JSON.parse(newNotes)
+      if (notesObj.customerNotes !== customerNotes.value) {
+        customerNotes.value = notesObj.customerNotes || ''
+      }
+    } catch (e) {
+      // If not JSON, treat as legacy format
+      if (newNotes !== customerNotes.value) {
+        customerNotes.value = newNotes
+      }
+    }
+  } else {
+    customerNotes.value = ''
+  }
+}, { immediate: true })
+
+// Watch for changes in customer notes and sync with cart
+watch(customerNotes, (newNotes) => {
+  if (newNotes) {
+    try {
+      const notesObj = {
+        customerNotes: newNotes,
+        orderInfo: {
+          customer: customerInfo
+        },
+        timestamp: new Date().toISOString()
+      }
+      cartStore.notes = JSON.stringify(notesObj)
+    } catch (e) {
+      logger.error('Error syncing notes with cart:', e)
+    }
+  } else {
+    cartStore.notes = ''
+  }
+}, { immediate: true })
+
 // Form state
 const customerInfo = reactive({
   name: '',
   phone: '',
   email: '',
-  pickupTime: '',
-  instructions: ''
+  pickupTime: ''
 })
 
 // Validation
@@ -425,6 +468,7 @@ const invoiceData = ref({
   nextInvoiceNumber: ''
 })
 
+// Process the order
 const processOrder = async () => {
   if (!validateForm()) return
 
@@ -437,7 +481,6 @@ const processOrder = async () => {
       name: (customerInfo.name || '').trim(),
       phone: (customerInfo.phone || '').trim(),
       email: (customerInfo.email || '').trim(),
-      instructions: (customerInfo.instructions || '').trim(),
       send_sms: sendSms.value ? 1 : 0
     }
     setCustomerInfo(customerData)
@@ -452,6 +495,18 @@ const processOrder = async () => {
     if (!nextInvoice) {
       throw new Error('Failed to get next invoice number')
     }
+
+    // Format notes with additional context
+    const formattedNotes = customerNotes.value ? JSON.stringify({
+      customerNotes: customerNotes.value,
+      orderInfo: {
+        customer: customerInfo,
+        store: selectedStore.value?.name || '',
+        cashier: selectedCashier.value?.name || '',
+        orderType: 'pickup'
+      },
+      timestamp: new Date().toISOString()
+    }) : ''
 
     // Create invoice data with required fields
     const orderData = {
@@ -522,8 +577,10 @@ const processOrder = async () => {
       // SMS notification
       send_sms: sendSms.value ? 1 : 0,
 
+      // Notes with additional context
+      notes: formattedNotes,
+      
       // Additional required fields
-      notes: customerInfo.instructions || '',
       hold_invoice_id: null,
       tip: "0",
       tip_type: "fixed",
