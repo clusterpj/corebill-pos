@@ -63,8 +63,27 @@ export const prepareItemsForApi = (items) => {
 
 export const parseOrderNotes = (notes) => {
   try {
+    if (!notes) return ''
+    
     const notesObj = JSON.parse(notes)
-    return notesObj.customerNotes || ''
+    
+    // Handle new format
+    if (notesObj.customerNotes) {
+      return notesObj.customerNotes
+    }
+    
+    // Handle old format
+    if (notesObj.orderInfo?.customer?.notes) {
+      return notesObj.orderInfo.customer.notes
+    }
+    
+    // Handle old format with instructions
+    if (notesObj.orderInfo?.customer?.instructions) {
+      return notesObj.orderInfo.customer.instructions
+    }
+    
+    // If notes is a plain string, return it as is
+    return typeof notesObj === 'string' ? notesObj : ''
   } catch (e) {
     // If notes is a plain string, return it as is
     return typeof notes === 'string' ? notes : ''

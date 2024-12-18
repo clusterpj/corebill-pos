@@ -127,7 +127,7 @@
                     variant="outlined"
                     density="comfortable"
                     :error-messages="validationErrors.notes"
-                    @input="clearError('notes')"
+                    @input="updateNotes"
                     prepend-inner-icon="mdi-note-text"
                     placeholder="Enter any special instructions"
                     rows="4"
@@ -175,6 +175,8 @@ import { useCompanyStore } from '../../../../stores/company'
 import { logger } from '../../../../utils/logger'
 import { OrderType } from '../../../../types/order'
 import { usePosStore } from '../../../../stores/pos-store'
+import { useOrderType } from '../../composables/useOrderType'
+import { parseOrderNotes } from '../../../../stores/cart/helpers'
 import PaymentDialog from '../dialogs/PaymentDialog.vue'
 
 // Props
@@ -189,6 +191,7 @@ defineProps({
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
 const posStore = usePosStore()
+const { customerNotes } = useOrderType()
 
 // Local state
 const dialog = ref(false)
@@ -202,7 +205,6 @@ const showPaymentDialog = ref(false)
 const customerInfo = reactive({
   name: '',
   phone: '',
-  instructions: '',
   email: '',
   notes: ''
 })
@@ -214,37 +216,67 @@ const validationErrors = reactive({
   notes: ''
 })
 
-// Computed properties
+// Computed
 const selectedStore = computed(() => companyStore.selectedStore)
 const selectedCashier = computed(() => companyStore.selectedCashier)
 
-const canProcessOrder = computed(() => {
-  return !cartStore.isEmpty && 
-         !!selectedStore.value && 
-         !!selectedCashier.value && 
-         customerInfo.name.trim() && 
-         customerInfo.phone.trim()
-})
+// Update notes in cart store
+const updateNotes = (value) => {
+  try {
+    // If there are existing notes in the cart, parse them first
+    let existingNotes = {}
+    try {
+      if (cartStore.notes) {
+        existingNotes = JSON.parse(cartStore.notes)
+      }
+    } catch (e) {
+      logger.warn('Failed to parse existing notes:', e)
+    }
+
+    // Create new notes object, preserving existing data
+    const notesObj = {
+      ...existingNotes,
+      customerNotes: value,
+      timestamp: new Date().toISOString(),
+      orderType: OrderType.TO_GO,
+      orderInfo: {
+        ...existingNotes.orderInfo,
+        customer: {
+          ...existingNotes.orderInfo?.customer,
+          name: customerInfo.name.trim(),
+          phone: customerInfo.phone.replace(/\D/g, ''),
+          email: customerInfo.email.trim(),
+          notes: value,
+          instructions: value // Keep for backward compatibility
+        }
+      }
+    }
+
+    cartStore.setNotes(JSON.stringify(notesObj))
+    logger.debug('Updated cart notes:', notesObj)
+  } catch (error) {
+    logger.error('Failed to update cart notes:', error)
+  }
+}
 
 // Methods
 const validateForm = () => {
-  let isValid = true
   clearAllErrors()
+  let isValid = true
 
   if (!customerInfo.name.trim()) {
-    validationErrors.name = 'Customer name is required'
+    validationErrors.name = 'Name is required'
     isValid = false
   }
 
   if (!customerInfo.phone.trim()) {
     validationErrors.phone = 'Phone number is required'
     isValid = false
-  } else {
-    const phoneDigits = customerInfo.phone.replace(/\D/g, '')
-    if (phoneDigits.length < 10) {
-      validationErrors.phone = 'Please enter a valid phone number'
-      isValid = false
-    }
+  }
+
+  if (customerInfo.email && !customerInfo.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+    validationErrors.email = 'Invalid email format'
+    isValid = false
   }
 
   return isValid
@@ -303,20 +335,26 @@ const processOrder = async () => {
     if (!holdInvoiceData.hold_items?.length) {
       throw new Error('No items found in cart')
     }
-    holdInvoiceData.notes = JSON.stringify({
+
+    // Ensure the notes are properly formatted for the invoice
+    const notesObj = {
+      customerNotes: customerInfo.notes,
+      timestamp: new Date().toISOString(),
       orderType: OrderType.TO_GO,
       orderInfo: {
         customer: {
           name: customerInfo.name.trim(),
           phone: formattedPhone,
-          instructions: customerInfo.instructions.trim(),
           email: customerInfo.email.trim(),
-          notes: customerInfo.notes.trim()
+          notes: customerInfo.notes,
+          instructions: customerInfo.notes // Keep for backward compatibility
         }
       }
-    })
+    }
 
-    console.log('ToGoModal: About to create hold order with data:', {
+    holdInvoiceData.notes = JSON.stringify(notesObj)
+
+    logger.debug('Processing TO-GO order with data:', {
       type: holdInvoiceData.type,
       description: holdInvoiceData.description,
       total: holdInvoiceData.total,
@@ -327,7 +365,6 @@ const processOrder = async () => {
     // Create hold order
     const result = await posStore.holdOrder(holdInvoiceData)
     
-    console.log('ToGoModal: Hold order API response:', result)
     logger.debug('Hold order response:', result)
 
     if (!result?.success) {
@@ -365,22 +402,12 @@ const processOrder = async () => {
       items: holdInvoice.hold_items?.length
     })
 
-    // Show payment dialog with the hold order data
-    console.log('ToGoModal: Setting up payment dialog with invoice:', {
-      holdInvoiceId,
-      description: holdInvoice.description,
-      total: holdInvoice.total,
-      items: holdInvoice.hold_items?.length
-    })
-
     currentInvoice.value = {
       invoice: holdInvoice,
       invoicePrefix: 'TO-GO',
       nextInvoiceNumber: holdInvoiceId,
       description: holdInvoice.description
     }
-
-    console.log('ToGoModal: Current invoice value set:', currentInvoice.value)
 
     // Double check the invoice data is valid
     if (!currentInvoice.value.invoice?.total) {
@@ -397,38 +424,65 @@ const processOrder = async () => {
   }
 }
 
-const handlePaymentComplete = async (result) => {
-  if (result?.success) {
-    // Clear the cart and reset state
-    cartStore.clearCart()
-    currentInvoice.value = null
-    showPaymentDialog.value = false
-    window.toastr?.['success']('TO-GO order processed successfully')
-
-    // Refresh hold orders list
-    await posStore.fetchHoldInvoices()
-  } else {
-    window.toastr?.['error']('Failed to process payment')
-  }
+const handlePaymentComplete = (result) => {
+  logger.info('Payment completed:', result)
+  showPaymentDialog.value = false
+  dialog.value = false
+  // Clear form
+  Object.keys(customerInfo).forEach(key => {
+    customerInfo[key] = ''
+  })
 }
 
 const closeModal = () => {
-  if (!processing.value) {
-    dialog.value = false
-    clearAllErrors()
-    customerInfo.name = ''
-    customerInfo.phone = ''
-    customerInfo.instructions = ''
-    customerInfo.email = ''
-    customerInfo.notes = ''
-  }
+  dialog.value = false
+  error.value = null
+  // Clear form
+  Object.keys(customerInfo).forEach(key => {
+    customerInfo[key] = ''
+  })
 }
 
-// Watch for dialog open to validate prerequisites
+// Watch for dialog open to validate prerequisites and initialize notes
 watch(dialog, (newValue) => {
-  if (newValue && (!selectedStore.value || !selectedCashier.value)) {
-    error.value = 'Please select both store and cashier first'
-    dialog.value = false
+  if (newValue) {
+    if (!selectedStore.value || !selectedCashier.value) {
+      error.value = 'Please select both store and cashier first'
+      dialog.value = false
+      return
+    }
+    
+    // Initialize notes from cart store when dialog opens
+    try {
+      const notes = parseOrderNotes(cartStore.notes)
+      if (notes) {
+        customerInfo.notes = notes
+        logger.debug('Initialized notes from cart store:', { notes })
+      }
+    } catch (error) {
+      logger.error('Failed to parse cart notes:', error)
+    }
+  }
+})
+
+// Watch for changes in cart store notes
+watch(() => cartStore.notes, (newNotes) => {
+  try {
+    const notes = parseOrderNotes(newNotes)
+    if (notes && notes !== customerInfo.notes) {
+      customerInfo.notes = notes
+      logger.debug('Updated notes from cart store:', { notes })
+    }
+  } catch (error) {
+    logger.error('Failed to parse cart notes:', error)
+  }
+})
+
+// Watch for changes in customer notes from useOrderType
+watch(() => customerNotes.value, (newNotes) => {
+  if (newNotes !== customerInfo.notes) {
+    customerInfo.notes = newNotes
+    logger.debug('Updated notes from customer notes:', { newNotes })
   }
 })
 </script>
