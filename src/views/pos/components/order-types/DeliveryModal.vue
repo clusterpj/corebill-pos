@@ -277,6 +277,13 @@ import { apiClient } from '@/services/api/client'
 import { posApi } from '@/services/api/pos-api'
 import { convertHeldOrderToInvoice } from '../held-orders/utils/invoiceConverter'
 import { PriceUtils } from '@/utils/price'
+import { parseOrderNotes } from '../../../../stores/cart/helpers'
+import { OrderType } from '../../../../types/order'
+
+const { customerNotes } = useOrderType()
+// Computed properties for store and cashier
+const selectedStore = computed(() => companyStore.selectedStore)
+const selectedCashier = computed(() => companyStore.selectedCashier)
 
 // Props
 const props = defineProps({
@@ -489,6 +496,49 @@ const onCustomerCreated = async (customer) => {
   }
 }
 
+const updateNotes = (value) => {
+  try {
+    // If there are existing notes in the cart, parse them first
+    let existingNotes = {}
+    try {
+      if (cartStore.notes) {
+        existingNotes = JSON.parse(cartStore.notes)
+      }
+    } catch (e) {
+      logger.warn('Failed to parse existing notes:', e)
+    }
+
+    // Create new notes object, preserving existing data
+    const notesObj = {
+      ...existingNotes,
+      customerNotes: value,
+      timestamp: new Date().toISOString(),
+      orderType: OrderType.DELIVERY,
+      orderInfo: {
+        ...existingNotes.orderInfo,
+        customer: {
+          ...existingNotes.orderInfo?.customer,
+          name: customerInfo.name.trim(),
+          phone: customerInfo.phone.replace(/\D/g, ''),
+          email: customerInfo.email.trim(),
+          address: customerInfo.address,
+          unit: customerInfo.unit,
+          city: customerInfo.city,
+          state: customerInfo.state,
+          zipCode: customerInfo.zipCode,
+          notes: value,
+          instructions: value // Keep for backward compatibility
+        }
+      }
+    }
+
+    cartStore.setNotes(JSON.stringify(notesObj))
+    logger.debug('Updated cart notes:', notesObj)
+  } catch (error) {
+    logger.error('Failed to update cart notes:', error)
+  }
+}
+
 // Form state
 const customerInfo = reactive({
   name: '',
@@ -496,11 +546,10 @@ const customerInfo = reactive({
   email: '',
   address: '',
   unit: '',
-  zip: '',
   city: '',
   state: '',
-  state_id: null,
-  instructions: ''
+  zipCode: '',
+  notes: ''
 })
 
 const onStateSelect = (state) => {
@@ -528,6 +577,49 @@ watch(dialog, (newValue) => {
       customerInfo[key] = ''
     })
     clearAllErrors()
+  }
+})
+
+// Watch for dialog open to initialize notes
+watch(dialog, (newValue) => {
+  if (newValue) {
+    if (!selectedStore.value || !selectedCashier.value) {
+      error.value = 'Please select both store and cashier first'
+      dialog.value = false
+      return
+    }
+    
+    // Initialize notes from cart store when dialog opens
+    try {
+      const notes = parseOrderNotes(cartStore.notes)
+      if (notes) {
+        customerInfo.notes = notes
+        logger.debug('Initialized notes from cart store:', { notes })
+      }
+    } catch (error) {
+      logger.error('Failed to parse cart notes:', error)
+    }
+  }
+})
+
+// Watch for changes in cart store notes
+watch(() => cartStore.notes, (newNotes) => {
+  try {
+    const notes = parseOrderNotes(newNotes)
+    if (notes && notes !== customerInfo.notes) {
+      customerInfo.notes = notes
+      logger.debug('Updated notes from cart store:', { notes })
+    }
+  } catch (error) {
+    logger.error('Failed to parse cart notes:', error)
+  }
+})
+
+// Watch for changes in customer notes
+watch(() => customerNotes.value, (newNotes) => {
+  if (newNotes !== customerInfo.notes) {
+    customerInfo.notes = newNotes
+    logger.debug('Updated notes from customer notes:', { newNotes })
   }
 })
 
@@ -678,7 +770,25 @@ const processOrder = async () => {
       send_sms: sendSms.value ? 1 : 0,
 
       // Additional required fields
-      notes: customerInfo.instructions || '',
+      notes: JSON.stringify({
+  customerNotes: customerInfo.notes,
+  timestamp: new Date().toISOString(),
+  orderType: OrderType.DELIVERY,
+  orderInfo: {
+    customer: {
+      name: customerInfo.name.trim(),
+      phone: customerInfo.phone.replace(/\D/g, ''),
+      email: customerInfo.email.trim(),
+      address: customerInfo.address,
+      unit: customerInfo.unit,
+      city: customerInfo.city,
+      state: customerInfo.state,
+      zipCode: customerInfo.zipCode,
+      notes: customerInfo.notes,
+      instructions: customerInfo.notes // Keep for backward compatibility
+    }
+  }
+}),
       hold_invoice_id: null,
       tip: "0",
       tip_type: "fixed",
