@@ -1,6 +1,7 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useCompanyStore } from '../stores/company'
 import BaseLayout from '../components/BaseLayout.vue'
 import posRoutes from '../views/pos/pos.routes'
 import kitchenRoutes from '../views/kitchen/kitchen.routes'
@@ -62,6 +63,7 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+  const companyStore = useCompanyStore()
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const skipCashierCheck = to.matched.some(record => record.meta.skipCashierCheck)
 
@@ -79,9 +81,23 @@ router.beforeEach(async (to, from, next) => {
       return
     }
 
-    // If authenticated but no cashier selected, redirect to cashier selection
-    // Only do this if we're not already on the select-cashier page and the route doesn't skip cashier check
-    if (to.path !== '/select-cashier' && !skipCashierCheck && !authStore.hasCashiers) {
+    // If we're already on select-cashier, allow it
+    if (to.path === '/select-cashier') {
+      next()
+      return
+    }
+
+    // Try to initialize company store if not already initialized
+    if (!companyStore.initializationComplete) {
+      try {
+        await companyStore.initializeStore()
+      } catch (error) {
+        logger.error('Failed to initialize company store:', error)
+      }
+    }
+
+    // After initialization attempt, check if we need to select a cashier
+    if (!skipCashierCheck && !companyStore.isConfigured) {
       next('/select-cashier')
       return
     }
