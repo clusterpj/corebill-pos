@@ -1,8 +1,7 @@
 import { logger } from '../../utils/logger'
-import { priceHelpers } from './helpers'
+import { PriceUtils } from '../../utils/price'
 import { posApi } from '../../services/api/pos-api'
 import { useCompanyStore } from '../company'
-import { PriceUtils } from '../../utils/price'
 
 export const actions = {
   addItem(state, product, quantity = 1) {
@@ -20,7 +19,7 @@ export const actions = {
       })
       
       // Price from held order is already in cents, otherwise normalize it
-      const price = product.fromHeldOrder ? product.price : priceHelpers.normalizePrice(product.price)
+      const price = product.fromHeldOrder ? product.price : PriceUtils.ensureCents(product.price)
       logger.info('Price validation:', { 
         originalPrice: product.price,
         fromHeldOrder: product.fromHeldOrder,

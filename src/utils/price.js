@@ -116,7 +116,15 @@ export class PriceUtils {
    */
   static ensureCents(amount) {
     if (!amount) return 0
-    return this.isInDollars(amount) ? this.toCents(amount) : Math.round(amount)
+
+    // If it's a string, parse it first
+    if (typeof amount === 'string') {
+      amount = parseFloat(amount.replace(/[^0-9.-]/g, ''))
+    }
+
+    // If it has decimal places, it's in dollars - convert to cents
+    // Otherwise, it's already in cents
+    return amount % 1 !== 0 ? Math.round(amount * 100) : Math.round(amount)
   }
 
   /**
