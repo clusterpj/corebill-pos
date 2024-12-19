@@ -149,6 +149,11 @@
       :invoice="currentInvoice"
       @payment-complete="handlePaymentComplete"
     />
+    <PdfViewerDialog
+      v-model="showPdfViewer"
+      :pdf-url="currentPdfUrl"
+      @closed="handlePdfViewerClosed"
+    />
   </div>
 </template>
 
@@ -163,6 +168,7 @@ import { logger } from '@/utils/logger'
 import { PriceUtils } from '@/utils/price'
 import { OrderType, PaidStatus } from '@/types/order'
 import PaymentDialog from './PaymentDialog.vue'
+import PdfViewerDialog from '@/components/common/PdfViewerDialog.vue'
 
 const formatApiDate = (date) => {
   const d = new Date(date)
@@ -219,6 +225,9 @@ const dialog = computed({
 // Cart validation computed properties
 const hasItems = computed(() => items.value.length > 0)
 const canPay = computed(() => hasItems.value && !processing.value)
+
+const showPdfViewer = ref(false)
+const currentPdfUrl = ref(null)
 
 // Computed properties for invoice details
 const invoiceNumber = computed(() => {
@@ -404,9 +413,30 @@ const handlePaymentComplete = async (result) => {
   logger.info('Payment completion handler called with result:', result)
   
   if (result) {
-    // Close dialog and emit completion event
-    closeDialog()
-    emit('payment-complete', result)
+    try {
+      // Get invoice details from the result
+      const invoice = result?.invoice?.invoice || result?.invoice
+      
+      if (!invoice?.unique_hash) {
+        console.error('📄 [Invoice PDF] Missing invoice hash:', invoice)
+        throw new Error('Could not generate invoice PDF: Missing invoice hash')
+      }
+
+      // Get invoice PDF URL with fallback
+      const invoicePdfUrl = invoice.invoicePdfUrl || 
+        `${import.meta.env.VITE_API_URL.replace('/api/v1', '')}/invoices/pdf/${invoice.unique_hash}`
+
+      console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', invoicePdfUrl)
+      currentPdfUrl.value = invoicePdfUrl
+      showPdfViewer.value = true
+
+      // Close payment dialog and emit completion event
+      closeDialog()
+      emit('payment-complete', result)
+    } catch (error) {
+      console.error('📄 [Invoice PDF] Failed to display invoice:', error)
+      window.toastr?.['error'](error.message || 'Failed to display invoice PDF')
+    }
   }
 }
 
@@ -418,6 +448,8 @@ const closeDialog = () => {
     emit('update:modelValue', false)
   }
 }
+
+
 </script>
 
 <style scoped>
