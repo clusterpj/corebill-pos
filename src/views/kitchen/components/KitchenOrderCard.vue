@@ -12,6 +12,13 @@
     <!-- Header Section -->
     <div class="order-header pa-4" :class="{ 'completed': isCompleted }">
       <div class="d-flex justify-space-between align-center">
+        <v-chip
+          size="small"
+          :color="getOrderTypeColor(order.type)"
+          class="mr-2"
+        >
+          {{ order.type }}
+        </v-chip>
         <div class="order-id">
           <h2 class="text-h6 font-weight-bold mb-0">
             Order #{{ order.id }}
@@ -179,6 +186,16 @@ const getElapsedTime = (timestamp) => {
   const start = new Date(timestamp)
   const now = new Date()
   return Math.floor((now - start) / (1000 * 60))
+}
+
+const getOrderTypeColor = (type) => {
+  const colors = {
+    'DINE IN': 'primary',
+    'TO-GO': 'secondary',
+    'DELIVERY': 'info',
+    'PICKUP': 'success'
+  }
+  return colors[type] || 'default'
 }
 
 const handleComplete = async () => {

@@ -1,6 +1,23 @@
 <template>
   <div class="kitchen-display">
     <v-container fluid class="pa-4">
+      <!-- Type Filter -->
+      <v-chip-group
+        v-model="selectedTypes"
+        multiple
+        class="mb-4"
+      >
+        <v-chip
+          v-for="type in ORDER_TYPES"
+          :key="type"
+          :value="type"
+          filter
+          variant="outlined"
+        >
+          {{ type }}
+        </v-chip>
+      </v-chip-group>
+
       <!-- Header -->
       <div class="d-flex align-center justify-space-between mb-6">
         <h1 class="text-h4 font-weight-bold">Kitchen Display</h1>
@@ -73,7 +90,7 @@
 
           <v-row v-else>
             <v-col
-              v-for="order in activeOrders"
+              v-for="order in filteredActiveOrders"
               :key="order.id"
               cols="12"
               sm="6"
@@ -112,7 +129,7 @@
 
           <v-row v-else>
             <v-col
-              v-for="order in completedOrders"
+              v-for="order in filteredCompletedOrders"
               :key="order.id"
               cols="12"
               sm="6"
@@ -151,6 +168,7 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useKitchenStore } from '@/stores/kitchen'
+import { OrderType } from '@/types/order'
 import { usePosStore } from '@/stores/pos-store'
 import KitchenOrderCard from './components/KitchenOrderCard.vue'
 import { logger } from '@/utils/logger'
@@ -161,8 +179,25 @@ const posStore = usePosStore()
 const { activeOrders, completedOrders, loading, error } = storeToRefs(kitchenStore)
 const { holdInvoices } = storeToRefs(posStore)
 
+// Constants
+const ORDER_TYPES = Object.values(OrderType)
+
 // Local state
 const activeTab = ref('active')
+const selectedTypes = ref(ORDER_TYPES)
+
+// Filtered orders
+const filteredActiveOrders = computed(() => 
+  activeOrders.value.filter(order => 
+    selectedTypes.value.includes(order.type)
+  )
+)
+
+const filteredCompletedOrders = computed(() => 
+  completedOrders.value.filter(order => 
+    selectedTypes.value.includes(order.type)
+  )
+)
 const showError = ref(false)
 const refreshing = ref(false)
 const autoRefresh = ref(true)

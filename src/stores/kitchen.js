@@ -4,7 +4,12 @@ import { logger } from '@/utils/logger'
 import { OrderType } from '@/types/order'
 
 // Define valid kitchen order types
-const KITCHEN_ORDER_TYPES = [OrderType.DINE_IN, OrderType.TO_GO]
+const KITCHEN_ORDER_TYPES = [
+  OrderType.DINE_IN,
+  OrderType.TO_GO,
+  OrderType.DELIVERY,
+  OrderType.PICKUP
+]
 
 export const useKitchenStore = defineStore('kitchen', () => {
   // State
@@ -15,8 +20,6 @@ export const useKitchenStore = defineStore('kitchen', () => {
   // Getters
   const activeOrders = computed(() => 
     orders.value.filter(order => 
-      // Only show kitchen orders (dine-in and to-go)
-      KITCHEN_ORDER_TYPES.includes(order.type) &&
       // Only show non-completed orders
       !order.completed_at && 
       order.status !== 'completed' &&
@@ -26,8 +29,6 @@ export const useKitchenStore = defineStore('kitchen', () => {
 
   const completedOrders = computed(() => 
     orders.value.filter(order => 
-      // Only show kitchen orders
-      KITCHEN_ORDER_TYPES.includes(order.type) &&
       // Show completed or cancelled orders
       (order.completed_at || 
        order.status === 'completed' || 
