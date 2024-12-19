@@ -299,7 +299,6 @@ const posStore = usePosStore()
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
 const kitchenStore = useKitchenStore()
-const kitchenStore = useKitchenStore()
 
 // Composables
 const { 
