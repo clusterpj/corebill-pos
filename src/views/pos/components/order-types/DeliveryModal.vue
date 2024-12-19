@@ -272,6 +272,7 @@ import { useCustomerSearch } from '../../composables/useCustomerSearch'
 import { usePosStore } from '@/stores/pos-store'
 import { useCartStore } from '@/stores/cart-store'
 import { useCompanyStore } from '@/stores/company'
+import { useKitchenStore } from '@/stores/kitchen'
 import { logger } from '../../../../utils/logger'
 import { apiClient } from '@/services/api/client'
 import { posApi } from '@/services/api/pos-api'
@@ -297,6 +298,8 @@ const props = defineProps({
 const posStore = usePosStore()
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
+const kitchenStore = useKitchenStore()
+const kitchenStore = useKitchenStore()
 
 // Composables
 const { 
@@ -835,6 +838,9 @@ const processOrder = async () => {
       })
       throw new Error(errorMsg)
     }
+
+    // Add to kitchen display
+    kitchenStore.addDirectInvoice(invoiceResult.invoice)
 
     logger.debug('Invoice created successfully:', invoiceResult.invoice)
 

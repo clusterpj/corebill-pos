@@ -37,26 +37,34 @@ export const useKitchenStore = defineStore('kitchen', () => {
   )
 
   // Actions
-  const initializeOrders = (initialOrders) => {
-    // Filter and map orders
-    orders.value = initialOrders
-      .filter(order => KITCHEN_ORDER_TYPES.includes(order.type))
-      .map(order => ({
-        ...order,
-        completed_at: order.completed_at || null,
-        status: order.status || 'pending',
-        // Add timestamp for sorting
-        created_at: order.created_at || new Date().toISOString()
-      }))
+  const initializeOrders = (holdInvoices = [], directInvoices = []) => {
+    // Combine and format all orders
+    const allOrders = [
+      ...holdInvoices.filter(order => KITCHEN_ORDER_TYPES.includes(order.type))
+        .map(order => ({
+          ...order,
+          source: 'hold_invoice',
+          completed_at: order.completed_at || null,
+          status: order.status || 'pending',
+          created_at: order.created_at || new Date().toISOString()
+        })),
+      ...directInvoices.filter(invoice => KITCHEN_ORDER_TYPES.includes(invoice.type))
+        .map(invoice => ({
+          ...invoice,
+          source: 'direct_invoice',
+          completed_at: invoice.completed_at || null,
+          status: invoice.status || 'pending',
+          created_at: invoice.created_at || new Date().toISOString(),
+          type: invoice.type || 'UNKNOWN'
+        }))
+    ]
 
     // Sort by creation time, newest first
-    orders.value.sort((a, b) => 
+    orders.value = allOrders.sort((a, b) => 
       new Date(b.created_at) - new Date(a.created_at)
     )
 
     logger.info(`Initialized ${orders.value.length} kitchen orders`)
-    
-    // Persist to localStorage
     persistOrders()
   }
 
@@ -137,6 +145,26 @@ export const useKitchenStore = defineStore('kitchen', () => {
   // Load persisted orders on store initialization
   loadPersistedOrders()
 
+  // Add method to add direct invoice
+  const addDirectInvoice = (invoice) => {
+    if (!invoice || !KITCHEN_ORDER_TYPES.includes(invoice.type)) {
+      logger.debug('Ignoring invalid invoice:', invoice?.type)
+      return
+    }
+
+    const formattedInvoice = {
+      ...invoice,
+      source: 'direct_invoice',
+      completed_at: null,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    }
+
+    orders.value.unshift(formattedInvoice)
+    logger.info(`Added new ${invoice.type} order to kitchen`)
+    persistOrders()
+  }
+
   return {
     // State
     orders,
@@ -150,6 +178,7 @@ export const useKitchenStore = defineStore('kitchen', () => {
     // Actions
     initializeOrders,
     addOrder,
+    addDirectInvoice,
     completeOrder
   }
 })

@@ -210,6 +210,7 @@ import { useOrderType, ORDER_TYPES } from '../../composables/useOrderType'
 import { useCustomerSearch } from '../../composables/useCustomerSearch'
 import { useCartStore } from '@/stores/cart-store'
 import { useCompanyStore } from '@/stores/company'
+import { useKitchenStore } from '@/stores/kitchen'
 import { logger } from '../../../../utils/logger'
 import { posApi } from '@/services/api/pos-api'
 import { PriceUtils } from '@/utils/price'
@@ -602,6 +603,9 @@ const processOrder = async () => {
     if (!invoiceResult?.invoice) {
       throw new Error('No invoice data received')
     }
+
+    // Add to kitchen display
+    kitchenStore.addDirectInvoice(invoiceResult.invoice)
 
     logger.debug('Invoice created successfully:', invoiceResult)
 

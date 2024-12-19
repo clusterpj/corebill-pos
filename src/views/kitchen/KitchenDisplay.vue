@@ -170,8 +170,10 @@ import { storeToRefs } from 'pinia'
 import { useKitchenStore } from '@/stores/kitchen'
 import { OrderType } from '@/types/order'
 import { usePosStore } from '@/stores/pos-store'
+import { posApi } from '@/services/api/pos-api'
 import KitchenOrderCard from './components/KitchenOrderCard.vue'
 import { logger } from '@/utils/logger'
+import { OrderType } from '@/types/order'
 
 // Store setup
 const kitchenStore = useKitchenStore()
@@ -266,12 +268,35 @@ const stopRefreshInterval = () => {
 onMounted(async () => {
   try {
     logger.debug('Initializing kitchen display')
-    await posStore.fetchHoldInvoices()
-    kitchenStore.initializeOrders(posStore.holdInvoices || [])
+    // Fetch both hold invoices and direct invoices
+    const [holdInvoicesResponse, directInvoicesResponse] = await Promise.all([
+      posStore.fetchHoldInvoices(),
+      posApi.invoice.getAll({ 
+        types: [OrderType.DELIVERY, OrderType.PICKUP],
+        status: ['pending', 'in_progress']
+      })
+    ])
+
+    // Initialize kitchen store with both types
+    kitchenStore.initializeOrders(
+      holdInvoicesResponse?.data || [],
+      directInvoicesResponse?.data || []
+    )
     
     // Start polling for updates
     pollInterval = setInterval(async () => {
-      await posStore.fetchHoldInvoices()
+      const [newHoldInvoices, newDirectInvoices] = await Promise.all([
+        posStore.fetchHoldInvoices(),
+        posApi.invoice.getAll({ 
+          types: [OrderType.DELIVERY, OrderType.PICKUP],
+          status: ['pending', 'in_progress']
+        })
+      ])
+      
+      kitchenStore.initializeOrders(
+        newHoldInvoices?.data || [],
+        newDirectInvoices?.data || []
+      )
     }, 30000) // Poll every 30 seconds
     
     // Start auto-refresh if enabled
