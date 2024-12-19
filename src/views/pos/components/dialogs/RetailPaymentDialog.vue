@@ -151,7 +151,7 @@
     />
     <PdfViewerDialog
       v-model="showPdfViewer"
-      :pdf-url="currentPdfUrl"
+      :pdfUrl="currentPdfUrl"
       @closed="handlePdfViewerClosed"
     />
   </div>
@@ -227,7 +227,7 @@ const hasItems = computed(() => items.value.length > 0)
 const canPay = computed(() => hasItems.value && !processing.value)
 
 const showPdfViewer = ref(false)
-const currentPdfUrl = ref(null)
+const currentPdfUrl = ref('')
 
 // Computed properties for invoice details
 const invoiceNumber = computed(() => {
@@ -236,6 +236,11 @@ const invoiceNumber = computed(() => {
          ''
 })
 const invoiceTotal = computed(() => currentInvoice.value?.total || 0)
+
+const handlePdfViewerClosed = () => {
+  showPdfViewer.value = false
+  currentPdfUrl.value = ''
+}
 
 // Get current user ID
 const getCurrentUserId = computed(() => {

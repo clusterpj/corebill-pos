@@ -86,7 +86,7 @@
     <div v-if="showPagination" class="pagination-container">
       <v-pagination
         :model-value="page"
-        @update:model-value="$emit('update:page', $event)"
+        @update:model-value="$emit('page-change', $event)"
         :length="totalPages"
         :total-visible="5"
       ></v-pagination>
@@ -130,6 +130,11 @@
       nextInvoiceNumber: selectedInvoice?.id
     }"
     @payment-complete="handlePaymentComplete"
+  />
+  <PdfViewerDialog
+      v-model="showPdfViewer"
+      :pdfUrl="currentPdfUrl"
+      @closed="handlePdfViewerClosed"
   />
 
   <!-- Invoice Details Dialog -->
@@ -251,6 +256,7 @@
 
 <script setup>
 import PaymentDialog from '../../../components/dialogs/PaymentInvoiceDialog.vue'
+import PdfViewerDialog from '@/components/common/PdfViewerDialog.vue'
 import { PriceUtils } from '@/utils/price'
 import { ref, computed, watch } from 'vue'
 import { useCartStore } from '@/stores/cart-store'
@@ -321,7 +327,7 @@ watch(() => props.invoices, (newInvoices, oldInvoices) => {
   })
 }, { deep: true })
 
-const emit = defineEmits(['update:page', 'invoice-paid', 'refresh', 'order-loaded', 'load'])
+const emit = defineEmits(['invoice-paid', 'page-change'])
 
 // Payment Dialog
 const showPaymentDialog = ref(false)
@@ -329,6 +335,8 @@ const showConfirmDialog = ref(false)
 const selectedInvoice = ref(null)
 const showDetailsDialog = ref(false)
 const selectedInvoiceDetails = ref(null)
+const showPdfViewer = ref(false)
+const currentPdfUrl = ref('')
 
 // Computed
 const showPaginationComputed = computed(() => props.totalPages > 1)
@@ -355,6 +363,11 @@ const normalizePriceFromBackend = (price) => {
   
   // Otherwise, assume it's already in dollars
   return numericPrice;
+}
+
+const handlePdfViewerClosed = () => {
+  showPdfViewer.value = false
+  currentPdfUrl.value = ''
 }
 
 const loadInvoiceToCart = async (invoice) => {
@@ -395,7 +408,7 @@ const loadInvoiceToCart = async (invoice) => {
       invoice_id: transformedInvoice.id,
       invoice_number: transformedInvoice.invoice_number
     })
-    emit('order-loaded', transformedInvoice)
+    emit('page-change', 1)
   } catch (error) {
     console.error('OrderInvoicesTable - Failed to load invoice to cart:', error)
     window.toastr?.error('Failed to load invoice to cart')
@@ -472,16 +485,38 @@ const confirmPayment = () => {
   showPaymentDialog.value = true
 }
 
-const handlePaymentComplete = (result) => {
-  console.log('OrderInvoicesTable - Payment completed:', {
-    result,
-    invoice_id: selectedInvoice.value?.id,
-    invoice_number: selectedInvoice.value?.invoice_number
-  })
-  
-  showPaymentDialog.value = false
-  selectedInvoice.value = null
-  emit('invoice-paid', result)
+const handlePaymentComplete = async (result) => {
+  try {
+    console.log('OrderInvoicesTable - Payment completed:', {
+      result,
+      invoice_id: selectedInvoice.value?.id,
+      invoice_number: selectedInvoice.value?.invoice_number
+    })
+
+    // Get payment PDF URL from result
+    if (result?.invoicePdfUrl) {
+      console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', result.invoicePdfUrl)
+      currentPdfUrl.value = result.invoicePdfUrl
+      showPdfViewer.value = true
+    } else {
+      console.warn('📄 [Invoice PDF] No payment PDF URL provided in result:', result)
+    }
+
+    // Close payment dialog and clean up
+    showPaymentDialog.value = false
+    selectedInvoice.value = null
+
+    // Emit success
+    emit('invoice-paid', result)
+  } catch (error) {
+    console.error('📄 [Invoice PDF] Failed to display invoice:', error)
+    window.toastr?.['error'](error.message || 'Failed to display invoice PDF')
+    
+    // Still emit success since payment was successful
+    showPaymentDialog.value = false
+    selectedInvoice.value = null
+    emit('invoice-paid', result)
+  }
 }
 </script>
 
