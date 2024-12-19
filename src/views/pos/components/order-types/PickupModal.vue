@@ -214,6 +214,13 @@ import { logger } from '../../../../utils/logger'
 import { posApi } from '@/services/api/pos-api'
 import { PriceUtils } from '@/utils/price'
 
+const props = defineProps({
+  disabled: {
+    type: Boolean,
+    default: false
+  }
+})
+
 // Initialize composables and stores
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
