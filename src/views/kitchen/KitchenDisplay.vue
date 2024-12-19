@@ -173,7 +173,6 @@ import { usePosStore } from '@/stores/pos-store'
 import { posApi } from '@/services/api/pos-api'
 import KitchenOrderCard from './components/KitchenOrderCard.vue'
 import { logger } from '@/utils/logger'
-import { OrderType } from '@/types/order'
 
 // Store setup
 const kitchenStore = useKitchenStore()
