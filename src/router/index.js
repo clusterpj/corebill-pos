@@ -42,6 +42,11 @@ const routes = [
           title: 'Items Management'
         }
       },
+      {
+        path: '/customer-display',
+        name: 'customer-display',
+        component: () => import('@/views/pos/CustomerDisplayView.vue')
+      },
       posRoutes,
       kitchenRoutes
     ]
