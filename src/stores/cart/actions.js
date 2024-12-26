@@ -13,7 +13,10 @@ export const actions = {
           name: product.name,
           price: product.price,
           fromHeldOrder: product.fromHeldOrder,
-          formatted_price: PriceUtils.format(product.price)
+          formatted_price: PriceUtils.format(product.price),
+          section_id: product.section_id,
+          section_type: product.section_type,
+          section_name: product.section_name
         }, 
         quantity 
       })
@@ -54,7 +57,10 @@ export const actions = {
           discount_type: 'fixed',
           discount: 0,
           discount_val: 0,
-          item_id: product.id
+          item_id: product.id,
+          section_id: product.section_id,
+          section_type: product.section_type,
+          section_name: product.section_name
         }
         state.items.push(newItem)
         logger.info('Added new item:', {
@@ -64,7 +70,10 @@ export const actions = {
           formatted_price: PriceUtils.format(newItem.price),
           quantity: newItem.quantity,
           total: newItem.total,
-          formatted_total: PriceUtils.format(newItem.total)
+          formatted_total: PriceUtils.format(newItem.total),
+          section_id: newItem.section_id,
+          section_type: newItem.section_type,
+          section_name: newItem.section_name
         })
       }
     } catch (error) {

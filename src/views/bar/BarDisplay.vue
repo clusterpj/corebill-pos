@@ -1,26 +1,9 @@
 <template>
-  <div class="kitchen-display">
+  <div class="bar-display">
     <v-container fluid class="pa-4">
-      <!-- Type Filter -->
-      <v-chip-group
-        v-model="selectedTypes"
-        multiple
-        class="mb-4"
-      >
-        <v-chip
-          v-for="type in ORDER_TYPES"
-          :key="type"
-          :value="type"
-          filter
-          variant="outlined"
-        >
-          {{ type }}
-        </v-chip>
-      </v-chip-group>
-
       <!-- Header -->
       <div class="d-flex align-center justify-space-between mb-6">
-        <h1 class="text-h4 font-weight-bold">Kitchen Display</h1>
+        <h1 class="text-h4 font-weight-bold">Bar Display</h1>
         <v-chip
           :color="activeOrders.length > 0 ? 'warning' : 'success'"
           size="large"
@@ -38,7 +21,7 @@
         grow
       >
         <v-tab value="active" class="text-subtitle-1">
-          <v-icon icon="mdi-clock-outline" class="mr-2" />
+          <v-icon icon="mdi-glass-cocktail" class="mr-2" />
           Active Orders
           <v-chip
             size="x-small"
@@ -77,14 +60,14 @@
 
           <div v-else-if="activeOrders.length === 0" class="text-center py-8">
             <v-icon
-              icon="mdi-coffee-outline"
+              icon="mdi-glass-mug-variant"
               size="64"
               color="grey-lighten-1"
               class="mb-4"
             />
-            <h3 class="text-h6 text-grey-darken-1">No Active Orders</h3>
+            <h3 class="text-h6 text-grey-darken-1">No Active Bar Orders</h3>
             <p class="text-body-1 text-medium-emphasis">
-              All orders have been completed
+              All bar orders have been completed
             </p>
           </div>
 
@@ -96,7 +79,7 @@
               sm="6"
               lg="4"
             >
-              <kitchen-order-card
+              <bar-order-card
                 :order="order"
                 @complete="handleOrderComplete"
               />
@@ -106,28 +89,7 @@
 
         <!-- Order History -->
         <v-window-item value="history">
-          <div v-if="loading" class="d-flex justify-center py-8">
-            <v-progress-circular
-              indeterminate
-              color="primary"
-              size="64"
-            />
-          </div>
-
-          <div v-else-if="completedOrders.length === 0" class="text-center py-8">
-            <v-icon
-              icon="mdi-history"
-              size="64"
-              color="grey-lighten-1"
-              class="mb-4"
-            />
-            <h3 class="text-h6 text-grey-darken-1">No Completed Orders</h3>
-            <p class="text-body-1 text-medium-emphasis">
-              Completed orders will appear here
-            </p>
-          </div>
-
-          <v-row v-else>
+          <v-row v-if="completedOrders.length">
             <v-col
               v-for="order in filteredCompletedOrders"
               :key="order.id"
@@ -135,67 +97,66 @@
               sm="6"
               lg="4"
             >
-              <kitchen-order-card
+              <bar-order-card
                 :order="order"
+                :completed="true"
               />
             </v-col>
           </v-row>
+          <div v-else class="text-center py-8">
+            <v-icon
+              icon="mdi-history"
+              size="64"
+              color="grey-lighten-1"
+              class="mb-4"
+            />
+            <h3 class="text-h6 text-grey-darken-1">No Order History</h3>
+            <p class="text-body-1 text-medium-emphasis">
+              Completed bar orders will appear here
+            </p>
+          </div>
         </v-window-item>
       </v-window>
     </v-container>
-
-    <!-- Error Snackbar -->
-    <v-snackbar
-      v-model="showError"
-      color="error"
-      timeout="3000"
-    >
-      {{ error }}
-      <template v-slot:actions>
-        <v-btn
-          color="white"
-          variant="text"
-          @click="showError = false"
-        >
-          Close
-        </v-btn>
-      </template>
-    </v-snackbar>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useKitchenStore } from '@/stores/kitchen'
-import { OrderType } from '@/types/order'
-import { usePosStore } from '@/stores/pos-store'
-import { posApi } from '@/services/api/pos-api'
-import KitchenOrderCard from './components/KitchenOrderCard.vue'
 import { logger } from '@/utils/logger'
+import { OrderType } from '@/types/order'
+
+// Store imports
+import { useBarStore } from '@/stores/bar-store'
+import { usePosStore } from '@/stores/pos-store'
 import { useSectionStore } from '@/stores/section-store'
+import { posApi } from '@/services/api/pos-api'
+import BarOrderCard from './components/BarOrderCard.vue'
 
 // Store setup
-const kitchenStore = useKitchenStore()
+const barStore = useBarStore()
 const posStore = usePosStore()
 const sectionStore = useSectionStore()
-const { activeOrders, completedOrders, loading, error } = storeToRefs(kitchenStore)
+
+const { activeOrders, completedOrders, loading, error } = storeToRefs(barStore)
 const { holdInvoices } = storeToRefs(posStore)
-const { kitchenSections } = storeToRefs(sectionStore)
+const { barSections } = storeToRefs(sectionStore)
 
-// Constants
-const ORDER_TYPES = Object.values(OrderType)
-
-// Local state
+// UI State
 const activeTab = ref('active')
-const selectedTypes = ref(ORDER_TYPES)
+const showError = ref(false)
+const refreshing = ref(false)
+const autoRefresh = ref(true)
+let pollInterval: NodeJS.Timeout | null = null
+let refreshInterval: NodeJS.Timeout | null = null
 
-// Filtered orders
+// Filtered orders (only bar section orders)
 const filteredActiveOrders = computed(() => {
   return activeOrders.value.filter(order => {
-    // Check if any item in the order belongs to a kitchen section
-    return order.items?.some(item => 
-      kitchenSections.value.some(section => 
+    // Check if any item in the order belongs to a bar section
+    return order.items.some(item => 
+      barSections.value.some(section => 
         section.id === item.section_id
       )
     )
@@ -204,20 +165,11 @@ const filteredActiveOrders = computed(() => {
 
 const filteredCompletedOrders = computed(() => 
   completedOrders.value.filter(order => 
-    order.items?.some(item => 
-      kitchenSections.value.some(section => 
-        section.id === item.section_id
-      )
-    )
+    filteredActiveOrders.value.some(activeOrder => activeOrder.type === order.type)
   )
 )
-const showError = ref(false)
-const refreshing = ref(false)
-const autoRefresh = ref(true)
-let pollInterval = null // Store interval reference
-let refreshInterval = null
 
-// Watch for errors
+// Error handling
 watch(error, (newError) => {
   if (newError) {
     showError.value = true
@@ -227,8 +179,8 @@ watch(error, (newError) => {
 // Watch for changes in hold invoices
 watch(holdInvoices, (newInvoices) => {
   if (newInvoices) {
-    logger.debug('Updating kitchen orders from hold invoices:', newInvoices.length)
-    kitchenStore.initializeOrders(newInvoices)
+    logger.debug('Updating bar orders from hold invoices:', newInvoices.length)
+    barStore.initializeOrders(newInvoices)
   }
 }, { deep: true })
 
@@ -242,8 +194,8 @@ watch(autoRefresh, (enabled) => {
 })
 
 // Methods
-const handleOrderComplete = async (orderId) => {
-  const success = await kitchenStore.completeOrder(orderId)
+const handleOrderComplete = async (orderId: string) => {
+  const success = await barStore.completeOrder(orderId)
   if (success) {
     // Optional: Play a sound or show a success notification
   }
@@ -279,19 +231,20 @@ const stopRefreshInterval = () => {
 onMounted(async () => {
   try {
     await sectionStore.fetchSections()
-    logger.debug('Kitchen sections loaded', kitchenSections.value)
-    logger.debug('Initializing kitchen display')
+    logger.debug('Bar sections loaded', barSections.value)
+    logger.debug('Initializing bar display')
+
     // Fetch both hold invoices and direct invoices
     const [holdInvoicesResponse, directInvoicesResponse] = await Promise.all([
       posStore.fetchHoldInvoices(),
       posApi.invoice.getAll({ 
-        types: [OrderType.DELIVERY, OrderType.PICKUP],
+        types: [OrderType.BAR, OrderType.DINE_IN],
         status: ['pending', 'in_progress']
       })
     ])
 
-    // Initialize kitchen store with both types
-    kitchenStore.initializeOrders(
+    // Initialize bar store with both types
+    barStore.initializeOrders(
       holdInvoicesResponse?.data || [],
       directInvoicesResponse?.data || []
     )
@@ -301,12 +254,12 @@ onMounted(async () => {
       const [newHoldInvoices, newDirectInvoices] = await Promise.all([
         posStore.fetchHoldInvoices(),
         posApi.invoice.getAll({ 
-          types: [OrderType.DELIVERY, OrderType.PICKUP],
+          types: [OrderType.BAR, OrderType.DINE_IN],
           status: ['pending', 'in_progress']
         })
       ])
       
-      kitchenStore.initializeOrders(
+      barStore.initializeOrders(
         newHoldInvoices?.data || [],
         newDirectInvoices?.data || []
       )
@@ -317,7 +270,7 @@ onMounted(async () => {
       startRefreshInterval()
     }
   } catch (err) {
-    logger.error('Failed to initialize kitchen orders:', err)
+    logger.error('Failed to initialize bar orders:', err)
     error.value = 'Failed to load orders. Please refresh the page.'
   }
 })
@@ -333,7 +286,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.kitchen-display {
+.bar-display {
   min-height: 100vh;
   background-color: var(--v-background);
 }

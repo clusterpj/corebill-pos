@@ -185,8 +185,39 @@ const handleCategoryChange = async (categoryId) => {
 const quickAdd = (product) => {
   if (product.stock <= 0) return
   
-  logger.info('Quick adding product', { product })
-  cartStore.addItem(product, 1)
+  // Log the full product object for debugging
+  logger.debug('[PosProducts] Product selected:', {
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    section: {
+      id: product.section_id,
+      type: product.section_type,
+      name: product.section_name
+    },
+    rawProduct: product // Log the raw product for debugging
+  })
+  
+  // Create a new product object with all necessary fields
+  const fullProduct = {
+    ...product,
+    section_id: product.section_id,
+    section_type: product.section_type || 'other',
+    section_name: product.section_name || 'Default'
+  }
+  
+  logger.info('[PosProducts] Adding product to cart:', { 
+    id: fullProduct.id,
+    name: fullProduct.name,
+    price: fullProduct.price,
+    section: {
+      id: fullProduct.section_id,
+      type: fullProduct.section_type,
+      name: fullProduct.section_name
+    }
+  })
+  
+  cartStore.addItem(fullProduct, 1)
 }
 
 const handleQuickAdd = async (searchTerm) => {

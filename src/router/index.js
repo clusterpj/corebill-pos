@@ -5,6 +5,8 @@ import { useCompanyStore } from '../stores/company'
 import BaseLayout from '../components/BaseLayout.vue'
 import posRoutes from '../views/pos/pos.routes'
 import kitchenRoutes from '../views/kitchen/kitchen.routes'
+import KitchenDisplay from '@/views/kitchen/KitchenDisplay.vue'
+import BarDisplay from '@/views/bar/BarDisplay.vue'
 
 const routes = [
   {
@@ -48,7 +50,25 @@ const routes = [
         component: () => import('@/views/pos/CustomerDisplayView.vue')
       },
       posRoutes,
-      kitchenRoutes
+      kitchenRoutes,
+      {
+        path: '/kitchen-display',
+        name: 'KitchenDisplay',
+        component: KitchenDisplay,
+        meta: {
+          requiresAuth: true,
+          title: 'Kitchen Display'
+        }
+      },
+      {
+        path: '/bar-display',
+        name: 'BarDisplay',
+        component: BarDisplay,
+        meta: {
+          requiresAuth: true,
+          title: 'Bar Display'
+        }
+      }
     ]
   },
   {
