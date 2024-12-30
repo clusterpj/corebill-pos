@@ -3,6 +3,7 @@ import { usePosStore } from '@/stores/pos-store'
 import { useKitchenStore } from '@/stores/kitchen'
 import { logger } from '@/utils/logger'
 import { errorHandler } from '@/utils/errorHandler'
+import { KitchenService } from '@/services/api/kitchen-service'
 
 export function useKitchenOrders() {
   const posStore = usePosStore()
@@ -16,14 +17,19 @@ export function useKitchenOrders() {
       loading.value = true
       error.value = null
       
-      // Use the same fetchHoldInvoices method from posStore
-      await posStore.fetchHoldInvoices()
+      // Use the new KitchenService
+      const orders = await KitchenService.fetchOrders(1) // Kitchen section ID
       
-      // Get orders from the store
-      const orders = posStore.holdInvoices || []
-      
-      // Initialize kitchen orders
-      kitchenStore.initializeOrders(orders)
+      // Initialize kitchen orders with backward compatibility
+      if (posStore.holdInvoices) {
+        // Merge existing hold invoices with kitchen orders
+        const mergedOrders = [...orders, ...posStore.holdInvoices.filter(order => 
+          !orders.some(o => o.id === order.id)
+        )]
+        kitchenStore.initializeOrders(mergedOrders)
+      } else {
+        kitchenStore.initializeOrders(orders)
+      }
 
       logger.info(`Fetched ${kitchenStore.activeOrders.length} active orders and ${kitchenStore.completedOrders.length} completed orders`)
     } catch (err) {
@@ -39,11 +45,16 @@ export function useKitchenOrders() {
       loading.value = true
       error.value = null
 
-      // Update the hold invoice with completed status
-      await posStore.updateHoldInvoice(orderId, {
-        status: 'completed',
-        completed_at: new Date().toISOString()
-      })
+      // Use the new KitchenService
+      await KitchenService.updateOrderStatus(orderId, 'completed')
+
+      // Maintain backward compatibility with posStore
+      if (posStore.updateHoldInvoice) {
+        await posStore.updateHoldInvoice(orderId, {
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+      }
 
       // Update kitchen store
       await kitchenStore.completeOrder(orderId)
