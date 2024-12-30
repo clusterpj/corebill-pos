@@ -190,9 +190,13 @@ const completedOrders = computed(() => {
 // Methods
 async function handleOrderComplete(orderId: number) {
   try {
-    await sectionOrdersStore.refreshOrders(KITCHEN_SECTION_ID)
+    // Only refresh the specific order that was completed
+    const updatedOrder = await KitchenService.fetchOrdersDetails([orderId])
+    if (updatedOrder.length > 0) {
+      sectionOrdersStore.updateOrder(updatedOrder[0])
+    }
   } catch (err) {
-    logger.error('Failed to refresh orders after completion:', err)
+    logger.error('Failed to refresh order after completion:', err)
   }
 }
 
