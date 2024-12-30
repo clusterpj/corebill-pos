@@ -6,10 +6,11 @@ export class KitchenService {
   static async fetchOrders(sectionId) {
     try {
       // Fetch orders with details in a single request
-      const response = await apiClient.get(`/v1/core-pos/sections/getorders/${sectionId}`, {
+      const response = await apiClient.get(`/v1/core-pos/listordersbysection`, {
         params: {
-          include: ['items', 'details', 'status'],
-          section_type: 'kitchen'
+          section_id: sectionId,
+          status: 'P', // Only fetch Processing orders
+          include: ['items', 'details']
         }
       })
       logger.debug('[KitchenService] Fetched orders with details:', response.data)
@@ -21,10 +22,13 @@ export class KitchenService {
 
   static async updateOrderStatus(orderIds, status) {
     try {
+      // Convert status to API format (C for completed)
+      const apiStatus = status === 'completed' ? 'C' : 'P'
+      
       // Batch update multiple orders at once
       const response = await apiClient.put(`/v1/core-pos/orders/batch/status`, {
         order_ids: Array.isArray(orderIds) ? orderIds : [orderIds],
-        status
+        status: apiStatus
       })
       logger.debug(`[KitchenService] Batch updated orders status:`, response.data)
       return response.data

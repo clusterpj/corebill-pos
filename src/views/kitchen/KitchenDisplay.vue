@@ -158,14 +158,17 @@ const kitchenOrders = computed(() => {
   logger.debug('Kitchen Orders:', orders)
   return orders.filter(order => {
     const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
-    logger.debug(`Order ${order.id} has kitchen items:`, hasKitchenItems)
-    return hasKitchenItems
+    const isProcessing = order.status === 'P' // Only show Processing orders
+    logger.debug(`Order ${order.id} status:`, { hasKitchenItems, isProcessing })
+    return hasKitchenItems && isProcessing
   })
 })
 
 const completedOrders = computed(() => {
-  return kitchenOrders.value.filter(order => 
-    order.status === OrderStatus.COMPLETED
+  const orders = sectionOrdersStore.getOrdersBySection('kitchen')
+  return orders.filter(order => 
+    order.items?.some(item => item.section_type === 'kitchen') &&
+    order.status === 'C' // Show Completed orders
   )
 })
 

@@ -45,8 +45,11 @@ export function useKitchenOrders() {
       loading.value = true
       error.value = null
 
-      // Use batch update for better performance
+      // Update to completed status ('C')
       await KitchenService.updateOrderStatus([orderId], 'completed')
+      
+      // Refresh orders to get updated status
+      await fetchOrders()
 
       // Maintain backward compatibility with posStore
       if (posStore.updateHoldInvoice) {
