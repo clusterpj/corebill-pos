@@ -72,8 +72,21 @@ export const useCartStore = defineStore('cart', {
     },
 
     clearCart() {
-      mutations.clearCart(this)
-      cartSync.saveCartState(this.$state)
+      try {
+        mutations.clearCart(this)
+        // Ensure we're passing a valid state object
+        const stateToSync = {
+          items: this.items || [],
+          discountType: this.discountType,
+          discountValue: this.discountValue || 0,
+          taxRate: this.taxRate || 0,
+          total: this.total || 0,
+          subtotal: this.subtotal || 0
+        }
+        cartSync.saveCartState(stateToSync)
+      } catch (error) {
+        logger.error('Error in clearCart:', error)
+      }
     },
 
     loadInvoice(invoice) {

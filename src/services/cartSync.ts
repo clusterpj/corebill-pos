@@ -54,7 +54,12 @@ class CartSyncService {
       
       logger.debug('Cart state saved and broadcasted:', stateToSave)
     } catch (error) {
-      logger.error('Error saving cart state:', error)
+      // Enhanced error logging
+      logger.error('Error saving cart state:', {
+        error: error instanceof Error ? error.message : error,
+        cartState: JSON.stringify(cartState, null, 2),
+        stack: error instanceof Error ? error.stack : undefined
+      })
       // Don't throw the error, just log it to prevent UI disruption
     }
   }
