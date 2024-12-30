@@ -130,14 +130,14 @@ import { OrderType } from '@/types/order'
 // Store imports
 import { useBarStore } from '@/stores/bar-store'
 import { usePosStore } from '@/stores/pos-store'
-import { useSectionStore } from '@/stores/section-store'
+import { useSectionOrdersStore } from '@/stores/section-orders.store'
 import { posApi } from '@/services/api/pos-api'
 import BarOrderCard from './components/BarOrderCard.vue'
 
 // Store setup
 const barStore = useBarStore()
 const posStore = usePosStore()
-const sectionStore = useSectionStore()
+const sectionStore = useSectionOrdersStore()
 
 const { activeOrders, completedOrders, loading, error } = storeToRefs(barStore)
 const { holdInvoices } = storeToRefs(posStore)
