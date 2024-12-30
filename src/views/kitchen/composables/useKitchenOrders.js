@@ -2,6 +2,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { usePosStore } from '@/stores/pos-store'
 import { useKitchenStore } from '@/stores/kitchen'
 import { logger } from '@/utils/logger'
+import { errorHandler } from '@/utils/errorHandler'
 
 export function useKitchenOrders() {
   const posStore = usePosStore()
@@ -26,8 +27,8 @@ export function useKitchenOrders() {
 
       logger.info(`Fetched ${kitchenStore.activeOrders.length} active orders and ${kitchenStore.completedOrders.length} completed orders`)
     } catch (err) {
-      error.value = err.message
-      logger.error('Error fetching kitchen orders:', err)
+      const appError = errorHandler.handle(err, 'useKitchenOrders.fetchOrders')
+      error.value = appError.message
     } finally {
       loading.value = false
     }
@@ -49,8 +50,8 @@ export function useKitchenOrders() {
       
       logger.info(`Order ${orderId} marked as complete`)
     } catch (err) {
-      error.value = err.message
-      logger.error('Error completing order:', err)
+      const appError = errorHandler.handle(err, 'useKitchenOrders.markOrderComplete')
+      error.value = appError.message
     } finally {
       loading.value = false
     }

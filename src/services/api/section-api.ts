@@ -1,5 +1,6 @@
 import apiClient from './client'
 import { logger } from '@/utils/logger'
+import { errorHandler } from '@/utils/errorHandler'
 
 export interface Section {
   id: number
@@ -36,8 +37,7 @@ export const sectionApi = {
       logger.debug('[SectionAPI] Fetched all sections:', response.data)
       return response.data?.sections || []
     } catch (error) {
-      logger.error('[SectionAPI] Error fetching sections:', error)
-      throw error
+      throw errorHandler.handleApi(error, '[SectionAPI] getAllSections')
     }
   },
 
@@ -52,8 +52,7 @@ export const sectionApi = {
       logger.debug(`[SectionAPI] Raw response for item ${itemId}:`, response.data)
       return response.data?.sections || []
     } catch (error) {
-      logger.error(`[SectionAPI] Error fetching sections for item ${itemId}:`, error)
-      throw error
+      throw errorHandler.handleApi(error, `[SectionAPI] getSectionsForItem(${itemId})`)
     }
   },
 
@@ -68,8 +67,7 @@ export const sectionApi = {
       logger.debug(`[SectionAPI] Items for section ${sectionId}:`, response.data)
       return response.data?.data || []
     } catch (error) {
-      logger.error(`[SectionAPI] Error fetching items for section ${sectionId}:`, error)
-      throw error
+      throw errorHandler.handleApi(error, `[SectionAPI] getItemsForSection(${sectionId})`)
     }
   }
 }
