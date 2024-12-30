@@ -10,25 +10,42 @@
   >
     <!-- Header -->
     <div class="order-header pa-4">
+      <!-- Order Type Chip -->
       <div class="d-flex justify-space-between align-center">
-        <v-chip
-          size="small"
-          :color="order.type === 'HOLD' ? 'warning' : 'info'"
-          class="mr-2"
-        >
-          {{ order.type === 'HOLD' ? 'Hold Order' : order.invoice_number }}
-        </v-chip>
+        <div class="d-flex align-center">
+          <v-chip
+            size="small"
+            :color="order.type === 'HOLD' ? 'warning' : 'info'"
+            class="mr-2"
+          >
+            {{ order.type === 'HOLD' ? 'Hold' : 'Invoice' }}
+          </v-chip>
+          <span class="text-h6 font-weight-medium">
+            {{ order.type === 'HOLD' ? `#${order.id}` : order.invoice_number }}
+          </span>
+        </div>
         <status-indicator
           :status="order.status"
           size="small"
         />
       </div>
-      <div class="mt-2">
+      
+      <!-- Timestamps -->
+      <div class="mt-2 d-flex justify-space-between align-center">
         <date-display
           :timestamp="order.invoice_date"
           format="time"
           show-elapsed
         />
+        <v-chip
+          v-if="order.invoice_number"
+          size="x-small"
+          variant="flat"
+          color="grey"
+          class="ml-2"
+        >
+          REF: {{ order.invoice_number }}
+        </v-chip>
       </div>
     </div>
 
