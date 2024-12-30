@@ -4,13 +4,22 @@
       <!-- Header -->
       <div class="d-flex align-center justify-space-between mb-6">
         <h1 class="text-h4 font-weight-bold">Bar Display</h1>
-        <v-chip
-          :color="activeOrders.length > 0 ? 'warning' : 'success'"
-          size="large"
-          class="orders-count"
-        >
-          {{ activeOrders.length }} Active Orders
-        </v-chip>
+        <div class="d-flex align-center">
+          <v-switch
+            v-model="autoRefresh"
+            label="Auto-refresh"
+            density="compact"
+            color="primary"
+            class="mr-4"
+          />
+          <v-chip
+            :color="barOrders.length > 0 ? 'warning' : 'success'"
+            size="large"
+            class="orders-count"
+          >
+            {{ barOrders.length }} Active Orders
+          </v-chip>
+        </div>
       </div>
 
       <!-- Tabs -->

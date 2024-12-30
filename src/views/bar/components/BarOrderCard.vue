@@ -9,17 +9,17 @@
     <v-card-title class="d-flex justify-space-between align-center pa-4">
       <div>
         <span class="text-h6">Order #{{ order.id }}</span>
-        <v-chip 
-          :color="getOrderStatusColor(order.status)"
-          size="small" 
+        <status-indicator
+          :status="order.status"
+          size="small"
           class="ml-2"
-        >
-          {{ formatOrderStatus(order.status) }}
-        </v-chip>
+        />
       </div>
-      <div class="text-subtitle-2 text-medium-emphasis">
-        {{ formatOrderTime(order.created_at) }}
-      </div>
+      <date-display
+        :timestamp="order.created_at"
+        format="time"
+        show-elapsed
+      />
     </v-card-title>
 
     <v-divider></v-divider>
@@ -58,8 +58,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Order, OrderStatus } from '@/types/order'
+import { Order } from '@/types/order'
+import { OrderStatus } from '@/types/enums'
 import { PriceUtils } from '@/utils/price'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import StatusIndicator from '@/components/common/StatusIndicator.vue'
 
 // Props
 const props = defineProps({
@@ -84,31 +87,6 @@ const barItems = computed(() =>
 // Utility Functions
 const formatPrice = (cents: number) => PriceUtils.format(cents)
 
-const formatOrderTime = (timestamp: string) => {
-  const date = new Date(timestamp)
-  return date.toLocaleTimeString([], { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })
-}
-
-const getOrderStatusColor = (status: OrderStatus) => {
-  switch (status) {
-    case OrderStatus.PENDING: return 'warning'
-    case OrderStatus.IN_PROGRESS: return 'primary'
-    case OrderStatus.COMPLETED: return 'success'
-    default: return 'grey'
-  }
-}
-
-const formatOrderStatus = (status: OrderStatus) => {
-  switch (status) {
-    case OrderStatus.PENDING: return 'Pending'
-    case OrderStatus.IN_PROGRESS: return 'In Progress'
-    case OrderStatus.COMPLETED: return 'Completed'
-    default: return 'Unknown'
-  }
-}
 
 // Methods
 const completeOrder = () => {
