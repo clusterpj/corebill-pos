@@ -135,6 +135,12 @@ import { computed, ref } from 'vue'
 import { OrderStatus } from '@/types/order'
 import type { SectionOrder } from '@/services/section-order.service'
 import { formatCurrency } from '@/utils/currency'
+import { 
+  formatTime, 
+  getElapsedTime, 
+  getOrderTypeColor, 
+  formatOrderType 
+} from '../utils/formatters'
 
 const props = defineProps<{
   order: SectionOrder
@@ -163,34 +169,12 @@ const kitchenItems = computed(() =>
   props.order.items?.filter(item => item.section_type === 'kitchen') || []
 )
 
-const formatTime = (timestamp: string) => {
-  return new Date(timestamp).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
-const getElapsedTime = (timestamp: string) => {
-  const start = new Date(timestamp)
-  const now = new Date()
-  return Math.floor((now.getTime() - start.getTime()) / (1000 * 60))
-}
-
-const getOrderTypeColor = (type: string) => {
-  const colors = {
-    'holdInvoice': 'primary',
-    'invoice': 'secondary'
-  }
-  return colors[type as keyof typeof colors] || 'default'
-}
-
-const formatOrderType = (type: string) => {
-  const types = {
-    'holdInvoice': 'Hold Order',
-    'Invoice': 'Invoice'
-  }
-  return types[type as keyof typeof types] || type
-}
+import { 
+  formatTime, 
+  getElapsedTime, 
+  getOrderTypeColor, 
+  formatOrderType 
+} from '../utils/formatters'
 
 const formatStatus = (status: OrderStatus | undefined) => {
   if (!status) return 'Pending'
