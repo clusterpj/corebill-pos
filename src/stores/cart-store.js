@@ -21,8 +21,31 @@ export const useCartStore = defineStore('cart', {
 
     // Original actions with sync added
     addItem(product, quantity = 1) {
-      actions.addItem(this, product, quantity)
-      cartSync.saveCartState(this.$state)
+      try {
+        if (!product || !product.id) {
+          logger.warn('Invalid product data:', product)
+          return
+        }
+        actions.addItem(this, product, quantity)
+        const stateToSync = {
+          ...this.$state,
+          items: this.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            // Add other required item properties
+          }))
+        }
+        cartSync.saveCartState(stateToSync)
+      } catch (error) {
+        logger.error('Error in addItem:', {
+          error,
+          product,
+          quantity,
+          currentState: this.$state
+        })
+      }
     },
 
     updateItemQuantity(itemId, quantity, index = null) {

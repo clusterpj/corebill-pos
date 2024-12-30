@@ -30,16 +30,32 @@ class CartSyncService {
         return
       }
 
-      // Ensure items array exists
-      const items = Array.isArray(cartState.items) ? cartState.items : []
+      // Deep clone the cart state to avoid reference issues
+      const stateToProcess = JSON.parse(JSON.stringify(cartState))
+
+      // Ensure items array exists and is properly formatted
+      const items = Array.isArray(stateToProcess.items) 
+        ? stateToProcess.items.map(item => ({
+            id: item.id || 0,
+            name: item.name || '',
+            price: item.price || 0,
+            quantity: item.quantity || 1,
+            // Add other required item properties with defaults
+          }))
+        : []
       
       const stateToSave = {
         items,
-        discountType: cartState.discountType || null,
-        discountValue: cartState.discountValue || 0,
-        taxRate: cartState.taxRate || 0,
-        total: cartState.total || 0,
-        subtotal: cartState.subtotal || 0,
+        discountType: stateToProcess.discountType || 'fixed',
+        discountValue: Number(stateToProcess.discountValue) || 0,
+        taxRate: Number(stateToProcess.taxRate) || 0,
+        total: Number(stateToProcess.total) || 0,
+        subtotal: Number(stateToProcess.subtotal) || 0,
+        notes: stateToProcess.notes || '',
+        type: stateToProcess.type || null,
+        holdInvoiceId: stateToProcess.holdInvoiceId || null,
+        holdOrderDescription: stateToProcess.holdOrderDescription || null,
+        selectedTables: Array.isArray(stateToProcess.selectedTables) ? stateToProcess.selectedTables : [],
         timestamp: Date.now()
       }
       
