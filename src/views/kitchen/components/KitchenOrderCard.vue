@@ -176,11 +176,23 @@ const formatStatus = (status: OrderStatus | undefined) => {
 const handleComplete = async () => {
   if (loading.value || isCompleted.value) return
   
+  console.log('🎯 [KitchenOrderCard] Starting completion for order:', props.order.id)
   loading.value = true
+  
   try {
+    console.log('📝 [KitchenOrderCard] Order details:', {
+      id: props.order.id,
+      status: props.order.status,
+      items: kitchenItems.value
+    })
+    
     await emit('complete', props.order.id)
+    console.log('✅ [KitchenOrderCard] Order completed successfully:', props.order.id)
+  } catch (error) {
+    console.error('❌ [KitchenOrderCard] Failed to complete order:', error)
   } finally {
     loading.value = false
+    console.log('🏁 [KitchenOrderCard] Completion process finished for order:', props.order.id)
   }
 }
 </script>

@@ -175,24 +175,37 @@ const completedOrders = computed(() => {
 
 // Methods
 async function handleOrderComplete(orderId: number) {
+  console.log('🎯 [KitchenDisplay] Handling order completion:', orderId)
   try {
-    // Only refresh the specific order that was completed
+    console.log('🔄 [KitchenDisplay] Fetching updated details for order:', orderId)
     const updatedOrder = await KitchenService.fetchOrdersDetails([orderId])
+    
+    console.log('📦 [KitchenDisplay] Received updated order:', updatedOrder)
     if (updatedOrder.length > 0) {
+      console.log('✏️ [KitchenDisplay] Updating order in store:', updatedOrder[0])
       sectionOrdersStore.updateOrder(updatedOrder[0])
+      console.log('✅ [KitchenDisplay] Order update successful')
+    } else {
+      console.warn('⚠️ [KitchenDisplay] No updated order data received')
     }
   } catch (err) {
+    console.error('❌ [KitchenDisplay] Failed to refresh order:', err)
     logger.error('Failed to refresh order after completion:', err)
   }
 }
 
 function startPolling() {
+  console.log('🔄 [KitchenDisplay] Starting polling interval')
   stopPolling()
   refreshTimer.value = setInterval(() => {
     if (autoRefresh.value) {
+      console.log('🔄 [KitchenDisplay] Auto-refreshing orders')
       sectionOrdersStore.debouncedFetch(KITCHEN_SECTION_ID)
+    } else {
+      console.log('⏸️ [KitchenDisplay] Auto-refresh is disabled')
     }
   }, POLL_INTERVAL)
+  console.log('✅ [KitchenDisplay] Polling started successfully')
 }
 
 function stopPolling() {
@@ -213,10 +226,17 @@ watch(autoRefresh, (enabled) => {
 
 // Lifecycle hooks
 onMounted(async () => {
+  console.log('🚀 [KitchenDisplay] Component mounted')
+  console.log('📥 [KitchenDisplay] Initial fetch for kitchen section:', KITCHEN_SECTION_ID)
   await sectionOrdersStore.fetchOrdersForSection(KITCHEN_SECTION_ID)
+  
   if (autoRefresh.value) {
+    console.log('⚡ [KitchenDisplay] Auto-refresh enabled, starting polling')
     startPolling()
+  } else {
+    console.log('💤 [KitchenDisplay] Auto-refresh disabled')
   }
+  console.log('✅ [KitchenDisplay] Initialization complete')
 })
 
 onUnmounted(() => {
