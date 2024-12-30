@@ -1,4 +1,3 @@
-<!-- src/views/kitchen/components/KitchenOrderCard.vue -->
 <template>
   <v-card
     :class="[
@@ -17,24 +16,24 @@
           :color="getOrderTypeColor(order.type)"
           class="mr-2"
         >
-          {{ order.type }}
+          {{ formatOrderType(order.type) }}
         </v-chip>
         <div class="order-id">
           <h2 class="text-h6 font-weight-bold mb-0">
-            Order #{{ order.id }}
+            {{ order.invoice_number || `Order #${order.id}` }}
           </h2>
           <div class="order-time d-flex align-center mt-1">
             <v-icon size="small" icon="mdi-clock-outline" class="mr-1" />
-            <time :datetime="order.created_at" class="text-body-2 text-medium-emphasis">
-              {{ formatTime(order.created_at) }}
+            <time :datetime="order.invoice_date" class="text-body-2 text-medium-emphasis">
+              {{ formatTime(order.invoice_date) }}
             </time>
             <v-chip
-              v-if="getElapsedTime(order.created_at) > 15"
+              v-if="getElapsedTime(order.invoice_date) > 15"
               size="x-small"
               color="error"
               class="ml-2"
             >
-              {{ getElapsedTime(order.created_at) }}m
+              {{ getElapsedTime(order.invoice_date) }}m
             </v-chip>
           </div>
         </div>
@@ -46,17 +45,8 @@
           :class="{ 'completed': isCompleted }"
         >
           <v-icon size="small" :icon="statusIcon" start class="mr-1" />
-          {{ isCompleted ? 'Completed' : 'Pending' }}
+          {{ formatStatus(order.status) }}
         </v-chip>
-      </div>
-
-      <!-- Completion Time -->
-      <div v-if="isCompleted && order.completed_at" 
-           class="completed-time d-flex align-center mt-2">
-        <v-icon size="small" icon="mdi-check-circle" class="mr-1 text-success" />
-        <span class="text-body-2 text-success">
-          Completed at {{ formatTime(order.completed_at) }}
-        </span>
       </div>
     </div>
 
@@ -65,7 +55,7 @@
     
     <div class="order-content pa-4">
       <!-- Order Notes -->
-      <div v-if="orderNotes" class="order-notes mb-4">
+      <div v-if="order.description" class="order-notes mb-4">
         <v-alert
           color="info"
           variant="tonal"
@@ -76,7 +66,7 @@
           <template v-slot:prepend>
             <v-icon size="small">mdi-note-text-outline</v-icon>
           </template>
-          <div class="text-body-2">{{ orderNotes }}</div>
+          <div class="text-body-2">{{ order.description }}</div>
         </v-alert>
       </div>
 
@@ -84,9 +74,9 @@
       <div class="items-list">
         <v-list density="compact">
           <v-list-item
-            v-for="(item, index) in order.hold_items"
-            :key="index"
-            :class="{ 'item--with-note': item.notes }"
+            v-for="item in kitchenItems"
+            :key="item.id"
+            :class="{ 'item--with-note': item.description }"
           >
             <template v-slot:prepend>
               <v-chip
@@ -95,7 +85,7 @@
                 variant="flat"
                 class="quantity-chip mr-2"
               >
-                {{ item.quantity }}
+                {{ parseFloat(item.quantity) }}
               </v-chip>
             </template>
 
@@ -104,7 +94,7 @@
             </v-list-item-title>
 
             <v-list-item-subtitle
-              v-if="item.notes"
+              v-if="item.description"
               class="mt-1 text-warning-darken-1"
             >
               <v-icon
@@ -112,7 +102,7 @@
                 icon="mdi-note-text"
                 class="mr-1"
               />
-              {{ item.notes }}
+              {{ item.description }}
             </v-list-item-subtitle>
           </v-list-item>
         </v-list>
@@ -140,65 +130,84 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from 'vue'
-import { parseOrderNotes } from '../../../stores/cart/helpers'
+import { OrderStatus } from '@/types/order'
+import type { SectionOrder } from '@/services/section-order.service'
+import { formatCurrency } from '@/utils/currency'
 
-const props = defineProps({
-  order: {
-    type: Object,
-    required: true
-  }
-})
+const props = defineProps<{
+  order: SectionOrder
+}>()
 
-const emit = defineEmits(['complete'])
+const emit = defineEmits<{
+  (e: 'complete', id: number): void
+}>()
 
 const loading = ref(false)
-const isCompleted = computed(() => 
-  props.order.status === 'completed' || !!props.order.completed_at
-)
+const isCompleted = computed(() => props.order.status === OrderStatus.COMPLETED)
 
 const statusColor = computed(() => {
   if (isCompleted.value) return 'success'
-  if (props.order.status === 'in_progress') return 'info'
+  if (props.order.status === OrderStatus.IN_PROGRESS) return 'info'
   return 'warning'
 })
 
 const statusIcon = computed(() => {
   if (isCompleted.value) return 'mdi-check-circle'
-  if (props.order.status === 'in_progress') return 'mdi-progress-clock'
+  if (props.order.status === OrderStatus.IN_PROGRESS) return 'mdi-progress-clock'
   return 'mdi-clock-alert'
 })
 
-const orderNotes = computed(() => {
-  if (!props.order.notes) return null
-  return parseOrderNotes(props.order.notes)
-})
+const kitchenItems = computed(() => 
+  props.order.items?.filter(item => item.section_type === 'kitchen') || []
+)
 
-const formatTime = (timestamp) => {
+const formatTime = (timestamp: string) => {
   return new Date(timestamp).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit'
   })
 }
 
-const getElapsedTime = (timestamp) => {
+const getElapsedTime = (timestamp: string) => {
   const start = new Date(timestamp)
   const now = new Date()
-  return Math.floor((now - start) / (1000 * 60))
+  return Math.floor((now.getTime() - start.getTime()) / (1000 * 60))
 }
 
-const getOrderTypeColor = (type) => {
+const getOrderTypeColor = (type: string) => {
   const colors = {
-    'DINE IN': 'primary',
-    'TO-GO': 'secondary',
-    'DELIVERY': 'info',
-    'PICKUP': 'success'
+    'holdInvoice': 'primary',
+    'invoice': 'secondary'
   }
-  return colors[type] || 'default'
+  return colors[type as keyof typeof colors] || 'default'
+}
+
+const formatOrderType = (type: string) => {
+  const types = {
+    'holdInvoice': 'Hold Order',
+    'Invoice': 'Invoice'
+  }
+  return types[type as keyof typeof types] || type
+}
+
+const formatStatus = (status: OrderStatus | undefined) => {
+  if (!status) return 'Pending'
+  
+  const statusMap = {
+    [OrderStatus.PENDING]: 'Pending',
+    [OrderStatus.IN_PROGRESS]: 'In Progress',
+    [OrderStatus.COMPLETED]: 'Completed',
+    [OrderStatus.CANCELLED]: 'Cancelled'
+  }
+  
+  return statusMap[status] || 'Unknown'
 }
 
 const handleComplete = async () => {
+  if (loading.value || isCompleted.value) return
+  
   loading.value = true
   try {
     await emit('complete', props.order.id)
