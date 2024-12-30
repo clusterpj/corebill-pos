@@ -158,7 +158,7 @@ const kitchenOrders = computed(() => {
   logger.debug('Kitchen Orders:', orders)
   return orders.filter(order => {
     const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
-    const isProcessing = order.status === 'P' // Only show Processing orders
+    const isProcessing = order.status !== 'C' // Show all non-completed orders
     logger.debug(`Order ${order.id} status:`, { hasKitchenItems, isProcessing })
     return hasKitchenItems && isProcessing
   })
@@ -166,10 +166,11 @@ const kitchenOrders = computed(() => {
 
 const completedOrders = computed(() => {
   const orders = sectionOrdersStore.getOrdersBySection('kitchen')
-  return orders.filter(order => 
-    order.items?.some(item => item.section_type === 'kitchen') &&
-    order.status === 'C' // Show Completed orders
-  )
+  return orders.filter(order => {
+    const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
+    const isCompleted = order.status === 'C' || order.status === OrderStatus.COMPLETED
+    return hasKitchenItems && isCompleted
+  })
 })
 
 // Methods

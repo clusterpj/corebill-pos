@@ -6,11 +6,10 @@ export class KitchenService {
   static async fetchOrders(sectionId) {
     try {
       // Fetch orders with details in a single request
-      const response = await apiClient.get(`/v1/core-pos/listordersbysection`, {
+      const response = await apiClient.get(`/v1/core-pos/sections/getorders/${sectionId}`, {
         params: {
-          section_id: sectionId,
           status: 'P', // Only fetch Processing orders
-          include: ['items', 'details']
+          include: ['items', 'details', 'status']
         }
       })
       logger.debug('[KitchenService] Fetched orders with details:', response.data)
