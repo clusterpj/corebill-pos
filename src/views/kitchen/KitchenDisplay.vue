@@ -74,7 +74,7 @@
       </v-tabs>
 
       <!-- Tab Content -->
-      <v-window v-model="activeTab">
+      <v-window v-model="activeTab" class="flex-grow-1 overflow-y-auto">
         <!-- Active Orders -->
         <v-window-item value="active">
           <div v-if="loading" class="d-flex justify-center py-8">
@@ -98,7 +98,7 @@
             </p>
           </div>
 
-          <v-row v-else>
+          <v-row v-else class="overflow-y-auto">
             <v-col
               v-for="order in kitchenOrders"
               :key="order.id"
@@ -240,8 +240,16 @@ onUnmounted(() => {
 
 <style scoped>
 .kitchen-display {
-  min-height: 100vh;
+  height: 100vh;
   background-color: var(--v-background);
+  display: flex;
+  flex-direction: column;
+}
+
+.v-container {
+  flex: 1;
+  overflow-y: auto;
+  height: calc(100vh - 64px); /* Adjust for header height */
 }
 
 .orders-count {
