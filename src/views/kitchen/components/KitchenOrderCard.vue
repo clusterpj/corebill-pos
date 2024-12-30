@@ -22,31 +22,18 @@
           <h2 class="text-h6 font-weight-bold mb-0">
             {{ order.invoice_number || `Order #${order.id}` }}
           </h2>
-          <div class="order-time d-flex align-center mt-1">
-            <v-icon size="small" icon="mdi-clock-outline" class="mr-1" />
-            <time :datetime="order.invoice_date" class="text-body-2 text-medium-emphasis">
-              {{ formatTime(order.invoice_date) }}
-            </time>
-            <v-chip
-              v-if="getElapsedTime(order.invoice_date) > 15"
-              size="x-small"
-              color="error"
-              class="ml-2"
-            >
-              {{ getElapsedTime(order.invoice_date) }}m
-            </v-chip>
-          </div>
+          <date-display
+            :timestamp="order.invoice_date"
+            format="time"
+            show-elapsed
+            class="mt-1"
+          />
         </div>
         
-        <v-chip
-          :color="statusColor"
+        <status-indicator
+          :status="order.status"
           size="small"
-          class="status-chip"
-          :class="{ 'completed': isCompleted }"
-        >
-          <v-icon size="small" :icon="statusIcon" start class="mr-1" />
-          {{ formatStatus(order.status) }}
-        </v-chip>
+        />
       </div>
     </div>
 
@@ -135,12 +122,9 @@ import { computed, ref } from 'vue'
 import { OrderStatus } from '@/types/enums'
 import type { SectionOrder } from '@/services/section-order.service'
 import { formatCurrency } from '@/utils/currency'
-import { 
-  formatTime, 
-  getElapsedTime, 
-  getOrderTypeColor, 
-  formatOrderType 
-} from '../utils/formatters'
+import { getOrderTypeColor, formatOrderType } from '../utils/formatters'
+import DateDisplay from '@/components/common/DateDisplay.vue'
+import StatusIndicator from '@/components/common/StatusIndicator.vue'
 
 const props = defineProps<{
   order: SectionOrder
