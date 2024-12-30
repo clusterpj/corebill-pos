@@ -1,3 +1,4 @@
+# src/views/kitchen/KitchenDisplay.vue
 <template>
   <div class="kitchen-display">
     <v-container fluid class="pa-4">
@@ -21,13 +22,22 @@
       <!-- Header -->
       <div class="d-flex align-center justify-space-between mb-6">
         <h1 class="text-h4 font-weight-bold">Kitchen Display</h1>
-        <v-chip
-          :color="activeOrders.length > 0 ? 'warning' : 'success'"
-          size="large"
-          class="orders-count"
-        >
-          {{ activeOrders.length }} Active Orders
-        </v-chip>
+        <div class="d-flex align-center">
+          <v-switch
+            v-model="autoRefresh"
+            label="Auto-refresh"
+            density="compact"
+            color="primary"
+            class="mr-4"
+          />
+          <v-chip
+            :color="kitchenOrders.length > 0 ? 'warning' : 'success'"
+            size="large"
+            class="orders-count"
+          >
+            {{ kitchenOrders.length }} Active Orders
+          </v-chip>
+        </div>
       </div>
 
       <!-- Tabs -->
@@ -44,9 +54,9 @@
             size="x-small"
             color="warning"
             class="ml-2"
-            v-if="activeOrders.length"
+            v-if="kitchenOrders.length"
           >
-            {{ activeOrders.length }}
+            {{ kitchenOrders.length }}
           </v-chip>
         </v-tab>
         <v-tab value="history" class="text-subtitle-1">
@@ -75,7 +85,7 @@
             />
           </div>
 
-          <div v-else-if="activeOrders.length === 0" class="text-center py-8">
+          <div v-else-if="kitchenOrders.length === 0" class="text-center py-8">
             <v-icon
               icon="mdi-coffee-outline"
               size="64"
@@ -90,7 +100,7 @@
 
           <v-row v-else>
             <v-col
-              v-for="order in filteredActiveOrders"
+              v-for="order in kitchenOrders"
               :key="order.id"
               cols="12"
               sm="6"
@@ -106,30 +116,9 @@
 
         <!-- Order History -->
         <v-window-item value="history">
-          <div v-if="loading" class="d-flex justify-center py-8">
-            <v-progress-circular
-              indeterminate
-              color="primary"
-              size="64"
-            />
-          </div>
-
-          <div v-else-if="completedOrders.length === 0" class="text-center py-8">
-            <v-icon
-              icon="mdi-history"
-              size="64"
-              color="grey-lighten-1"
-              class="mb-4"
-            />
-            <h3 class="text-h6 text-grey-darken-1">No Completed Orders</h3>
-            <p class="text-body-1 text-medium-emphasis">
-              Completed orders will appear here
-            </p>
-          </div>
-
-          <v-row v-else>
+          <v-row v-if="completedOrders.length">
             <v-col
-              v-for="order in filteredCompletedOrders"
+              v-for="order in completedOrders"
               :key="order.id"
               cols="12"
               sm="6"
@@ -140,195 +129,108 @@
               />
             </v-col>
           </v-row>
+          <div v-else class="text-center py-8">
+            <v-icon
+              icon="mdi-history"
+              size="64"
+              color="grey-lighten-1"
+              class="mb-4"
+            />
+            <h3 class="text-h6 text-grey-darken-1">No Order History</h3>
+            <p class="text-body-1 text-medium-emphasis">
+              Completed orders will appear here
+            </p>
+          </div>
         </v-window-item>
       </v-window>
     </v-container>
-
-    <!-- Error Snackbar -->
-    <v-snackbar
-      v-model="showError"
-      color="error"
-      timeout="3000"
-    >
-      {{ error }}
-      <template v-slot:actions>
-        <v-btn
-          color="white"
-          variant="text"
-          @click="showError = false"
-        >
-          Close
-        </v-btn>
-      </template>
-    </v-snackbar>
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useKitchenStore } from '@/stores/kitchen'
 import { OrderType } from '@/types/order'
-import { usePosStore } from '@/stores/pos-store'
-import { posApi } from '@/services/api/pos-api'
-import KitchenOrderCard from './components/KitchenOrderCard.vue'
 import { logger } from '@/utils/logger'
-import { useSectionStore } from '@/stores/section-store'
-
-// Store setup
-const kitchenStore = useKitchenStore()
-const posStore = usePosStore()
-const sectionStore = useSectionStore()
-const { activeOrders, completedOrders, loading, error } = storeToRefs(kitchenStore)
-const { holdInvoices } = storeToRefs(posStore)
-const { kitchenSections } = storeToRefs(sectionStore)
+import KitchenOrderCard from './components/KitchenOrderCard.vue'
+import { useSectionOrdersStore } from '@/stores/section-orders.store'
 
 // Constants
+const KITCHEN_SECTION_ID = 1
 const ORDER_TYPES = Object.values(OrderType)
+const POLL_INTERVAL = 30000 // 30 seconds
+
+// Store setup
+const sectionOrdersStore = useSectionOrdersStore()
+const { loading } = storeToRefs(sectionOrdersStore)
 
 // Local state
 const activeTab = ref('active')
 const selectedTypes = ref(ORDER_TYPES)
+const autoRefresh = ref(true)
+const refreshTimer = ref<NodeJS.Timeout | null>(null)
 
-// Filtered orders
-const filteredActiveOrders = computed(() => {
-  return activeOrders.value.filter(order => {
-    // Check if any item in the order belongs to a kitchen section
-    return order.items?.some(item => 
-      kitchenSections.value.some(section => 
-        section.id === item.section_id
-      )
-    )
+// Computed properties
+const kitchenOrders = computed(() => {
+  const orders = sectionOrdersStore.getOrdersBySection('kitchen')
+  logger.debug('Kitchen Orders:', orders)
+  return orders.filter(order => {
+    const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
+    logger.debug(`Order ${order.id} has kitchen items:`, hasKitchenItems)
+    return hasKitchenItems
   })
 })
 
-const filteredCompletedOrders = computed(() => 
-  completedOrders.value.filter(order => 
-    order.items?.some(item => 
-      kitchenSections.value.some(section => 
-        section.id === item.section_id
-      )
-    )
+const completedOrders = computed(() => {
+  return kitchenOrders.value.filter(order => 
+    order.status === 'completed'
   )
-)
-const showError = ref(false)
-const refreshing = ref(false)
-const autoRefresh = ref(true)
-let pollInterval = null // Store interval reference
-let refreshInterval = null
-
-// Watch for errors
-watch(error, (newError) => {
-  if (newError) {
-    showError.value = true
-  }
 })
 
-// Watch for changes in hold invoices
-watch(holdInvoices, (newInvoices) => {
-  if (newInvoices) {
-    logger.debug('Updating kitchen orders from hold invoices:', newInvoices.length)
-    kitchenStore.initializeOrders(newInvoices)
+// Methods
+async function handleOrderComplete(orderId: number) {
+  try {
+    await sectionOrdersStore.refreshOrders(KITCHEN_SECTION_ID)
+  } catch (err) {
+    logger.error('Failed to refresh orders after completion:', err)
   }
-}, { deep: true })
+}
+
+function startPolling() {
+  stopPolling()
+  refreshTimer.value = setInterval(() => {
+    if (autoRefresh.value) {
+      sectionOrdersStore.debouncedFetch(KITCHEN_SECTION_ID)
+    }
+  }, POLL_INTERVAL)
+}
+
+function stopPolling() {
+  if (refreshTimer.value) {
+    clearInterval(refreshTimer.value)
+    refreshTimer.value = null
+  }
+}
 
 // Watch for auto-refresh changes
 watch(autoRefresh, (enabled) => {
   if (enabled) {
-    startRefreshInterval()
+    startPolling()
   } else {
-    stopRefreshInterval()
+    stopPolling()
   }
 })
 
-// Methods
-const handleOrderComplete = async (orderId) => {
-  const success = await kitchenStore.completeOrder(orderId)
-  if (success) {
-    // Optional: Play a sound or show a success notification
-  }
-}
-
-const refreshOrders = async () => {
-  if (refreshing.value) return
-  
-  refreshing.value = true
-  try {
-    await posStore.fetchHoldInvoices()
-  } catch (err) {
-    logger.error('Failed to refresh orders:', err)
-    error.value = 'Failed to refresh orders. Please try again.'
-  } finally {
-    refreshing.value = false
-  }
-}
-
-const startRefreshInterval = () => {
-  stopRefreshInterval() // Clear any existing interval
-  refreshInterval = setInterval(refreshOrders, 15000) // 15 seconds
-}
-
-const stopRefreshInterval = () => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-    refreshInterval = null
-  }
-}
-
-// Initialize orders from POS store
+// Lifecycle hooks
 onMounted(async () => {
-  try {
-    await sectionStore.fetchSections()
-    logger.debug('Kitchen sections loaded', kitchenSections.value)
-    logger.debug('Initializing kitchen display')
-    // Fetch both hold invoices and direct invoices
-    const [holdInvoicesResponse, directInvoicesResponse] = await Promise.all([
-      posStore.fetchHoldInvoices(),
-      posApi.invoice.getAll({ 
-        types: [OrderType.DELIVERY, OrderType.PICKUP],
-        status: ['pending', 'in_progress']
-      })
-    ])
-
-    // Initialize kitchen store with both types
-    kitchenStore.initializeOrders(
-      holdInvoicesResponse?.data || [],
-      directInvoicesResponse?.data || []
-    )
-    
-    // Start polling for updates
-    pollInterval = setInterval(async () => {
-      const [newHoldInvoices, newDirectInvoices] = await Promise.all([
-        posStore.fetchHoldInvoices(),
-        posApi.invoice.getAll({ 
-          types: [OrderType.DELIVERY, OrderType.PICKUP],
-          status: ['pending', 'in_progress']
-        })
-      ])
-      
-      kitchenStore.initializeOrders(
-        newHoldInvoices?.data || [],
-        newDirectInvoices?.data || []
-      )
-    }, 30000) // Poll every 30 seconds
-    
-    // Start auto-refresh if enabled
-    if (autoRefresh.value) {
-      startRefreshInterval()
-    }
-  } catch (err) {
-    logger.error('Failed to initialize kitchen orders:', err)
-    error.value = 'Failed to load orders. Please refresh the page.'
+  await sectionOrdersStore.fetchOrdersForSection(KITCHEN_SECTION_ID)
+  if (autoRefresh.value) {
+    startPolling()
   }
 })
 
-// Clean up on unmount
 onUnmounted(() => {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
-  }
-  stopRefreshInterval()
+  stopPolling()
 })
 </script>
 
