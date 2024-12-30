@@ -1,11 +1,12 @@
 import apiClient from './client'
 import { logger } from '@/utils/logger'
 import { errorHandler } from '@/utils/errorHandler'
+import { SectionType } from '@/types/enums'
 
 export interface Section {
   id: number
   name: string
-  type: 'kitchen' | 'bar' | 'other'
+  type: SectionType
   description?: string
 }
 

@@ -150,7 +150,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { OrderType } from '@/types/order'
+import { OrderType, OrderStatus } from '@/types/enums'
 import { logger } from '@/utils/logger'
 import KitchenOrderCard from './components/KitchenOrderCard.vue'
 import { useSectionOrdersStore } from '@/stores/section-orders.store'
@@ -183,7 +183,7 @@ const kitchenOrders = computed(() => {
 
 const completedOrders = computed(() => {
   return kitchenOrders.value.filter(order => 
-    order.status === 'completed'
+    order.status === OrderStatus.COMPLETED
   )
 })
 

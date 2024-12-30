@@ -132,7 +132,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { OrderStatus } from '@/types/order'
+import { OrderStatus } from '@/types/enums'
 import type { SectionOrder } from '@/services/section-order.service'
 import { formatCurrency } from '@/utils/currency'
 import { 
