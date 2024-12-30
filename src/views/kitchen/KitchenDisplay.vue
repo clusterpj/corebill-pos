@@ -2,22 +2,6 @@
 <template>
   <div class="kitchen-display">
     <v-container fluid class="pa-4">
-      <!-- Type Filter -->
-      <v-chip-group
-        v-model="selectedTypes"
-        multiple
-        class="mb-4"
-      >
-        <v-chip
-          v-for="type in ORDER_TYPES"
-          :key="type"
-          :value="type"
-          filter
-          variant="outlined"
-        >
-          {{ type }}
-        </v-chip>
-      </v-chip-group>
 
       <!-- Header -->
       <div class="d-flex align-center justify-space-between mb-6">
@@ -157,7 +141,6 @@ import { useSectionOrdersStore } from '@/stores/section-orders.store'
 
 // Constants
 const KITCHEN_SECTION_ID = 1
-const ORDER_TYPES = Object.values(OrderType)
 const POLL_INTERVAL = 30000 // 30 seconds
 
 // Store setup
@@ -166,7 +149,6 @@ const { loading } = storeToRefs(sectionOrdersStore)
 
 // Local state
 const activeTab = ref('active')
-const selectedTypes = ref(ORDER_TYPES)
 const autoRefresh = ref(true)
 const refreshTimer = ref<NodeJS.Timeout | null>(null)
 
