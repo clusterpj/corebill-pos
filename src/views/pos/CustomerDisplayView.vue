@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="fill-height pa-0 customer-display-container">
+  <v-container fluid class="fill-height pa-0 customer-display-container hide-sidebar-btn">
     <template v-if="isInitialized">
       <customer-display />
     </template>
@@ -79,5 +79,11 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Hide the sidebar toggle button */
+:deep(.hide-sidebar-btn) .v-navigation-drawer__scrim,
+:deep(.hide-sidebar-btn) .v-app-bar-nav-icon {
+  display: none !important;
 }
 </style>
