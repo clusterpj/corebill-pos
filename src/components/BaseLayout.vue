@@ -1,15 +1,16 @@
 <!-- src/components/BaseLayout.vue -->
 <template>
-  <v-app>
-    <v-fade-transition>
-      <v-btn
-        v-show="!drawerBehavior.permanent && !isCustomerDisplay"
-        size="large"
-        variant="elevated"
-        color="primary"
-        @click="toggleDrawer"
-        class="menu-toggle"
-      >
+  <v-app :class="{ 'customer-display': isCustomerDisplay }">
+    <template v-if="!isCustomerDisplay">
+      <v-fade-transition>
+        <v-btn
+          v-show="!drawerBehavior.permanent"
+          size="large"
+          variant="elevated"
+          color="primary"
+          @click="toggleDrawer"
+          class="menu-toggle"
+        >
         <v-icon
           size="24"
           color="white"
@@ -28,7 +29,6 @@
     </v-fade-transition>
 
     <v-navigation-drawer 
-      v-if="!isCustomerDisplay"
       v-model="drawer"
       :temporary="drawerBehavior.temporary"
       :permanent="drawerBehavior.permanent"
@@ -153,6 +153,7 @@
       </div>
 
     </v-navigation-drawer>
+    </template>
 
     <!-- Logout Confirmation Dialog -->
     <v-dialog v-model="showLogoutDialog" max-width="400">
@@ -430,6 +431,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.customer-display :deep(.v-toolbar),
+.customer-display :deep(.v-navigation-drawer),
+.customer-display :deep(.v-btn.menu-toggle) {
+  display: none !important;
+}
 /* Transition styles */
 .fade-enter-active,
 .fade-leave-active {
