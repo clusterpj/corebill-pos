@@ -148,24 +148,50 @@ const refreshTimer = ref<NodeJS.Timeout | null>(null)
 
 // Computed properties
 const barOrders = computed(() => {
+  console.log('Computing bar orders from:', orders.value)
   return orders.value.filter(order => {
-    const hasBarItems = order.sections?.some(section => 
-      (section.section?.name === 'BAR' || section.name === 'BAR') && 
-      section.items?.length > 0
-    )
+    console.log('Checking order:', order)
+    
+    const hasBarItems = order.sections?.some(section => {
+      const isBarSection = section.section?.name === 'BAR' || section.name === 'BAR'
+      const hasItems = section.items?.length > 0
+      console.log(`Section check for order ${order.id}:`, { isBarSection, hasItems })
+      return isBarSection && hasItems
+    })
+    
     const isProcessing = order.status === 'P'
-    console.log(`🔍 Order ${order.id}:`, { hasBarItems, isProcessing, sections: order.sections })
+    console.log(`🔍 Order ${order.id}:`, { 
+      hasBarItems, 
+      isProcessing, 
+      sections: order.sections,
+      status: order.status 
+    })
+    
     return hasBarItems && isProcessing
   })
 })
 
 const completedOrders = computed(() => {
+  console.log('Computing completed orders from:', orders.value)
   return orders.value.filter(order => {
-    const hasBarItems = order.sections?.some(section => 
-      (section.section?.name === 'BAR' || section.name === 'BAR') && 
-      section.items?.length > 0
-    )
-    return hasBarItems && order.status === 'C'
+    console.log('Checking completed order:', order)
+    
+    const hasBarItems = order.sections?.some(section => {
+      const isBarSection = section.section?.name === 'BAR' || section.name === 'BAR'
+      const hasItems = section.items?.length > 0
+      console.log(`Section check for completed order ${order.id}:`, { isBarSection, hasItems })
+      return isBarSection && hasItems
+    })
+    
+    const isCompleted = order.status === 'C'
+    console.log(`🔍 Completed Order ${order.id}:`, { 
+      hasBarItems, 
+      isCompleted, 
+      sections: order.sections,
+      status: order.status 
+    })
+    
+    return hasBarItems && isCompleted
   })
 })
 

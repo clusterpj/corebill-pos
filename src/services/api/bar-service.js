@@ -5,78 +5,95 @@ import { logger } from '@/utils/logger'
 export class BarService {
   static async fetchOrders(sectionId) {
     try {
-      console.log('🔍 [BarService] Fetching orders with section:', sectionId)
+      logger.info(`[BarService] Fetching all orders for section ${sectionId}`)
       
-      const [holdOrders, invoiceOrders] = await Promise.all([
-        apiClient.post('/v1/core-pos/listordersbysection', null, {
-          params: {
-            section_id: sectionId,
-            status: 'P',
-            type: 'HOLD'
-          }
-        }),
-        apiClient.post('/v1/core-pos/listordersbysection', null, {
-          params: {
-            section_id: sectionId,
-            status: 'P',
-            type: 'INVOICE'
-          }
-        })
+      // Fetch both active and completed orders
+      const [activeOrders, completedOrders] = await Promise.all([
+        this.fetchOrdersByStatus(sectionId, 'P'),
+        this.fetchOrdersByStatus(sectionId, 'C')
       ])
 
-      console.log('📦 [BarService] Raw HOLD orders:', holdOrders.data)
-      console.log('📦 [BarService] Raw INVOICE orders:', invoiceOrders.data)
+      console.log('Active orders:', activeOrders)
+      console.log('Completed orders:', completedOrders)
 
-      const orders = [
-        ...(holdOrders.data?.orders || []).map(order => ({
-          ...order,
-          type: 'HOLD',
-          status: holdOrders.data.status
-        })),
-        ...(invoiceOrders.data?.orders || []).map(order => ({
-          ...order,
-          type: 'INVOICE',
-          status: invoiceOrders.data.status
-        }))
-      ]
+      const allOrders = [...activeOrders, ...completedOrders]
+      console.log('Combined orders:', allOrders)
 
-      console.log('✅ [BarService] Combined orders:', orders)
-
-      const orderDetails = await Promise.all(
-        orders.map(order => {
-          console.log(`📝 Fetching details for order ${order.id} of type ${order.type}`)
-          return this.fetchOrderItems(order.id, order.type)
-        })
-      )
-
-      console.log('📋 [BarService] All order details:', orderDetails)
-
-      const ordersWithDetails = orders.map((order, index) => {
-        const details = orderDetails[index]
-        console.log(`🔗 Merging details for order ${order.id}:`, details)
-        return {
-          ...order,
-          sections: details
-        }
-      })
-
-      console.log('🏁 [BarService] Final processed orders:', ordersWithDetails)
-      return ordersWithDetails
+      return allOrders
     } catch (error) {
       console.error('❌ [BarService] Error in fetchOrders:', error)
       throw errorHandler.handleApi(error, '[BarService] fetchOrders')
     }
   }
 
-  static async fetchOrderItems(orderId, type = 'HOLD') {
+  static async fetchOrdersByStatus(sectionId, status) {
+    try {
+      console.log(`🔍 [BarService] Fetching ${status} orders for section ${sectionId}`)
+      
+      const response = await apiClient.post('/v1/core-pos/listordersbysection', null, {
+        params: {
+          section_id: sectionId,
+          status: status,
+          type: 'BOTH'
+        }
+      })
+
+      console.log(`📦 [BarService] Raw ${status} orders:`, response.data)
+
+      const orders = response.data?.orders || []
+      const processedOrders = orders.map(order => {
+        console.log('Processing order:', order)
+        return {
+          ...order,
+          status: status,
+          type: order.type || 'holdInvoice',
+          // Add sections array if not present to avoid undefined checks
+          sections: []
+        }
+      })
+
+      // Fetch details for each order
+      const orderDetails = await Promise.all(
+        processedOrders.map(order => {
+          console.log(`📝 Fetching details for order ${order.id} of type ${order.type}`)
+          return this.fetchOrderItems(order.id, order.type, status)
+        })
+      )
+
+      // Merge order details with orders
+      return processedOrders.map((order, index) => {
+        const details = orderDetails[index]
+        console.log(`Processing order ${order.id} details:`, details)
+        return {
+          ...order,
+          sections: details,
+          // Add formatted reference for easy display
+          reference: order.type === 'Invoice' ? order.invoice_number : `Hold #${order.id}`,
+          // Add display type for UI
+          displayType: order.type === 'Invoice' ? 'Invoice' : 'Hold Order'
+        }
+      })
+    } catch (error) {
+      console.error(`❌ [BarService] Error fetching ${status} orders:`, error)
+      throw errorHandler.handleApi(error, '[BarService] fetchOrdersByStatus')
+    }
+  }
+
+  static async fetchOrderItems(orderId, type = 'HOLD', status = 'P') {
     try {
       const orderType = type?.toUpperCase() === 'INVOICE' ? 'INVOICE' : 'HOLD'
-      console.log(`🔍 [BarService] Fetching items for order ${orderId} of type ${orderType}`)
+      
+      console.log(`🔍 [BarService] Fetching items for order ${orderId}:`, {
+        type: orderType,
+        status: status,
+        orderId
+      })
       
       const response = await apiClient.post('/v1/core-pos/getsectionanditem', null, {
         params: {
           id: orderId,
-          type: orderType
+          type: orderType,
+          pos_status: status
         }
       })
       
@@ -91,12 +108,28 @@ export class BarService {
   static async updateOrderStatus(orderIds, status, type) {
     try {
       const apiStatus = status === 'completed' ? 'C' : 'P'
-      console.log(`🔄 [BarService] Updating status:`, { orderIds, apiStatus, type })
       
-      const response = await apiClient.put(`/v1/core-pos/orders/batch/status`, {
-        order_ids: Array.isArray(orderIds) ? orderIds : [orderIds],
+      // Normalize the type parameter
+      const getApiType = (orderType) => {
+        const upperType = orderType?.toUpperCase() || ''
+        if (upperType === 'INVOICE') return 'INVOICE'
+        if (upperType === 'HOLDINVOICE' || upperType === 'HOLD ORDER' || upperType === 'HOLD') return 'HOLD'
+        return 'HOLD'
+      }
+      
+      console.log(`🔄 [BarService] Updating order status:`, {
+        orderIds: Array.isArray(orderIds) ? orderIds : [orderIds],
         status: apiStatus,
-        type
+        originalType: type,
+        normalizedType: getApiType(type)
+      })
+      
+      const response = await apiClient.post('/v1/core-pos/changeordestatus', null, {
+        params: {
+          id: Array.isArray(orderIds) ? orderIds[0] : orderIds,
+          status: apiStatus,
+          type: getApiType(type)
+        }
       })
       
       console.log(`✅ [BarService] Status update response:`, response.data)

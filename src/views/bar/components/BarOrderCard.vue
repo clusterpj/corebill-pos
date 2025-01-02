@@ -16,13 +16,13 @@
         <div class="d-flex align-center">
           <v-chip
             size="small"
-            :color="order.type === 'HOLD' ? 'warning' : 'info'"
+            :color="order.type === 'Invoice' ? 'info' : 'warning'"
             class="mr-2"
           >
-            {{ order.type === 'HOLD' ? 'Hold' : 'Invoice' }}
+            {{ order.displayType || (order.type === 'Invoice' ? 'Invoice' : 'Hold Order') }}
           </v-chip>
           <span class="text-h6 font-weight-medium">
-            {{ order.type === 'HOLD' ? `#${order.id}` : order.invoice_number }}
+            {{ order.reference || (order.type === 'Invoice' ? order.invoice_number : `Hold #${order.id}`) }}
           </span>
         </div>
         <status-indicator
@@ -53,6 +53,7 @@
     <!-- Items -->
     <v-divider></v-divider>
     <div class="order-content pa-4">
+      <!-- Order Notes if any -->
       <div v-if="order.description" class="order-notes mb-4">
         <v-alert
           color="info"
@@ -69,10 +70,10 @@
 
       <!-- Bar Items -->
       <div class="items-list">
-        <template v-if="barSection">
+        <template v-if="barItems.length">
           <v-list density="compact">
             <v-list-item
-              v-for="item in barSection.items"
+              v-for="item in barItems"
               :key="item.id"
               :class="{ 'item--with-note': item.description }"
             >
@@ -87,8 +88,11 @@
                 </v-chip>
               </template>
 
-              <v-list-item-title class="font-weight-medium">
-                {{ item.name }}
+              <v-list-item-title class="d-flex justify-space-between align-center">
+                <span class="font-weight-medium">{{ item.name }}</span>
+                <span class="text-caption text-medium-emphasis">
+                  {{ formatPrice(item.price) }}
+                </span>
               </v-list-item-title>
 
               <v-list-item-subtitle
@@ -156,16 +160,39 @@ const emit = defineEmits(['complete'])
 const loading = ref(false)
 const isCompleted = computed(() => props.completed || props.order.status === 'C')
 
-const barSection = computed(() => {
-  console.log('🔍 Finding bar section for order:', props.order)
-  if (!props.order.sections) return null
+const barItems = computed(() => {
+  console.log('Computing bar items for order:', props.order)
   
-  const section = props.order.sections.find(s => 
-    (s.section?.name === 'BAR') || (s.name === 'BAR')
-  )
-  console.log('📋 Found bar section:', section)
-  return section
+  if (!props.order.sections) {
+    console.log('No sections found for order:', props.order.id)
+    return []
+  }
+  
+  // Find the bar section
+  const barSection = props.order.sections.find(s => {
+    const sectionName = s.section?.name || s.name
+    console.log('Checking section:', sectionName)
+    return sectionName === 'BAR'
+  })
+  
+  if (!barSection) {
+    console.log('No bar section found for order:', props.order.id)
+    return []
+  }
+  
+  console.log('Found bar section:', barSection)
+  const items = barSection.items || []
+  console.log('Bar items:', items)
+  
+  return items
 })
+
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(price / 100) // Assuming price is in cents
+}
 
 const handleComplete = async () => {
   if (loading.value || isCompleted.value) return
@@ -203,6 +230,19 @@ const handleComplete = async () => {
 
 .item--with-note {
   padding-bottom: 8px;
+}
+
+:deep(.v-list-item-title) {
+  font-size: 0.9rem !important;
+}
+
+:deep(.v-list-item-subtitle) {
+  font-size: 0.8rem !important;
+  white-space: normal !important;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .complete-btn {
