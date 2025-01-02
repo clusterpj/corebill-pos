@@ -1,30 +1,6 @@
 <!-- src/views/pos/PosView.vue -->
 <template>
   <v-layout class="pos-layout fill-height" :class="{ 'mobile-layout': $vuetify.display.smAndDown }">
-    <template v-if="!isCustomerDisplay">
-      <v-navigation-drawer
-        v-model="drawer"
-        temporary
-      >
-        <v-list>
-          <v-list-item
-            prepend-icon="mdi-home"
-            title="Home"
-            to="/"
-          ></v-list-item>
-          <v-list-item
-            prepend-icon="mdi-cog"
-            title="Settings"
-            to="/settings"
-          ></v-list-item>
-        </v-list>
-      </v-navigation-drawer>
-
-      <v-app-bar>
-        <v-app-bar-nav-icon @click="drawer = !drawer"></v-app-bar-nav-icon>
-        <v-toolbar-title>POS System</v-toolbar-title>
-      </v-app-bar>
-    </template>
     <!-- Error Alert -->
     <v-alert
       v-if="error"
