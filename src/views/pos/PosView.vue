@@ -1,6 +1,24 @@
 <!-- src/views/pos/PosView.vue -->
 <template>
   <v-layout class="pos-layout fill-height" :class="{ 'mobile-layout': $vuetify.display.smAndDown }">
+    <v-navigation-drawer
+      v-if="!isCustomerDisplay"
+      v-model="drawer"
+      temporary
+    >
+      <v-list>
+        <v-list-item
+          prepend-icon="mdi-home"
+          title="Home"
+          to="/"
+        ></v-list-item>
+        <v-list-item
+          prepend-icon="mdi-cog"
+          title="Settings"
+          to="/settings"
+        ></v-list-item>
+      </v-list>
+    </v-navigation-drawer>
     <!-- Error Alert -->
     <v-alert
       v-if="error"
@@ -78,9 +96,9 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import { useCompanyStore } from '@/stores/company'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import PosCart from './components/PosCart.vue'
 import PosProducts from './components/PosProducts.vue'
 import PosFooter from './components/PosFooter.vue'
@@ -92,6 +110,12 @@ import { logger } from '@/utils/logger'
 // Store initialization
 const companyStore = useCompanyStore()
 const router = useRouter()
+const route = useRoute()
+const drawer = ref(false)
+
+const isCustomerDisplay = computed(() => {
+  return route.path === '/customer-display'
+})
 
 // Composables
 const {
