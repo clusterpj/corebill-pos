@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="fill-height pa-0 customer-display-container hide-sidebar-btn">
+  <v-layout class="customer-display-layout">
     <template v-if="isInitialized">
       <customer-display />
     </template>
@@ -15,7 +15,7 @@
         />
       </v-overlay>
     </template>
-  </v-container>
+  </v-layout>
 </template>
 
 <script setup lang="ts">
@@ -73,17 +73,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.customer-display-container {
+.customer-display-layout {
   background-color: #f5f5f5;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* Hide the sidebar toggle button */
-:deep(.hide-sidebar-btn) .v-navigation-drawer__scrim,
-:deep(.hide-sidebar-btn) .v-app-bar-nav-icon {
-  display: none !important;
 }
 </style>
