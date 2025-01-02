@@ -27,7 +27,7 @@ export class WindowManager {
 
       // Open customer display window
       const customerWindow = window.open(
-        '/pos/customer-display',
+        '/customer-display',
         'customerDisplay',
         `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,fullscreen=yes`
       );
@@ -42,7 +42,7 @@ export class WindowManager {
       console.error('Error opening customer display:', error);
       // Try basic window open as fallback
       return window.open(
-        '/pos/customer-display',
+        '/customer-display',
         'customerDisplay',
         'menubar=no,toolbar=no,location=no,status=no,fullscreen=yes'
       );
