@@ -2,7 +2,45 @@ import { apiClient } from './client'
 import { errorHandler } from '@/utils/errorHandler'
 import { logger } from '@/utils/logger'
 
+class KitchenApiError extends Error {
+  constructor(message, code) {
+    super(message)
+    this.name = 'KitchenApiError'
+    this.code = code
+  }
+}
+
+class NetworkError extends Error {
+  constructor(message, originalError) {
+    super(message)
+    this.name = 'NetworkError'
+    this.code = 'NETWORK_ERROR'
+    this.originalError = originalError
+  }
+}
+
 export class KitchenService {
+  static async retryWithBackoff(operation, context, maxRetries = 3) {
+    let lastError = null
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation()
+      } catch (error) {
+        lastError = error
+        const delay = Math.pow(2, attempt - 1) * 1000 // Exponential backoff: 1s, 2s, 4s
+        
+        logger.warn(`Retrying operation in ${delay}ms (attempt ${attempt}/${maxRetries}):`, {
+          context,
+          error: error.message || 'Unknown error'
+        })
+        
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+    
+    throw new NetworkError('Network connection failed', lastError)
+  }
   static async fetchOrders(sectionId) {
     try {
       logger.info(`[KitchenService] Fetching orders for section ${sectionId}`)
@@ -106,7 +144,8 @@ export class KitchenService {
         apiClient.post('/v1/core-pos/changeordestatus', null, {
           params: {
             id,
-            type
+            status: apiStatus,
+            type: type?.toUpperCase() || 'HOLD'
           }
         })
       )
