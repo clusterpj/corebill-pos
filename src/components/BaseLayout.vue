@@ -3,7 +3,7 @@
   <v-app>
     <v-fade-transition>
       <v-btn
-        v-show="!drawerBehavior.permanent"
+        v-show="!drawerBehavior.permanent && !isCustomerDisplay"
         size="large"
         variant="elevated"
         color="primary"
@@ -28,6 +28,7 @@
     </v-fade-transition>
 
     <v-navigation-drawer 
+      v-if="!isCustomerDisplay"
       v-model="drawer"
       :temporary="drawerBehavior.temporary"
       :permanent="drawerBehavior.permanent"
@@ -230,14 +231,19 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useAuthStore } from '../stores/auth'
 import { useCompanyStore } from '../stores/company'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { logger } from '../utils/logger'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const companyStore = useCompanyStore()
 const drawer = ref(false)
 const { mobile, mdAndUp } = useDisplay()
+
+const isCustomerDisplay = computed(() => {
+  return route.path === '/customer-display'
+})
 
 // Dialog controls
 const showLogoutDialog = ref(false)
