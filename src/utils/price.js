@@ -119,8 +119,23 @@ export class PriceUtils {
    */
   static isInDollars(amount) {
     if (!amount) return false
-    // If it has decimal places, it's in dollars
-    return amount % 1 !== 0
+    
+    // If it's a string, parse it first
+    if (typeof amount === 'string') {
+      amount = parseFloat(amount)
+    }
+
+    // If it has decimal places, it's definitely in dollars
+    if (amount % 1 !== 0) return true
+    
+    // If it's a small whole number (< 100), assume it's dollars
+    // This handles cases like price: 15 meaning $15.00, not $0.15
+    if (Number.isInteger(amount) && amount > 0 && amount < 100) {
+      return true
+    }
+    
+    // For larger numbers, assume cents
+    return false
   }
 
   /**

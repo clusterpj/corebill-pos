@@ -45,10 +45,14 @@ export const prepareItemsForApi = (items) => {
   const companyStore = useCompanyStore()
   
   return items.map(item => {
-    // Always convert price to cents if it's in dollars
-    const itemPrice = PriceUtils.isInDollars(item.price) ? 
-      PriceUtils.toCents(item.price) : 
-      item.price
+    // Handle price conversion
+    let itemPrice = item.price
+    if (PriceUtils.isInDollars(item.price)) {
+      itemPrice = PriceUtils.toCents(item.price)
+    } else if (item.fromHeldOrder && Number.isInteger(item.price) && item.price > 0 && item.price < 10000) {
+      // For held orders with small integer prices, treat as dollars
+      itemPrice = PriceUtils.toCents(item.price)
+    }
       
     const itemQuantity = parseInt(item.quantity)
     const itemTotal = itemPrice * itemQuantity
