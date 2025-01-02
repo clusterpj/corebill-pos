@@ -1,8 +1,6 @@
-# src/views/kitchen/KitchenDisplay.vue
 <template>
   <div class="kitchen-display">
     <v-container fluid class="pa-4">
-
       <!-- Header -->
       <div class="d-flex align-center justify-space-between mb-6">
         <h1 class="text-h4 font-weight-bold">Kitchen Display</h1>
@@ -59,84 +57,87 @@
 
       <!-- Tab Content -->
       <v-window v-model="activeTab" class="flex-grow-1 overflow-y-auto">
-        <!-- Active Orders -->
-        <v-window-item value="active">
-          <div v-if="loading" class="d-flex justify-center py-8">
-            <v-progress-circular
-              indeterminate
-              color="primary"
-              size="64"
-            />
-          </div>
+        <!-- Loading State -->
+        <div v-if="loading" class="d-flex justify-center py-8">
+          <v-progress-circular
+            indeterminate
+            color="primary"
+            size="64"
+          />
+        </div>
 
-          <div v-else-if="kitchenOrders.length === 0" class="text-center py-8">
-            <v-icon
-              icon="mdi-coffee-outline"
-              size="64"
-              color="grey-lighten-1"
-              class="mb-4"
-            />
-            <h3 class="text-h6 text-grey-darken-1">No Active Orders</h3>
-            <p class="text-body-1 text-medium-emphasis">
-              All orders have been completed
-            </p>
-          </div>
-
-          <v-row v-else class="overflow-y-auto">
-            <v-col
-              v-for="order in kitchenOrders"
-              :key="order.id"
-              cols="12"
-              sm="6"
-              lg="4"
-            >
-              <kitchen-order-card
-                :order="order"
-                @complete="handleOrderComplete"
+        <template v-else>
+          <!-- Active Orders Tab -->
+          <v-window-item value="active">
+            <div v-if="kitchenOrders.length === 0" class="text-center py-8">
+              <v-icon
+                icon="mdi-coffee-outline"
+                size="64"
+                color="grey-lighten-1"
+                class="mb-4"
               />
-            </v-col>
-          </v-row>
-        </v-window-item>
+              <h3 class="text-h6 text-grey-darken-1">No Active Orders</h3>
+              <p class="text-body-1 text-medium-emphasis">
+                All orders have been completed
+              </p>
+            </div>
 
-        <!-- Order History -->
-        <v-window-item value="history">
-          <v-row v-if="completedOrders.length">
-            <v-col
-              v-for="order in completedOrders"
-              :key="order.id"
-              cols="12"
-              sm="6"
-              lg="4"
-            >
-              <kitchen-order-card
-                :order="order"
+            <v-row v-else>
+              <v-col
+                v-for="order in kitchenOrders"
+                :key="order.id"
+                cols="12"
+                sm="6"
+                lg="4"
+              >
+                <kitchen-order-card
+                  :order="order"
+                  @complete="handleOrderComplete"
+                />
+              </v-col>
+            </v-row>
+          </v-window-item>
+
+          <!-- Order History Tab -->
+          <v-window-item value="history">
+            <div v-if="completedOrders.length === 0" class="text-center py-8">
+              <v-icon
+                icon="mdi-history"
+                size="64"
+                color="grey-lighten-1"
+                class="mb-4"
               />
-            </v-col>
-          </v-row>
-          <div v-else class="text-center py-8">
-            <v-icon
-              icon="mdi-history"
-              size="64"
-              color="grey-lighten-1"
-              class="mb-4"
-            />
-            <h3 class="text-h6 text-grey-darken-1">No Order History</h3>
-            <p class="text-body-1 text-medium-emphasis">
-              Completed orders will appear here
-            </p>
-          </div>
-        </v-window-item>
+              <h3 class="text-h6 text-grey-darken-1">No Completed Orders</h3>
+              <p class="text-body-1 text-medium-emphasis">
+                Completed orders will appear here
+              </p>
+            </div>
+
+            <v-row v-else>
+              <v-col
+                v-for="order in completedOrders"
+                :key="order.id"
+                cols="12"
+                sm="6"
+                lg="4"
+              >
+                <kitchen-order-card
+                  :order="order"
+                  :completed="true"
+                />
+              </v-col>
+            </v-row>
+          </v-window-item>
+        </template>
       </v-window>
     </v-container>
   </div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { OrderType, OrderStatus } from '@/types/enums'
-import { logger } from '@/utils/logger'
-import KitchenOrderCard from './components/KitchenOrderCard.vue'
 import { KitchenService } from '@/services/api/kitchen-service'
+import KitchenOrderCard from './components/KitchenOrderCard.vue'
 
 // Constants
 const KITCHEN_SECTION_ID = 1
@@ -147,29 +148,38 @@ const loading = ref(false)
 const orders = ref([])
 const activeTab = ref('active')
 const autoRefresh = ref(true)
-const refreshTimer = ref<NodeJS.Timeout | null>(null)
+const refreshTimer = ref(null)
 
 // Computed properties
 const kitchenOrders = computed(() => {
-  console.log('📊 Current orders:', orders.value)
   return orders.value.filter(order => {
     const hasKitchenItems = order.sections?.some(section => 
       section.section?.name === 'KITCHEN' ||
       section.name === 'KITCHEN'
     )
     const isProcessing = order.status === 'P'
-    console.log(`🔍 Order ${order.id}:`, { hasKitchenItems, isProcessing })
     return hasKitchenItems && isProcessing
   })
 })
 
 const completedOrders = computed(() => {
+  console.log('Computing completed orders from:', orders.value)
   return orders.value.filter(order => {
+    // Add debugging logs
+    console.log('Checking order:', order)
+    
+    // Check if order has sections
     const hasKitchenItems = order.sections?.some(section => 
       section.section?.name === 'KITCHEN' ||
       section.name === 'KITCHEN'
-    )
-    return hasKitchenItems && order.status === 'C'
+    ) ?? true // If sections not loaded yet, assume it might have kitchen items
+    
+    // Check status - order.status might be coming from the API response
+    const isCompleted = order.status === 'C'
+    
+    console.log(`Order ${order.id} - hasKitchenItems: ${hasKitchenItems}, isCompleted: ${isCompleted}`)
+    
+    return isCompleted // For now, just check completion status
   })
 })
 
@@ -177,29 +187,65 @@ async function fetchOrders() {
   loading.value = true
   try {
     const fetchedOrders = await KitchenService.fetchOrders(KITCHEN_SECTION_ID)
-    orders.value = fetchedOrders
+    console.log('📦 All fetched orders:', fetchedOrders)
+    
+    // Process and normalize orders
+    orders.value = fetchedOrders.map(order => {
+      console.log(`🔄 Processing order ${order.id}:`, order)
+      return {
+        ...order,
+        status: order.status || (order.type === 'C' ? 'C' : 'P'),
+        // Ensure sections is always an array
+        sections: Array.isArray(order.sections) ? order.sections : []
+      }
+    })
+    
+    console.log('💾 Processed orders:', orders.value)
+    console.log('📊 Orders summary:', {
+      total: orders.value.length,
+      active: kitchenOrders.value.length,
+      completed: completedOrders.value.length
+    })
+    console.log('📊 Updated orders:', {
+      total: orders.value.length,
+      active: kitchenOrders.value.length,
+      completed: completedOrders.value.length
+    })
   } catch (error) {
-    console.error('❌ [KitchenDisplay] Error fetching orders:', error)
+    console.error('❌ Error fetching orders:', error)
   } finally {
     loading.value = false
   }
 }
 
-async function handleOrderComplete(orderId: number) {
-  console.log('🎯 [KitchenDisplay] Completing order:', orderId)
+async function handleOrderComplete(orderId) {
+  console.log('🎯 Completing order:', orderId)
   try {
     const order = orders.value.find(o => o.id === orderId)
-    if (!order) return
+    if (!order) {
+      console.error('❌ Order not found:', orderId)
+      return
+    }
     
-    await KitchenService.updateOrderStatus([orderId], 'completed', order.type)
+    // Determine the correct API type based on the order type
+    const apiType = order.type === 'Invoice' ? 'INVOICE' : 'HOLD'
+    
+    console.log('📤 Updating order status:', {
+      orderId,
+      type: order.type,
+      apiType,
+      originalOrder: order
+    })
+    
+    await KitchenService.updateOrderStatus([orderId], 'completed', apiType)
     await fetchOrders()
   } catch (error) {
-    console.error('❌ [KitchenDisplay] Error completing order:', error)
+    console.error('❌ Error completing order:', error)
   }
 }
 
 function startPolling() {
-  console.log('🔄 [KitchenDisplay] Starting polling')
+  console.log('🔄 Starting polling')
   stopPolling()
   refreshTimer.value = setInterval(fetchOrders, POLL_INTERVAL)
 }
@@ -216,7 +262,7 @@ watch(autoRefresh, (enabled) => {
 })
 
 onMounted(async () => {
-  console.log('🚀 [KitchenDisplay] Component mounted')
+  console.log('🚀 Component mounted')
   await fetchOrders()
   if (autoRefresh.value) startPolling()
 })
@@ -237,7 +283,7 @@ onUnmounted(() => {
 .v-container {
   flex: 1;
   overflow-y: auto;
-  height: calc(100vh - 64px); /* Adjust for header height */
+  height: calc(100vh - 64px);
 }
 
 .orders-count {

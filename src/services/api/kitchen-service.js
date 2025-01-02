@@ -43,86 +43,99 @@ export class KitchenService {
   }
   static async fetchOrders(sectionId) {
     try {
-      logger.info(`[KitchenService] Fetching orders for section ${sectionId}`)
-      console.log(`🚀 [KitchenService] Starting fetch for section ${sectionId}`)
-
-      // Fetch both HOLD and INVOICE orders that are processing
-      console.log('🔍 Fetching orders with section:', sectionId)
-      const [holdOrders, invoiceOrders] = await Promise.all([
-        apiClient.post('/v1/core-pos/listordersbysection', null, {
-          params: {
-            section_id: sectionId,
-            status: 'P',
-            type: 'HOLD'
-          }
-        }),
-        apiClient.post('/v1/core-pos/listordersbysection', null, {
-          params: {
-            section_id: sectionId,
-            status: 'P',
-            type: 'INVOICE'
-          }
-        })
+      logger.info(`[KitchenService] Fetching all orders for section ${sectionId}`)
+      
+      // Fetch both active and completed orders
+      const [activeOrders, completedOrders] = await Promise.all([
+        this.fetchOrdersByStatus(sectionId, 'P'),
+        this.fetchOrdersByStatus(sectionId, 'C')
       ])
 
-      console.log('📦 [KitchenService] Raw HOLD orders:', holdOrders.data)
-      console.log('📦 [KitchenService] Raw INVOICE orders:', invoiceOrders.data)
+      console.log('Active orders:', activeOrders)
+      console.log('Completed orders:', completedOrders)
 
-      const orders = [
-        ...(holdOrders.data?.orders || []).map(order => ({
-          ...order,
-          type: 'HOLD',
-          status: holdOrders.data.status
-        })),
-        ...(invoiceOrders.data?.orders || []).map(order => ({
-          ...order,
-          type: 'INVOICE',
-          status: invoiceOrders.data.status
-        }))
-      ]
+      const allOrders = [...activeOrders, ...completedOrders]
+      console.log('Combined orders:', allOrders)
 
-      console.log(`✅ [KitchenService] Combined ${orders.length} orders:`, orders)
-
-      // Fetch items and details for each order
-      console.log('🔄 [KitchenService] Starting to fetch details for orders')
-      const orderDetails = await Promise.all(
-        orders.map(order => {
-          console.log(`📝 Fetching details for order ${order.id} of type ${order.type}`)
-          return this.fetchOrderItems(order.id, order.type)
-        })
-      )
-
-      console.log('📋 [KitchenService] All order details:', orderDetails)
-
-      // Merge order details with orders
-      const ordersWithDetails = orders.map((order, index) => {
-        const details = orderDetails[index]
-        console.log(`🔗 Merging details for order ${order.id}:`, details)
-        return {
-          ...order,
-          sections: details
-        }
-      })
-
-      logger.debug('[KitchenService] Fetched orders with details:', ordersWithDetails)
-      console.log('🏁 [KitchenService] Final processed orders:', ordersWithDetails)
-      return ordersWithDetails
+      return allOrders
     } catch (error) {
       console.error('❌ [KitchenService] Error in fetchOrders:', error)
       throw errorHandler.handleApi(error, '[KitchenService] fetchOrders')
     }
   }
 
-  static async fetchOrderItems(orderId, type = 'HOLD') {
+  static async fetchOrdersByStatus(sectionId, status) {
     try {
+      console.log(`🔍 [KitchenService] Fetching ${status} orders for section ${sectionId}`)
+      
+      const response = await apiClient.post('/v1/core-pos/listordersbysection', null, {
+        params: {
+          section_id: sectionId,
+          status: status,
+          type: 'BOTH'
+        }
+      })
+
+      console.log(`📦 [KitchenService] Raw ${status} orders:`, response.data)
+
+      const orders = response.data?.orders || []
+      const processedOrders = orders.map(order => {
+        console.log('Processing order:', order)
+        return {
+          ...order,
+          status: status, // Explicitly set the status from the parameter
+          type: order.type || 'holdInvoice',
+          // Add sections array if not present to avoid undefined checks
+          sections: []
+        }
+      })
+
+      // Fetch details for each order - passing the status to fetchOrderItems
+      const orderDetails = await Promise.all(
+        processedOrders.map(order => {
+          console.log(`📝 Fetching details for order ${order.id} of type ${order.type}`)
+          return this.fetchOrderItems(order.id, order.type, status) // Pass status here
+        })
+      )
+
+      // Merge order details with orders
+      return processedOrders.map((order, index) => {
+        const details = orderDetails[index]
+        console.log(`Processing order ${order.id} details:`, details)
+        return {
+          ...order,
+          sections: details,
+          // Add formatted reference for easy display
+          reference: order.type === 'Invoice' ? order.invoice_number : `Hold #${order.id}`,
+          // Add display type for UI
+          displayType: order.type === 'Invoice' ? 'Invoice' : 'Hold Order'
+        }
+      })
+    } catch (error) {
+      console.error(`❌ [KitchenService] Error fetching ${status} orders:`, error)
+      throw errorHandler.handleApi(error, '[KitchenService] fetchOrdersByStatus')
+    }
+  }
+
+  static async fetchOrderItems(orderId, type = 'HOLD', status = 'P') {
+    try {
+      // Normalize the type for API call
       const orderType = type?.toUpperCase() === 'INVOICE' ? 'INVOICE' : 'HOLD'
-      console.log(`🔍 [KitchenService] Fetching items for order ${orderId} of type ${orderType}`)
+      
+      console.log(`🔍 [KitchenService] Fetching items for order ${orderId}:`, {
+        type: orderType,
+        status: status,
+        orderId
+      })
+      
       const response = await apiClient.post('/v1/core-pos/getsectionanditem', null, {
         params: {
           id: orderId,
-          type: orderType
+          type: orderType,
+          pos_status: status // Add pos_status parameter here
         }
       })
+      
       console.log(`✅ [KitchenService] Items fetched for order ${orderId}:`, response.data)
       return response.data?.data || []
     } catch (error) {
@@ -136,7 +149,7 @@ export class KitchenService {
       operation: 'updateOrderStatus', 
       orderIds: Array.isArray(orderIds) ? orderIds : [orderIds]
     }
-
+    console.log(type)
     return await this.retryWithBackoff(async () => {
       const apiStatus = status === 'completed' ? 'C' : 'P'
       
@@ -149,7 +162,7 @@ export class KitchenService {
           }
         })
       )
-
+      console.log (updatePromises)
       const results = await Promise.all(updatePromises)
       
       const failedUpdates = results.filter(r => !r.data?.success)

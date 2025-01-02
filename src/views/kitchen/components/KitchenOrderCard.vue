@@ -1,3 +1,4 @@
+# src/components/kitchen/KitchenOrderCard.vue
 <template>
   <v-card
     :class="[
@@ -10,18 +11,18 @@
   >
     <!-- Header -->
     <div class="order-header pa-4">
-      <!-- Order Type Chip -->
       <div class="d-flex justify-space-between align-center">
+        <!-- Order Type and Reference -->
         <div class="d-flex align-center">
           <v-chip
             size="small"
-            :color="order.type === 'HOLD' ? 'warning' : 'info'"
+            :color="order.type === 'Invoice' ? 'info' : 'warning'"
             class="mr-2"
           >
-            {{ order.type === 'HOLD' ? 'Hold' : 'Invoice' }}
+            {{ order.displayType }}
           </v-chip>
           <span class="text-h6 font-weight-medium">
-            {{ order.type === 'HOLD' ? `#${order.id}` : order.invoice_number }}
+            {{ order.reference }}
           </span>
         </div>
         <status-indicator
@@ -37,21 +38,13 @@
           format="time"
           show-elapsed
         />
-        <v-chip
-          v-if="order.invoice_number"
-          size="x-small"
-          variant="flat"
-          color="grey"
-          class="ml-2"
-        >
-          REF: {{ order.invoice_number }}
-        </v-chip>
       </div>
     </div>
 
     <!-- Items -->
     <v-divider></v-divider>
     <div class="order-content pa-4">
+      <!-- Order Notes if any -->
       <div v-if="order.description" class="order-notes mb-4">
         <v-alert
           color="info"
@@ -68,10 +61,10 @@
 
       <!-- Kitchen Items -->
       <div class="items-list">
-        <template v-if="kitchenSection">
+        <template v-if="kitchenItems.length">
           <v-list density="compact">
             <v-list-item
-              v-for="item in kitchenSection.items"
+              v-for="item in kitchenItems"
               :key="item.id"
               :class="{ 'item--with-note': item.description }"
             >
@@ -86,8 +79,11 @@
                 </v-chip>
               </template>
 
-              <v-list-item-title class="font-weight-medium">
-                {{ item.name }}
+              <v-list-item-title class="d-flex justify-space-between align-center">
+                <span class="font-weight-medium">{{ item.name }}</span>
+                <span class="text-caption text-medium-emphasis">
+                  {{ formatPrice(item.price) }}
+                </span>
               </v-list-item-title>
 
               <v-list-item-subtitle
@@ -151,16 +147,39 @@ const emit = defineEmits(['complete'])
 const loading = ref(false)
 const isCompleted = computed(() => props.order.status === 'C')
 
-const kitchenSection = computed(() => {
-  console.log('🔍 Finding kitchen section for order:', props.order)
-  if (!props.order.sections) return null
+const kitchenItems = computed(() => {
+  console.log('Computing kitchen items for order:', props.order)
   
-  const section = props.order.sections.find(s => 
-    (s.section?.name === 'KITCHEN') || (s.name === 'KITCHEN')
-  )
-  console.log('📋 Found kitchen section:', section)
-  return section
+  if (!props.order.sections) {
+    console.log('No sections found for order:', props.order.id)
+    return []
+  }
+  
+  // Find the kitchen section
+  const kitchenSection = props.order.sections.find(section => {
+    const sectionName = section.section?.name || section.name
+    console.log('Checking section:', sectionName)
+    return sectionName === 'KITCHEN'
+  })
+  
+  if (!kitchenSection) {
+    console.log('No kitchen section found for order:', props.order.id)
+    return []
+  }
+  
+  console.log('Found kitchen section:', kitchenSection)
+  const items = kitchenSection.items || []
+  console.log('Kitchen items:', items)
+  
+  return items
 })
+
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD'
+  }).format(price / 100) // Assuming price is in cents
+}
 
 const handleComplete = async () => {
   if (loading.value || isCompleted.value) return
@@ -179,7 +198,6 @@ const handleComplete = async () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border: 2px solid transparent;
 }
 
 .order-card--completed {
@@ -198,5 +216,18 @@ const handleComplete = async () => {
 
 .item--with-note {
   padding-bottom: 8px;
+}
+
+:deep(.v-list-item-title) {
+  font-size: 0.9rem !important;
+}
+
+:deep(.v-list-item-subtitle) {
+  font-size: 0.8rem !important;
+  white-space: normal !important;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>
