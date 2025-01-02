@@ -16,12 +16,26 @@ export class PriceUtils {
     // Handle null, undefined, or zero values
     if (!amount) return 0
 
+    console.debug('[PriceUtils.toCents] Input:', { 
+      amount,
+      type: typeof amount,
+      isInteger: Number.isInteger(amount)
+    })
+
     // If already an integer and less than a large threshold (e.g., $1M in cents), assume it's in cents
-    if (Number.isInteger(amount) && amount < 100000000) return Math.round(amount)
+    if (Number.isInteger(amount) && amount < 100000000) {
+      console.debug('[PriceUtils.toCents] Already in cents:', amount)
+      return Math.round(amount)
+    }
 
     // If it's a large integer, it's likely already in dollars
     if (Number.isInteger(amount) && amount >= 100000000) {
-      return Math.round(amount * 100)
+      const cents = Math.round(amount * 100)
+      console.debug('[PriceUtils.toCents] Converting large dollar amount:', { 
+        dollars: amount, 
+        cents 
+      })
+      return cents
     }
 
     // Handle string inputs

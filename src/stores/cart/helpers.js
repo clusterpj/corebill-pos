@@ -5,20 +5,39 @@ import { PriceUtils } from '@/utils/price'
 
 export const priceHelpers = {
   toCents: (amount) => {
-    logger.info('priceHelpers.toCents:', { amount })
-    return PriceUtils.toCents(amount)
+    logger.debug('priceHelpers.toCents input:', { 
+      amount,
+      type: typeof amount,
+      isInteger: Number.isInteger(amount)
+    })
+    const cents = PriceUtils.toCents(amount)
+    logger.debug('priceHelpers.toCents output:', { amount, cents })
+    return cents
   },
   
   toDollars: (amount) => {
-    logger.info('priceHelpers.toDollars:', { amount })
-    return Number(PriceUtils.toDollars(amount))
+    logger.debug('priceHelpers.toDollars input:', { 
+      amount,
+      type: typeof amount,
+      isInteger: Number.isInteger(amount)
+    })
+    const dollars = Number(PriceUtils.toDollars(amount))
+    logger.debug('priceHelpers.toDollars output:', { amount, dollars })
+    return dollars
   },
   
   normalizePrice: (price) => {
-    logger.info('priceHelpers.normalizePrice:', { price })
-    return PriceUtils.isInDollars(price) ? 
-      PriceUtils.normalizePrice(price) : 
+    logger.debug('priceHelpers.normalizePrice input:', { 
+      price,
+      type: typeof price,
+      isInteger: Number.isInteger(price)
+    })
+    // Always ensure we're working with cents
+    const cents = PriceUtils.isInDollars(price) ? 
+      PriceUtils.toCents(price) : 
       price
+    logger.debug('priceHelpers.normalizePrice output:', { price, cents })
+    return cents
   }
 }
 
@@ -26,18 +45,22 @@ export const prepareItemsForApi = (items) => {
   const companyStore = useCompanyStore()
   
   return items.map(item => {
-    // Ensure price is in cents
-    const itemPrice = priceHelpers.normalizePrice(item.price)
+    // Always convert price to cents if it's in dollars
+    const itemPrice = PriceUtils.isInDollars(item.price) ? 
+      PriceUtils.toCents(item.price) : 
+      item.price
+      
     const itemQuantity = parseInt(item.quantity)
     const itemTotal = itemPrice * itemQuantity
     
-    logger.info('Preparing item for API:', {
+    logger.debug('Preparing item for API:', {
       id: item.id,
       name: item.name,
       originalPrice: item.price,
-      normalizedPrice: itemPrice,
+      priceInCents: itemPrice,
       quantity: itemQuantity,
-      total: itemTotal
+      totalInCents: itemTotal,
+      isDollarPrice: PriceUtils.isInDollars(item.price)
     })
     
     return {
