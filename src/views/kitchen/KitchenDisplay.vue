@@ -133,79 +133,75 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { OrderType, OrderStatus } from '@/types/enums'
 import { logger } from '@/utils/logger'
 import KitchenOrderCard from './components/KitchenOrderCard.vue'
-import { useSectionOrdersStore } from '@/stores/section-orders.store'
+import { KitchenService } from '@/services/api/kitchen-service'
 
 // Constants
 const KITCHEN_SECTION_ID = 1
-const POLL_INTERVAL = 30000 // 30 seconds
-
-// Store setup
-const sectionOrdersStore = useSectionOrdersStore()
-const { loading } = storeToRefs(sectionOrdersStore)
+const POLL_INTERVAL = 30000
 
 // Local state
+const loading = ref(false)
+const orders = ref([])
 const activeTab = ref('active')
 const autoRefresh = ref(true)
 const refreshTimer = ref<NodeJS.Timeout | null>(null)
 
 // Computed properties
 const kitchenOrders = computed(() => {
-  const orders = sectionOrdersStore.getOrdersBySection('kitchen')
-  logger.debug('Kitchen Orders:', orders)
-  return orders.filter(order => {
-    const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
-    const isProcessing = order.status !== 'C' // Show all non-completed orders
-    logger.debug(`Order ${order.id} status:`, { hasKitchenItems, isProcessing })
+  console.log('📊 Current orders:', orders.value)
+  return orders.value.filter(order => {
+    const hasKitchenItems = order.sections?.some(section => 
+      section.section?.name === 'KITCHEN' ||
+      section.name === 'KITCHEN'
+    )
+    const isProcessing = order.status === 'P'
+    console.log(`🔍 Order ${order.id}:`, { hasKitchenItems, isProcessing })
     return hasKitchenItems && isProcessing
   })
 })
 
 const completedOrders = computed(() => {
-  const orders = sectionOrdersStore.getOrdersBySection('kitchen')
-  return orders.filter(order => {
-    const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
-    const isCompleted = order.status === 'C' || order.status === OrderStatus.COMPLETED
-    return hasKitchenItems && isCompleted
+  return orders.value.filter(order => {
+    const hasKitchenItems = order.sections?.some(section => 
+      section.section?.name === 'KITCHEN' ||
+      section.name === 'KITCHEN'
+    )
+    return hasKitchenItems && order.status === 'C'
   })
 })
 
-// Methods
-async function handleOrderComplete(orderId: number) {
-  console.log('🎯 [KitchenDisplay] Handling order completion:', orderId)
+async function fetchOrders() {
+  loading.value = true
   try {
-    console.log('🔄 [KitchenDisplay] Fetching updated details for order:', orderId)
-    const updatedOrder = await KitchenService.fetchOrdersDetails([orderId])
+    const fetchedOrders = await KitchenService.fetchOrders(KITCHEN_SECTION_ID)
+    orders.value = fetchedOrders
+  } catch (error) {
+    console.error('❌ [KitchenDisplay] Error fetching orders:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleOrderComplete(orderId: number) {
+  console.log('🎯 [KitchenDisplay] Completing order:', orderId)
+  try {
+    const order = orders.value.find(o => o.id === orderId)
+    if (!order) return
     
-    console.log('📦 [KitchenDisplay] Received updated order:', updatedOrder)
-    if (updatedOrder.length > 0) {
-      console.log('✏️ [KitchenDisplay] Updating order in store:', updatedOrder[0])
-      sectionOrdersStore.updateOrder(updatedOrder[0])
-      console.log('✅ [KitchenDisplay] Order update successful')
-    } else {
-      console.warn('⚠️ [KitchenDisplay] No updated order data received')
-    }
-  } catch (err) {
-    console.error('❌ [KitchenDisplay] Failed to refresh order:', err)
-    logger.error('Failed to refresh order after completion:', err)
+    await KitchenService.updateOrderStatus([orderId], 'completed', order.type)
+    await fetchOrders()
+  } catch (error) {
+    console.error('❌ [KitchenDisplay] Error completing order:', error)
   }
 }
 
 function startPolling() {
-  console.log('🔄 [KitchenDisplay] Starting polling interval')
+  console.log('🔄 [KitchenDisplay] Starting polling')
   stopPolling()
-  refreshTimer.value = setInterval(() => {
-    if (autoRefresh.value) {
-      console.log('🔄 [KitchenDisplay] Auto-refreshing orders')
-      sectionOrdersStore.debouncedFetch(KITCHEN_SECTION_ID)
-    } else {
-      console.log('⏸️ [KitchenDisplay] Auto-refresh is disabled')
-    }
-  }, POLL_INTERVAL)
-  console.log('✅ [KitchenDisplay] Polling started successfully')
+  refreshTimer.value = setInterval(fetchOrders, POLL_INTERVAL)
 }
 
 function stopPolling() {
@@ -215,28 +211,14 @@ function stopPolling() {
   }
 }
 
-// Watch for auto-refresh changes
 watch(autoRefresh, (enabled) => {
-  if (enabled) {
-    startPolling()
-  } else {
-    stopPolling()
-  }
+  enabled ? startPolling() : stopPolling()
 })
 
-// Lifecycle hooks
 onMounted(async () => {
   console.log('🚀 [KitchenDisplay] Component mounted')
-  console.log('📥 [KitchenDisplay] Initial fetch for kitchen section:', KITCHEN_SECTION_ID)
-  await sectionOrdersStore.fetchOrdersForSection(KITCHEN_SECTION_ID)
-  
-  if (autoRefresh.value) {
-    console.log('⚡ [KitchenDisplay] Auto-refresh enabled, starting polling')
-    startPolling()
-  } else {
-    console.log('💤 [KitchenDisplay] Auto-refresh disabled')
-  }
-  console.log('✅ [KitchenDisplay] Initialization complete')
+  await fetchOrders()
+  if (autoRefresh.value) startPolling()
 })
 
 onUnmounted(() => {

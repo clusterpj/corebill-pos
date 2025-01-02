@@ -36,9 +36,9 @@
             size="x-small"
             color="warning"
             class="ml-2"
-            v-if="activeOrders.length"
+            v-if="barOrders.length"
           >
-            {{ activeOrders.length }}
+            {{ barOrders.length }}
           </v-chip>
         </v-tab>
         <v-tab value="history" class="text-subtitle-1">
@@ -67,7 +67,7 @@
             />
           </div>
 
-          <div v-else-if="activeOrders.length === 0" class="text-center py-8">
+          <div v-else-if="barOrders.length === 0" class="text-center py-8">
             <v-icon
               icon="mdi-glass-mug-variant"
               size="64"
@@ -80,9 +80,9 @@
             </p>
           </div>
 
-          <v-row v-else>
+          <v-row v-else class="overflow-y-auto">
             <v-col
-              v-for="order in filteredActiveOrders"
+              v-for="order in barOrders"
               :key="order.id"
               cols="12"
               sm="6"
@@ -100,7 +100,7 @@
         <v-window-item value="history">
           <v-row v-if="completedOrders.length">
             <v-col
-              v-for="order in filteredCompletedOrders"
+              v-for="order in completedOrders"
               :key="order.id"
               cols="12"
               sm="6"
@@ -132,165 +132,96 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { storeToRefs } from 'pinia'
-import { logger } from '@/utils/logger'
-import { OrderType } from '@/types/order'
-
-// Store imports
-import { useBarStore } from '@/stores/bar-store'
-import { usePosStore } from '@/stores/pos-store'
-import { useSectionOrdersStore } from '@/stores/section-orders.store'
-import { posApi } from '@/services/api/pos-api'
+import { BarService } from '@/services/api/bar-service'
 import BarOrderCard from './components/BarOrderCard.vue'
 
-// Store setup
-const barStore = useBarStore()
-const posStore = usePosStore()
-const sectionStore = useSectionOrdersStore()
+// Constants
+const BAR_SECTION_ID = 2
+const POLL_INTERVAL = 30000
 
-const { activeOrders, completedOrders, loading, error } = storeToRefs(barStore)
-const { holdInvoices } = storeToRefs(posStore)
-const { barSections } = storeToRefs(sectionStore)
-
-// UI State
+// Local state
+const loading = ref(false)
+const orders = ref([])
 const activeTab = ref('active')
-const showError = ref(false)
-const refreshing = ref(false)
 const autoRefresh = ref(true)
-let pollInterval: NodeJS.Timeout | null = null
-let refreshInterval: NodeJS.Timeout | null = null
+const refreshTimer = ref<NodeJS.Timeout | null>(null)
 
-// Filtered orders (only bar section orders)
-const filteredActiveOrders = computed(() => {
-  return activeOrders.value.filter(order => {
-    // Check if any item in the order belongs to a bar section
-    return order.items.some(item => 
-      barSections.value.some(section => 
-        section.id === item.section_id
-      )
+// Computed properties
+const barOrders = computed(() => {
+  return orders.value.filter(order => {
+    const hasBarItems = order.sections?.some(section => 
+      (section.section?.name === 'BAR' || section.name === 'BAR') && 
+      section.items?.length > 0
     )
+    const isProcessing = order.status === 'P'
+    console.log(`🔍 Order ${order.id}:`, { hasBarItems, isProcessing, sections: order.sections })
+    return hasBarItems && isProcessing
   })
 })
 
-const filteredCompletedOrders = computed(() => 
-  completedOrders.value.filter(order => 
-    filteredActiveOrders.value.some(activeOrder => activeOrder.type === order.type)
-  )
-)
-
-// Error handling
-watch(error, (newError) => {
-  if (newError) {
-    showError.value = true
-  }
-})
-
-// Watch for changes in hold invoices
-watch(holdInvoices, (newInvoices) => {
-  if (newInvoices) {
-    logger.debug('Updating bar orders from hold invoices:', newInvoices.length)
-    barStore.initializeOrders(newInvoices)
-  }
-}, { deep: true })
-
-// Watch for auto-refresh changes
-watch(autoRefresh, (enabled) => {
-  if (enabled) {
-    startRefreshInterval()
-  } else {
-    stopRefreshInterval()
-  }
+const completedOrders = computed(() => {
+  return orders.value.filter(order => {
+    const hasBarItems = order.sections?.some(section => 
+      (section.section?.name === 'BAR' || section.name === 'BAR') && 
+      section.items?.length > 0
+    )
+    return hasBarItems && order.status === 'C'
+  })
 })
 
 // Methods
-const handleOrderComplete = async (orderId: string) => {
-  const success = await barStore.completeOrder(orderId)
-  if (success) {
-    // Optional: Play a sound or show a success notification
-  }
-}
-
-const refreshOrders = async () => {
-  if (refreshing.value) return
-  
-  refreshing.value = true
+async function fetchOrders() {
+  loading.value = true
   try {
-    await posStore.fetchHoldInvoices()
-  } catch (err) {
-    logger.error('Failed to refresh orders:', err)
-    error.value = 'Failed to refresh orders. Please try again.'
+    const fetchedOrders = await BarService.fetchOrders(BAR_SECTION_ID)
+    orders.value = fetchedOrders
+  } catch (error) {
+    console.error('❌ [BarDisplay] Error fetching orders:', error)
   } finally {
-    refreshing.value = false
+    loading.value = false
   }
 }
 
-const startRefreshInterval = () => {
-  stopRefreshInterval() // Clear any existing interval
-  refreshInterval = setInterval(refreshOrders, 15000) // 15 seconds
-}
-
-const stopRefreshInterval = () => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-    refreshInterval = null
-  }
-}
-
-// Initialize orders from POS store
-onMounted(async () => {
+async function handleOrderComplete(orderId: number) {
+  console.log('🎯 [BarDisplay] Completing order:', orderId)
   try {
-    await sectionStore.fetchSections()
-    logger.debug('Bar sections loaded', barSections.value)
-    logger.debug('Initializing bar display')
-
-    // Fetch both hold invoices and direct invoices
-    const [holdInvoicesResponse, directInvoicesResponse] = await Promise.all([
-      posStore.fetchHoldInvoices(),
-      posApi.invoice.getAll({ 
-        types: [OrderType.BAR, OrderType.DINE_IN],
-        status: ['pending', 'in_progress']
-      })
-    ])
-
-    // Initialize bar store with both types
-    barStore.initializeOrders(
-      holdInvoicesResponse?.data || [],
-      directInvoicesResponse?.data || []
-    )
+    const order = orders.value.find(o => o.id === orderId)
+    if (!order) return
     
-    // Start polling for updates
-    pollInterval = setInterval(async () => {
-      const [newHoldInvoices, newDirectInvoices] = await Promise.all([
-        posStore.fetchHoldInvoices(),
-        posApi.invoice.getAll({ 
-          types: [OrderType.BAR, OrderType.DINE_IN],
-          status: ['pending', 'in_progress']
-        })
-      ])
-      
-      barStore.initializeOrders(
-        newHoldInvoices?.data || [],
-        newDirectInvoices?.data || []
-      )
-    }, 30000) // Poll every 30 seconds
-    
-    // Start auto-refresh if enabled
-    if (autoRefresh.value) {
-      startRefreshInterval()
-    }
-  } catch (err) {
-    logger.error('Failed to initialize bar orders:', err)
-    error.value = 'Failed to load orders. Please refresh the page.'
+    await BarService.updateOrderStatus([orderId], 'completed', order.type)
+    await fetchOrders()
+  } catch (error) {
+    console.error('❌ [BarDisplay] Error completing order:', error)
   }
+}
+
+function startPolling() {
+  console.log('🔄 [BarDisplay] Starting polling')
+  stopPolling()
+  refreshTimer.value = setInterval(fetchOrders, POLL_INTERVAL)
+}
+
+function stopPolling() {
+  if (refreshTimer.value) {
+    clearInterval(refreshTimer.value)
+    refreshTimer.value = null
+  }
+}
+
+// Watchers
+watch(autoRefresh, (enabled) => {
+  enabled ? startPolling() : stopPolling()
 })
 
-// Clean up on unmount
+// Lifecycle
+onMounted(async () => {
+  console.log('🚀 [BarDisplay] Component mounted')
+  await fetchOrders()
+  if (autoRefresh.value) startPolling()
+})
+
 onUnmounted(() => {
-  if (pollInterval) {
-    clearInterval(pollInterval)
-    pollInterval = null
-  }
-  stopRefreshInterval()
+  stopPolling()
 })
 </script>
 

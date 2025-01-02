@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { logger } from '@/utils/logger'
 import { Order, OrderStatus } from '@/types/order'
-import { useSectionStore } from './section-store'
+import { useSectionOrdersStore } from './section-orders.store'
 
 export const useBarStore = defineStore('bar', () => {
   // State
@@ -26,7 +26,7 @@ export const useBarStore = defineStore('bar', () => {
         directInvoicesCount: directInvoices.length 
       })
 
-      const sectionStore = useSectionStore()
+      const sectionStore = useSectionOrdersStore()
       loading.value = true
 
       // Ensure sections are loaded

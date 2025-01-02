@@ -1,5 +1,5 @@
 import { ref, watch } from 'vue'
-import { logger } from '../../../utils/logger'
+import { logger } from '@/utils/logger'
 
 export function useErrorHandling() {
   const error = ref(null)

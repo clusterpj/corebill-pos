@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { customerModule } from './company/customer'
 import { storeModule } from './company/store'
 import { cashRegisterModule } from './company/cashRegister'
-import { logger } from '../utils/logger'
+import { logger } from '@/utils/logger'
 
 export const useCompanyStore = defineStore('company', {
   state: () => ({
@@ -70,7 +70,7 @@ export const useCompanyStore = defineStore('company', {
       } finally {
         logger.endGroup()
       }
-    },
+   },
 
     async initializeStore() {
       logger.startGroup('Company Store: Initialize')

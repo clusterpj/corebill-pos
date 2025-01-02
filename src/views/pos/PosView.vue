@@ -79,7 +79,7 @@
 
 <script setup>
 import { onMounted } from 'vue'
-import { useCompanyStore } from '../../stores/company'
+import { useCompanyStore } from '@/stores/company'
 import { useRouter } from 'vue-router'
 import PosCart from './components/PosCart.vue'
 import PosProducts from './components/PosProducts.vue'
@@ -87,7 +87,7 @@ import PosFooter from './components/PosFooter.vue'
 import ReferenceDialog from './components/dialogs/ReferenceDialog.vue'
 import { useOrderManagement } from './composables/useOrderManagement'
 import { useErrorHandling } from './composables/useErrorHandling'
-import { logger } from '../../utils/logger'
+import { logger } from '@/utils/logger'
 
 // Store initialization
 const companyStore = useCompanyStore()

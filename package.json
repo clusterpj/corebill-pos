@@ -27,6 +27,7 @@
   "devDependencies": {
     "@mdi/font": "^7.4.47",
     "@testing-library/vue": "^7.0.0",
+    "@types/lodash": "^4.17.13",
     "@vitejs/plugin-vue": "^4.2.3",
     "@vue/test-utils": "^2.4.1",
     "eslint": "^8.45.0",

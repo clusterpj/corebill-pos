@@ -1,15 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { logger } from '@/utils/logger'
-import { OrderType } from '@/types/order'
-import { useSectionStore } from './section-store'
+import { OrderStatus } from '@/types/order'
+import { useSectionOrdersStore } from './section-orders.store'
 
 // Define valid kitchen order types
 const KITCHEN_ORDER_TYPES = [
-  OrderType.DINE_IN,
-  OrderType.TO_GO,
-  OrderType.DELIVERY,
-  OrderType.PICKUP
+  OrderStatus.DINE_IN,
+  OrderStatus.TO_GO,
+  OrderStatus.DELIVERY,
+  OrderStatus.PICKUP
 ]
 
 export const useKitchenStore = defineStore('kitchen', () => {
@@ -39,7 +39,7 @@ export const useKitchenStore = defineStore('kitchen', () => {
 
   // Actions
   const initializeOrders = async (holdInvoices = [], directInvoices = []) => {
-    const sectionStore = useSectionStore()
+    const sectionStore = useSectionOrdersStore()
     loading.value = true
 
     try {
@@ -110,7 +110,7 @@ export const useKitchenStore = defineStore('kitchen', () => {
       return
     }
 
-    const sectionStore = useSectionStore()
+    const sectionStore = useSectionOrdersStore()
 
     try {
       // Process items to include section info
