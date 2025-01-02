@@ -94,25 +94,34 @@ export class KitchenService {
   }
 
   static async updateOrderStatus(orderIds, status, type) {
-    try {
-      const apiStatus = status === 'completed' ? 'C' : 'P'
-      console.log(`🔄 [KitchenService] Updating status for orders:`, {
-        orderIds,
-        newStatus: apiStatus,
-        type
-      })
-      
-      const response = await apiClient.put(`/v1/core-pos/orders/batch/status`, {
-        order_ids: Array.isArray(orderIds) ? orderIds : [orderIds],
-        status: apiStatus,
-        type
-      })
-      
-      console.log(`✅ [KitchenService] Status update response:`, response.data)
-      return response.data
-    } catch (error) {
-      console.error('❌ [KitchenService] Error updating order status:', error)
-      throw errorHandler.handleApi(error, '[KitchenService] updateOrderStatus')
+    const context = { 
+      operation: 'updateOrderStatus', 
+      orderIds: Array.isArray(orderIds) ? orderIds : [orderIds]
     }
+
+    return await this.retryWithBackoff(async () => {
+      const apiStatus = status === 'completed' ? 'C' : 'P'
+      
+      const updatePromises = context.orderIds.map(id => 
+        apiClient.post('/v1/core-pos/changeordestatus', null, {
+          params: {
+            id,
+            type
+          }
+        })
+      )
+
+      const results = await Promise.all(updatePromises)
+      
+      const failedUpdates = results.filter(r => !r.data?.success)
+      if (failedUpdates.length > 0) {
+        throw new KitchenApiError(
+          'Failed to update order status',
+          'STATUS_UPDATE_FAILED'
+        )
+      }
+
+      return { success: true }
+    }, context)
   }
 }
