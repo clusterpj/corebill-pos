@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { usePosOperations } from '../../../services/api/pos-operations'
 import { logger } from '../../../utils/logger'
+import paymentOperations from './payment.js'
 
 export function usePayment() {
   const loading = ref(false)
@@ -45,6 +46,67 @@ export function usePayment() {
       throw err
     } finally {
       loading.value = false
+    }
+  }
+
+  const fetchPaymentMethodsV1 = async () => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const response = await paymentOperations.getPaymentMethodsV1();
+      if (response.success && response.data) {
+        paymentMethods.value = response.data;
+      } else {
+        throw new Error('Failed to fetch payment methods');
+      }
+      return response.data;
+    } catch (err) {
+      error.value = err.message;
+      logger.error('Failed to fetch payment methods:', err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  const getTerminalSettings = async () => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const response = await paymentOperations.getTerminalSettings();
+      if (response.success && response.data) {
+        settings.value = response.data;
+      } else {
+        throw new Error('Failed to fetch terminal settings');
+      }
+      return response.data;
+    } catch (err) {
+      error.value = err.message;
+      logger.error('Failed to fetch terminal settings:', err);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  const processPayment = async (settingId, data) => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const response = await paymentOperations.processSale(settingId, data);
+      if (!response.success) {
+        throw new Error('Failed to process sale');
+      }
+      return response.data;
+    } catch (err) {
+      error.value = err.message;
+      logger.error('Failed to process sale:', err);
+      throw err;
+    } finally {
+      loading.value = false;
     }
   }
 
