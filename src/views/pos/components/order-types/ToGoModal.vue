@@ -169,31 +169,23 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, reactive } from 'vue'
+import { ref, computed, watch, reactive, nextTick, onMounted } from 'vue'
 import { useCartStore } from '../../../../stores/cart-store'
 import { useCompanyStore } from '../../../../stores/company'
 import { logger } from '../../../../utils/logger'
 import { OrderType } from '../../../../types/order'
 import { usePosStore } from '../../../../stores/pos-store'
-import { useOrderType } from '../../composables/useOrderType'
 import { parseOrderNotes } from '../../../../stores/cart/helpers'
 import PaymentDialog from '../dialogs/PaymentDialog.vue'
 
-// Props
-defineProps({
-  disabled: {
-    type: Boolean,
-    default: false
-  }
+const props = defineProps({
+  disabled: { type: Boolean, default: false }
 })
 
-// Store access
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
 const posStore = usePosStore()
-const { customerNotes } = useOrderType()
 
-// Local state
 const dialog = ref(false)
 const loading = ref(false)
 const processing = ref(false)
@@ -201,7 +193,6 @@ const error = ref(null)
 const currentInvoice = ref(null)
 const showPaymentDialog = ref(false)
 
-// Form state
 const customerInfo = reactive({
   name: '',
   phone: '',
@@ -216,48 +207,65 @@ const validationErrors = reactive({
   notes: ''
 })
 
-// Computed
 const selectedStore = computed(() => companyStore.selectedStore)
 const selectedCashier = computed(() => companyStore.selectedCashier)
 
-// Update notes in cart store
-const updateNotes = (value) => {
-  try {
-    // If there are existing notes in the cart, parse them first
-    let existingNotes = {}
-    try {
-      if (cartStore.notes) {
-        existingNotes = JSON.parse(cartStore.notes)
-      }
-    } catch (e) {
-      logger.warn('Failed to parse existing notes:', e)
-    }
+const updateNotes = (event) => {
+ logger.debug('Notes update triggered:', { event, type: typeof event })
+ 
+ const value = event?.target?.value || event
+ logger.debug('Extracted value:', { value, type: typeof value })
 
-    // Create new notes object, preserving existing data
-    const notesObj = {
-      ...existingNotes,
-      customerNotes: value,
-      timestamp: new Date().toISOString(),
-      orderType: OrderType.TO_GO,
-      orderInfo: {
-        ...existingNotes.orderInfo,
-        customer: {
-          ...existingNotes.orderInfo?.customer,
-          name: customerInfo.name.trim(),
-          phone: customerInfo.phone.replace(/\D/g, ''),
-          email: customerInfo.email.trim(),
-          notes: value,
-          instructions: value // Keep for backward compatibility
-        }
-      }
-    }
+ if (value === cartStore.notes) {
+   logger.debug('Value unchanged, skipping update')
+   return
+ }
+ 
+ logger.debug('Updating customerInfo:', { 
+   oldValue: customerInfo.notes,
+   newValue: value 
+ })
+ customerInfo.notes = value
 
-    cartStore.setNotes(JSON.stringify(notesObj))
-    logger.debug('Updated cart notes:', notesObj)
-  } catch (error) {
-    logger.error('Failed to update cart notes:', error)
-  }
+ const notesObj = {
+   customerNotes: value,
+   timestamp: new Date().toISOString(),
+   orderType: OrderType.TO_GO,
+   orderInfo: {
+     customer: {
+       name: customerInfo.name.trim(),
+       phone: customerInfo.phone.replace(/\D/g, ''),
+       email: customerInfo.email.trim(),
+       notes: value,
+       instructions: value
+     }
+   }
+ }
+ logger.debug('Created notes object:', notesObj)
+
+ nextTick(() => {
+   logger.debug('Updating cart store notes')
+   const stringified = JSON.stringify(notesObj)
+   logger.debug('Stringified notes:', stringified)
+   cartStore.setNotes(stringified)
+ })
 }
+
+onMounted(() => {
+ logger.debug('Component mounted')
+ if (cartStore.notes) {
+   try {
+     logger.debug('Parsing initial cart notes:', cartStore.notes)
+     const notes = parseOrderNotes(cartStore.notes)
+     if (notes) {
+       logger.debug('Setting initial notes:', notes)
+       customerInfo.notes = notes
+     }
+   } catch (error) {
+     logger.error('Failed to parse cart notes:', error)
+   }
+ }
+})
 
 // Methods
 const validateForm = () => {
@@ -409,13 +417,22 @@ const processOrder = async () => {
       description: holdInvoice.description
     }
 
-    // Double check the invoice data is valid
+    // Ensure invoice data is valid
     if (!currentInvoice.value.invoice?.total) {
-      logger.error('Invalid invoice data for payment:', currentInvoice.value)
       throw new Error('Invalid invoice data for payment')
     }
-    showPaymentDialog.value = true
+
+    // Close TOGO dialog first, then show payment dialog
     dialog.value = false
+    await nextTick()
+    showPaymentDialog.value = true
+
+    logger.debug('Dialogs state:', {
+      togoDialog: dialog.value,
+      paymentDialog: showPaymentDialog.value,
+      currentInvoice: currentInvoice.value
+    })
+
   } catch (err) {
     error.value = err.message || 'Failed to process order'
     logger.error('Failed to process TO-GO order:', err)
@@ -462,27 +479,6 @@ watch(dialog, (newValue) => {
     } catch (error) {
       logger.error('Failed to parse cart notes:', error)
     }
-  }
-})
-
-// Watch for changes in cart store notes
-watch(() => cartStore.notes, (newNotes) => {
-  try {
-    const notes = parseOrderNotes(newNotes)
-    if (notes && notes !== customerInfo.notes) {
-      customerInfo.notes = notes
-      logger.debug('Updated notes from cart store:', { notes })
-    }
-  } catch (error) {
-    logger.error('Failed to parse cart notes:', error)
-  }
-})
-
-// Watch for changes in customer notes from useOrderType
-watch(() => customerNotes.value, (newNotes) => {
-  if (newNotes !== customerInfo.notes) {
-    customerInfo.notes = newNotes
-    logger.debug('Updated notes from customer notes:', { newNotes })
   }
 })
 </script>
