@@ -21,6 +21,7 @@
           <v-btn
             icon
             @click="closeDialog"
+            color="white"
           >
             <v-icon>mdi-close</v-icon>
           </v-btn>
