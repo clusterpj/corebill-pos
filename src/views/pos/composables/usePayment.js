@@ -119,31 +119,42 @@ export function usePayment() {
   const processTerminalPayment = async (invoice, payment) => {
     const method = getPaymentMethod(payment.method_id)
     
-    if (!method.settings_id) {
-      throw new Error('Terminal settings ID not found')
+    if (!method?.settings_id) {
+      throw new Error('Terminal settings ID not found for payment method')
     }
 
     // Get terminal settings using the imported paymentOperations
     const settingsResponse = await paymentOperations.getDefaultTerminalSetting(method.settings_id)
-    if (!settingsResponse.success) {
+    if (!settingsResponse.success || !settingsResponse.data?.data) {
       throw new Error('Failed to get terminal settings')
     }
 
-    const terminalSettings = settingsResponse.data
+    const terminalSettings = settingsResponse.data.data
+
+    // Debug log terminal settings
+    console.log('Terminal settings:', {
+      settingsId: method.settings_id,
+      terminalSettings
+    })
 
     // Prepare payment data
     const paymentData = {
       amount: payment.amount,
-      id: terminalSettings.id,
+      id: method.settings_id, // Use the settings_id from the payment method
       invoice_ids: [invoice.invoice.id],
       payment_method_id: payment.method_id,
       user_id: invoice.invoice.user_id
     }
 
-    // Process payment
+    // Debug log payment data
+    console.log('Processing terminal payment:', {
+      url: `/v2/ipos-pays/setting/${method.settings_id}/sale`,
+      paymentData
+    })
+
     // Process payment using the imported paymentOperations
     const paymentResponse = await paymentOperations.processTerminalPayment(
-      terminalSettings.id,
+      method.settings_id, // Pass settings_id as first parameter
       paymentData
     )
 

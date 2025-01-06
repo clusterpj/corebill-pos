@@ -116,6 +116,10 @@ export const paymentOperations = {
   async processTerminalPayment(settingId, data) {
     logger.startGroup(`POS Operations: Process Terminal Payment for Setting ${settingId}`)
     try {
+      if (!settingId) {
+        throw new Error('Missing terminal setting ID')
+      }
+
       const response = await apiClient.post(
         `/v2/ipos-pays/setting/${settingId}/sale`,
         data
