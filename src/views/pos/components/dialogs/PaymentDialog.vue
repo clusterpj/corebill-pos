@@ -12,9 +12,10 @@
         <v-toolbar 
           color="primary"
           :elevation="1"
+          class="payment-toolbar"
         >
-          <v-toolbar-title class="text-h6 font-weight-medium">
-            <v-icon icon="mdi-cash-register" size="large" class="mr-2"></v-icon>
+          <v-toolbar-title class="text-h6 font-weight-medium text-on-primary">
+            <v-icon icon="mdi-cash-register" size="large" class="mr-2" color="on-primary"></v-icon>
             Process Payment
           </v-toolbar-title>
           <v-spacer></v-spacer>
@@ -955,13 +956,21 @@ watch(() => dialog.value, async (newValue) => {
   --v-card-elevation: 6;
 }
 
-.v-toolbar {
+.payment-toolbar {
   position: sticky;
   top: 0;
   z-index: 2;
   backdrop-filter: blur(12px);
-  background-color: rgba(var(--v-theme-surface), 0.8) !important;
+  background-color: rgba(var(--v-theme-primary), 0.95) !important;
   border-bottom: 1px solid rgba(var(--v-border-color), 0.1);
+  
+  .v-toolbar-title {
+    color: rgb(var(--v-theme-on-primary));
+  }
+  
+  .v-btn {
+    color: rgb(var(--v-theme-on-primary));
+  }
 }
 
 .payment-content {
