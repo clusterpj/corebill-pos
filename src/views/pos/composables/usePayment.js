@@ -154,6 +154,32 @@ export function usePayment() {
     return paymentResponse
   }
 
+  const processRegularPayment = async (invoice, payment) => {
+    try {
+      // Prepare payment data
+      const paymentData = {
+        invoice_id: invoice.invoice.id,
+        payment_method_id: payment.method_id,
+        amount: payment.amount,
+        received: payment.received,
+        returned: payment.returned,
+        fees: payment.fees || 0
+      }
+
+      // Create payment through POS operations
+      const response = await posOperations.createPayment(paymentData)
+      
+      if (!response.success) {
+        throw new Error('Failed to process regular payment')
+      }
+
+      return response
+    } catch (error) {
+      logger.error('Failed to process regular payment:', error)
+      throw error
+    }
+  }
+
   const createPayment = async (invoice, payments) => {
     loading.value = true
     error.value = null
