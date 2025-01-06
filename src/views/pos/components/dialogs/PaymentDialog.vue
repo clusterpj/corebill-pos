@@ -727,13 +727,14 @@ const processPayment = async () => {
 
       // Verify terminal status using the imported paymentOperations
       const settingsResponse = await paymentOperations.getDefaultTerminalSetting(method.settings_id)
-      if (!settingsResponse.success) {
+      if (!settingsResponse.success || !settingsResponse.data?.data) {
         throw new Error('Failed to get terminal settings')
       }
 
-      const terminalSettings = settingsResponse.data
+      // Access the nested data property
+      const terminalSettings = settingsResponse.data.data
 
-      // Debug logging for terminal status
+      // Debug logging with correct data access
       console.log('Terminal settings response:', {
         settingsResponse,
         terminalSettings,
