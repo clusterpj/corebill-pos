@@ -58,67 +58,81 @@ export const paymentOperations = {
   },
 
   async getTerminalSettings() {
-    logger.startGroup('POS Operations: Get Terminal Settings');
+    logger.startGroup('POS Operations: Get Terminal Settings')
     try {
-      logger.debug('Requesting terminal settings');
-      const response = await apiClient.get('/v2/ipos-pays/setting');
-
-      if (!response.data) {
-        throw new Error('Invalid terminal settings response');
+      const response = await apiClient.get('/v2/ipos-pays/setting')
+      
+      if (!response.data?.data) {
+        throw new Error('Invalid terminal settings response')
       }
 
-      logger.debug('Terminal settings response:', response.data);
-      logger.info('Terminal settings fetched successfully');
+      // Get detailed settings for each terminal
+      const terminalsWithDetails = await Promise.all(
+        response.data.data.map(async terminal => {
+          try {
+            const details = await this.getDefaultTerminalSetting(terminal.id)
+            return {
+              ...terminal,
+              details: details.data
+            }
+          } catch (error) {
+            logger.warn(`Failed to get details for terminal ${terminal.id}`, error)
+            return terminal
+          }
+        })
+      )
+
       return {
         success: true,
-        data: response.data
-      };
+        data: terminalsWithDetails
+      }
     } catch (error) {
-      return handleApiError(error);
+      return handleApiError(error)
     } finally {
-      logger.endGroup();
+      logger.endGroup()
     }
   },
 
   async getDefaultTerminalSetting(settingId) {
-    logger.startGroup(`POS Operations: Get Default Terminal Setting for ${settingId}`);
+    logger.startGroup(`POS Operations: Get Default Terminal Setting for ${settingId}`)
     try {
-      logger.debug('Requesting default terminal setting for', settingId);
-      const response = await apiClient.get(`/v2/ipos-pays/setting/${settingId}/default`);
-
+      const response = await apiClient.get(`/v2/ipos-pays/setting/${settingId}/default`)
+      
       if (!response.data) {
-        throw new Error('Invalid default terminal setting response');
+        throw new Error('Invalid terminal details response')
       }
 
-      logger.debug('Default terminal setting response:', response.data);
-      logger.info('Default terminal setting fetched successfully');
       return {
         success: true,
         data: response.data
-      };
+      }
     } catch (error) {
-      return handleApiError(error);
+      return handleApiError(error)
     } finally {
-      logger.endGroup();
+      logger.endGroup()
     }
   },
 
-  async processSale(settingId, data) {
-    logger.startGroup(`POS Operations: Process Sale for Setting ID ${settingId}`);
+  async processTerminalPayment(settingId, data) {
+    logger.startGroup(`POS Operations: Process Terminal Payment for Setting ${settingId}`)
     try {
-      logger.debug('Processing sale with data:', data);
-      const response = await apiClient.post(`/v2/ipos-pays/setting/${settingId}/sale`, data);
+      const response = await apiClient.post(
+        `/v2/ipos-pays/setting/${settingId}/sale`,
+        data
+      )
 
-      logger.debug('Sale processing response:', response.data);
-      logger.info('Sale processed successfully');
+      if (!response.data) {
+        throw new Error('Invalid terminal payment response')
+      }
+
       return {
         success: true,
         data: response.data
-      };
+      }
     } catch (error) {
-      return handleApiError(error);
+      return handleApiError(error)
     } finally {
-      logger.endGroup();
+      logger.endGroup()
     }
   }
 };

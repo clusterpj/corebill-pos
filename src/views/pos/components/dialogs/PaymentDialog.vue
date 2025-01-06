@@ -706,27 +706,30 @@ const confirmTip = () => {
 }
 
 const processPayment = async () => {
-  console.log(' [Payment] Starting payment processing...', {
-    isValid: isValid.value,
-    processing: processing.value,
-    invoiceTotal: invoiceTotal.value,
-    tipAmount: tipAmount.value,
-    payments: payments.value
-  })
-
   if (!isValid.value || processing.value) {
-    console.log(' [Payment] Cannot process - validation failed or already processing')
     return
   }
 
   processing.value = true
   try {
-    console.log(' [Payment] Starting invoice creation with props:', {
-      invoice: props.invoice,
-      hasInvoiceData: !!props.invoice?.invoice,
-      invoiceTotal: invoiceTotal.value,
-      tipAmount: tipAmount.value
+    // Validate terminal payments
+    const terminalPayments = payments.value.filter(p => {
+      const method = getPaymentMethod(p.method_id)
+      return method.add_payment_gateway === 1 && method.account_accepted === 'T'
     })
+
+    for (const payment of terminalPayments) {
+      const method = getPaymentMethod(payment.method_id)
+      if (!method.settings_id) {
+        throw new Error(`Terminal settings not configured for ${method.name}`)
+      }
+
+      // Verify terminal status
+      const settingsResponse = await paymentOperations.getDefaultTerminalSetting(method.settings_id)
+      if (!settingsResponse.success || settingsResponse.data.status !== 1) {
+        throw new Error(`Terminal ${method.name} is not ready for payments`)
+      }
+    }
 
     // Use the prepared invoice data
     const holdInvoice = props.invoice.invoice

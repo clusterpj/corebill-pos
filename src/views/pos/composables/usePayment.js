@@ -116,86 +116,82 @@ export function usePayment() {
    * @param {Array} payments - Array of payment method objects with amounts in backend format (431 for $4.31)
    */
   
+  const processTerminalPayment = async (invoice, payment) => {
+    const method = getPaymentMethod(payment.method_id)
+    
+    if (!method.settings_id) {
+      throw new Error('Terminal settings ID not found')
+    }
+
+    // Get terminal settings
+    const settingsResponse = await paymentOperations.getDefaultTerminalSetting(method.settings_id)
+    if (!settingsResponse.success) {
+      throw new Error('Failed to get terminal settings')
+    }
+
+    const terminalSettings = settingsResponse.data
+
+    // Prepare payment data
+    const paymentData = {
+      amount: payment.amount,
+      id: terminalSettings.id,
+      invoice_ids: [invoice.invoice.id],
+      payment_method_id: payment.method_id,
+      user_id: invoice.invoice.user_id
+    }
+
+    // Process payment
+    const paymentResponse = await paymentOperations.processTerminalPayment(
+      terminalSettings.id,
+      paymentData
+    )
+
+    if (!paymentResponse.success) {
+      throw new Error(`Terminal payment failed: ${paymentResponse.message}`)
+    }
+
+    return paymentResponse
+  }
+
   const createPayment = async (invoice, payments) => {
-    console.log('Creating payment for invoice:', invoice.invoice.due_amount)
     loading.value = true
     error.value = null
 
     try {
-      // Ensure we have settings
-      if (!settings.value) {
-        await fetchSettings()
+      // Separate terminal and regular payments
+      const terminalPayments = payments.filter(p => {
+        const method = getPaymentMethod(p.method_id)
+        return method.add_payment_gateway === 1 && method.account_accepted === 'T'
+      })
+
+      const regularPayments = payments.filter(p => {
+        const method = getPaymentMethod(p.method_id)
+        return !(method.add_payment_gateway === 1 && method.account_accepted === 'T')
+      })
+
+      // Process terminal payments
+      const terminalResults = await Promise.all(
+        terminalPayments.map(payment => 
+          processTerminalPayment(invoice, payment)
+        )
+      )
+
+      // Process regular payments
+      const regularResults = await Promise.all(
+        regularPayments.map(payment => 
+          processRegularPayment(invoice, payment)
+        )
+      )
+
+      return {
+        success: true,
+        terminalResults,
+        regularResults
       }
-
-      // Get next payment number
-      const nextNumberResponse = await posOperations.getNextNumber('payment')
-      if (!nextNumberResponse?.nextNumber || !nextNumberResponse?.prefix) {
-        throw new Error('Failed to get next payment number')
-      }
-
-      // Validate payments
-      for (const payment of payments) {
-        // Validate cash payments have received amount
-        const method = paymentMethods.value.find(m => m.id === payment.method_id)
-        if (method?.only_cash === 1 && !payment.received) {
-          throw new Error(`Received amount is required for ${method.name}`)
-        }
-
-        // Calculate and validate fees if active
-        if (method?.IsPaymentFeeActive === 'YES') {
-          payment.fees = calculateFees(payment.method_id, payment.amount)
-        }
-      }
-
-      // Calculate total payment amount including fees
-      console.log('Payments:', payments)
-      const totalPayment = payments.reduce((sum, payment) => sum + payment.amount, 0)
-//      const totalFees = payments.reduce((sum, payment) => sum + (payment.fees || 0), 0)
-
-      // Validate full payment is made
-      console.log('Total payment:', totalPayment)
-      console.log('Invoice total:', invoice.total)
-      if (totalPayment !== invoice.invoice.due_amount) {
-        throw new Error('Full payment is required.')
-      }
-
-      // Format payment data according to API requirements
-      const paymentData = {
-        amount: totalPayment, // Amount already in backend format
-        invoice_id: invoice.invoice.id,
-        is_multiple: 1,
-        payment_date: new Date().toISOString().split('T')[0],
-        paymentNumAttribute: nextNumberResponse.nextNumber,
-        paymentPrefix: nextNumberResponse.prefix,
-        payment_number: `${nextNumberResponse.prefix}-${nextNumberResponse.nextNumber}`,
-        payment_methods: payments.map(payment => {
-          const method = getPaymentMethod(payment.method_id)
-          return {
-            id: payment.method_id,
-            name: method.name,
-            amount: payment.amount, // Amount already in backend format
-            received: payment.received || 0, // Amount already in backend format
-            returned: payment.returned || 0, // Amount already in backend format
-            valid: true
-          }
-        }),
-        status: { value: "Approved", text: "Approved" },
-        user_id: invoice.invoice.user_id,
-        notes: `Payment for invoice ${invoice.invoice.invoice_number}`
-      }
-
-      // Create payment using the correct endpoint
-      const response = await posOperations.createPayment(paymentData)
-      
-      if (!response?.success) {
-        throw new Error('Failed to create payment')
-      }
-
-      return response.payment
-    } catch (err) {
-      error.value = err.message
-      logger.error('Failed to create payment:', err)
-      throw err
+    } catch (error) {
+      error.value = error.message
+      logger.error('Failed to create payment:', error)
+      throw error
     } finally {
       loading.value = false
     }
