@@ -60,7 +60,7 @@ export const paymentService = {
 
 ### 1. Payment Methods
 
-#### `GET /v1/payment-methods`
+#### `GET /payments/multiple/get-payment-methods`
 
 Retrieves available payment methods for the company.
 
@@ -70,30 +70,169 @@ Retrieves available payment methods for the company.
 - `page`: Page number for pagination
 
 **Response:**
-```typescript
-interface PaymentMethodResponse {
-  paymentMethods: {
-    data: PaymentMethod[];
-    current_page: number;
-    // ... pagination fields
-  };
-  paymentMethodsWithSettings: PaymentMethod[];
-  exist_authorize_setting: number;
-  exist_paypal_setting: number;
-  exist_aux_vault_setting: number;
+{
+    "payment_methods": [
+        {
+            "id": 1,
+            "name": "Cash",
+            "status": "A",
+            "only_cash": 1,
+            "add_payment_gateway": 0,
+            "paypal_button": 0,
+            "stripe_button": 0,
+            "company_id": 1,
+            "account_accepted": "N",
+            "created_at": "2024-11-30T04:30:40.000000Z",
+            "updated_at": "2024-11-30T16:17:04.000000Z",
+            "deleted_at": null,
+            "payment_gateways_id": null,
+            "settings_id": null,
+            "for_customer_use": 0,
+            "generate_expense": 0,
+            "void_refund": 0,
+            "generate_expense_id": null,
+            "void_refund_expense_id": null,
+            "expense_import": 0,
+            "is_multiple": 0,
+            "show_notes_table": 0,
+            "payment_method_id": 1,
+            "pos_money": [
+                {
+                    "id": 1,
+                    "name": "$1",
+                    "amount": "1.00",
+                    "is_coin": 1,
+                    "currency_id": 1,
+                    "created_at": "2024-11-30T16:17:43.000000Z",
+                    "updated_at": "2024-12-05T23:19:47.000000Z",
+                    "deleted_at": null
+                },
+                {
+                    "id": 3,
+                    "name": "$5",
+                    "amount": "5.00",
+                    "is_coin": 1,
+                    "currency_id": 1,
+                    "created_at": "2024-12-05T23:20:58.000000Z",
+                    "updated_at": "2024-12-05T23:20:58.000000Z",
+                    "deleted_at": null
+                },
+                {
+                    "id": 4,
+                    "name": "$10",
+                    "amount": "10.00",
+                    "is_coin": 1,
+                    "currency_id": 1,
+                    "created_at": "2024-12-05T23:21:09.000000Z",
+                    "updated_at": "2024-12-05T23:21:09.000000Z",
+                    "deleted_at": null
+                },
+                {
+                    "id": 5,
+                    "name": "$20",
+                    "amount": "20.00",
+                    "is_coin": 1,
+                    "currency_id": 1,
+                    "created_at": "2024-12-05T23:21:21.000000Z",
+                    "updated_at": "2024-12-05T23:21:21.000000Z",
+                    "deleted_at": null
+                },
+                {
+                    "id": 6,
+                    "name": "$50",
+                    "amount": "50.00",
+                    "is_coin": 1,
+                    "currency_id": 1,
+                    "created_at": "2024-12-05T23:21:33.000000Z",
+                    "updated_at": "2024-12-05T23:21:33.000000Z",
+                    "deleted_at": null
+                },
+                {
+                    "id": 7,
+                    "name": "$100",
+                    "amount": "100.00",
+                    "is_coin": 1,
+                    "currency_id": 1,
+                    "created_at": "2024-12-05T23:21:46.000000Z",
+                    "updated_at": "2025-01-03T19:17:59.000000Z",
+                    "deleted_at": null
+                },
+                {
+                    "id": 8,
+                    "name": "500",
+                    "amount": "500.00",
+                    "is_coin": 0,
+                    "currency_id": 1,
+                    "created_at": "2025-01-03T19:21:03.000000Z",
+                    "updated_at": "2025-01-03T19:21:03.000000Z",
+                    "deleted_at": null
+                }
+            ],
+            "formattedNameLabel": "Cash (No Gateway)",
+            "registrationdatafees": null,
+            "IsPaymentFeeActive": "NO"
+        },
+        {
+            "id": 3,
+            "name": "Credit Card",
+            "status": "A",
+            "only_cash": 0,
+            "add_payment_gateway": 0,
+            "paypal_button": 0,
+            "stripe_button": 0,
+            "company_id": 1,
+            "account_accepted": "N",
+            "created_at": "2024-11-30T04:30:40.000000Z",
+            "updated_at": "2024-11-30T04:30:40.000000Z",
+            "deleted_at": null,
+            "payment_gateways_id": null,
+            "settings_id": null,
+            "for_customer_use": 0,
+            "generate_expense": 0,
+            "void_refund": null,
+            "generate_expense_id": null,
+            "void_refund_expense_id": null,
+            "expense_import": 0,
+            "is_multiple": 0,
+            "show_notes_table": 0,
+            "payment_method_id": 3,
+            "pos_money": [],
+            "formattedNameLabel": "Credit Card (No Gateway)",
+            "registrationdatafees": null,
+            "IsPaymentFeeActive": "NO"
+        },
+        {
+            "id": 5,
+            "name": "Terminal Account test iposPay",
+            "status": "A",
+            "only_cash": 0,
+            "add_payment_gateway": 1,
+            "paypal_button": 0,
+            "stripe_button": 0,
+            "company_id": 1,
+            "account_accepted": "T",
+            "created_at": "2025-01-03T16:34:50.000000Z",
+            "updated_at": "2025-01-03T21:57:51.000000Z",
+            "deleted_at": null,
+            "payment_gateways_id": 5,
+            "settings_id": 2,
+            "for_customer_use": 0,
+            "generate_expense": 0,
+            "void_refund": 0,
+            "generate_expense_id": null,
+            "void_refund_expense_id": null,
+            "expense_import": 0,
+            "is_multiple": 0,
+            "show_notes_table": 0,
+            "payment_method_id": 5,
+            "pos_money": [],
+            "formattedNameLabel": "Terminal Account test iposPay (Terminal)",
+            "registrationdatafees": null,
+            "IsPaymentFeeActive": "NO"
+        }
+    ],
+    "success": true
 }
-
-interface PaymentMethod {
-  id: number;
-  name: string;
-  status: "A" | "I";
-  only_cash: number;
-  add_payment_gateway: number;     // 1 for terminal payments
-  account_accepted: "T" | "N";     // "T" for terminal payments
-  settings_id: number | null;      // Required for terminal processing
-  // ... other fields
-}
-```
 
 ### 2. Terminal Settings
 
@@ -106,20 +245,30 @@ Lists all terminal settings configurations.
 Gets configuration for a specific terminal.
 
 **Response:**
-```typescript
-interface TerminalSetting {
-  id: number;
-  name: string;
-  tpn: string;                     // Terminal ID
-  status: number;                  // 4 = ERROR
-  status_label: string;            // Human-readable status
-  environment: number;             // 0 = SANDBOX, 1 = PRODUCTION
-  environment_label: string;       // "SANDBOX" | "PRODUCTION"
-  endpoint: string;                // Terminal API endpoint
-  enabled: number;                 // Terminal active status
-  // ... configuration fields
+{
+    "data": {
+        "id": 2,
+        "name": "Terminal Real",
+        "tpn": "7343202426",
+        "auth_key": "NH53bcE5xe",
+        "status": 1,
+        "status_label": "OFFLINE",
+        "environment": 1,
+        "environment_label": "PRODUCTION",
+        "created_at": "2025-01-03T21:36:34.000000Z",
+        "updated_at": "2025-01-03T21:36:34.000000Z",
+        "default": 0,
+        "print_receipt_sale": 0,
+        "print_receipt_void": 0,
+        "print_receipt_return": 0,
+        "default_payment_type": "Credit",
+        "enabled": 1,
+        "capture_signature": 0,
+        "endpoint": "https://api.spinpos.net/v2/",
+        "terminal_status": "Offline",
+        "enable_fee_charges": 0
+    }
 }
-```
 
 ### 3. Sales Processing
 
@@ -139,15 +288,11 @@ Process a payment transaction.
 ```
 
 **Error Response:**
-```json
 {
-  "message": "The selected payment method id is invalid. (and 1 more error)",
-  "errors": {
-    "payment_method_id": ["The selected payment method id is invalid."],
-    "invoice_ids.0": ["The selected invoice_ids.0 is invalid."]
-  }
+    "success": false,
+    "message": " Error on SPIn proxy side",
+    "full_message": "Terminal in use, please wait 1 min 30 sec"
 }
-```
 
 ## Implementation Examples
 
