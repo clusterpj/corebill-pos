@@ -727,8 +727,25 @@ const processPayment = async () => {
 
       // Verify terminal status using the imported paymentOperations
       const settingsResponse = await paymentOperations.getDefaultTerminalSetting(method.settings_id)
-      if (!settingsResponse.success || settingsResponse.data.status !== 1) {
-        throw new Error(`Terminal ${method.name} is not ready for payments`)
+      if (!settingsResponse.success) {
+        throw new Error('Failed to get terminal settings')
+      }
+
+      const terminalSettings = settingsResponse.data
+
+      // Debug logging for terminal status
+      console.log('Terminal settings response:', {
+        settingsResponse,
+        terminalSettings,
+        status: terminalSettings.status,
+        terminal_status: terminalSettings.terminal_status,
+        enabled: terminalSettings.enabled
+      })
+
+      // Check terminal status - handle both numeric and string status values
+      const terminalStatus = terminalSettings.status || terminalSettings.terminal_status
+      if (terminalStatus !== 1 && terminalStatus !== 'Online') {
+        throw new Error(`Terminal ${method.name} is not ready for payments. Current status: ${terminalStatus}`)
       }
     }
 
