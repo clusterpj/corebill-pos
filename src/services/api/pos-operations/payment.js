@@ -120,13 +120,38 @@ export const paymentOperations = {
         throw new Error('Missing terminal setting ID')
       }
 
+      // Add timeout to prevent hanging
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
       const response = await apiClient.post(
         `/v2/ipos-pays/setting/${settingId}/sale`,
-        data
+        data,
+        {
+          signal: controller.signal
+        }
       )
+
+      clearTimeout(timeout)
 
       if (!response.data) {
         throw new Error('Invalid terminal payment response')
+      }
+
+      // Handle specific error responses
+      if (response.data.success === false) {
+        const errorMessage = response.data.message || 'Terminal payment failed'
+        const errorDetails = response.data.details || {}
+        
+        // Log detailed error information
+        logger.error('Terminal payment failed:', {
+          error: errorMessage,
+          details: errorDetails,
+          settingId,
+          paymentData: data
+        })
+
+        throw new Error(errorMessage)
       }
 
       return {
@@ -134,7 +159,36 @@ export const paymentOperations = {
         data: response.data
       }
     } catch (error) {
-      return handleApiError(error)
+      // Handle specific error types
+      if (error.name === 'AbortError') {
+        logger.error('Terminal payment timeout:', {
+          settingId,
+          duration: '30s'
+        })
+        throw new Error('Terminal payment timed out. Please check terminal connection and try again.')
+      }
+
+      if (error.response) {
+        // Handle HTTP errors
+        const status = error.response.status
+        if (status === 401) {
+          throw new Error('Terminal authentication failed. Please check terminal credentials.')
+        }
+        if (status === 404) {
+          throw new Error('Terminal not found. Please check terminal configuration.')
+        }
+        if (status === 500) {
+          throw new Error('Terminal processing error. Please try again.')
+        }
+      }
+
+      // Log and rethrow other errors
+      logger.error('Terminal payment error:', {
+        error: error.message,
+        settingId,
+        paymentData: data
+      })
+      throw error
     } finally {
       logger.endGroup()
     }
