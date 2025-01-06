@@ -156,14 +156,20 @@ export function usePayment() {
 
   const processRegularPayment = async (invoice, payment) => {
     try {
-      // Prepare payment data
+      // Get current date in YYYY-MM-DD format
+      const currentDate = new Date().toISOString().split('T')[0]
+      
+      // Prepare payment data with required fields
       const paymentData = {
         invoice_id: invoice.invoice.id,
         payment_method_id: payment.method_id,
         amount: payment.amount,
         received: payment.received,
         returned: payment.returned,
-        fees: payment.fees || 0
+        fees: payment.fees || 0,
+        payment_date: currentDate, // Add payment date
+        reference_number: '', // Add empty reference number if required
+        notes: '' // Add empty notes if required
       }
 
       // Create payment through POS operations
