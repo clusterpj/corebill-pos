@@ -78,10 +78,6 @@
                         <span>Total Amount:</span>
                         <strong>{{ formatCurrency(invoiceTotal + tipAmount) }}</strong>
                       </div>
-                      <div class="d-flex justify-space-between">
-                        <span>Remaining:</span>
-                        <strong>{{ formatCurrency(remainingAmount) }}</strong>
-                      </div>
                     </v-card-text>
                   </v-card>
 
