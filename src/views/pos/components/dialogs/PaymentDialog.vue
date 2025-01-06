@@ -363,6 +363,7 @@ import { convertHeldOrderToInvoice } from '../held-orders/utils/invoiceConverter
 import { posApi } from '@/services/api/pos-api'
 import { PriceUtils } from '@/utils/price'
 import PdfViewerDialog from '@/components/common/PdfViewerDialog.vue'
+import { paymentOperations } from '@/services/api/pos-operations/payment'
 
 const emit = defineEmits(['update:modelValue', 'paymentComplete'])
 
@@ -724,7 +725,7 @@ const processPayment = async () => {
         throw new Error(`Terminal settings not configured for ${method.name}`)
       }
 
-      // Verify terminal status
+      // Verify terminal status using the imported paymentOperations
       const settingsResponse = await paymentOperations.getDefaultTerminalSetting(method.settings_id)
       if (!settingsResponse.success || settingsResponse.data.status !== 1) {
         throw new Error(`Terminal ${method.name} is not ready for payments`)

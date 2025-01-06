@@ -123,7 +123,7 @@ export function usePayment() {
       throw new Error('Terminal settings ID not found')
     }
 
-    // Get terminal settings
+    // Get terminal settings using the imported paymentOperations
     const settingsResponse = await paymentOperations.getDefaultTerminalSetting(method.settings_id)
     if (!settingsResponse.success) {
       throw new Error('Failed to get terminal settings')
@@ -141,6 +141,7 @@ export function usePayment() {
     }
 
     // Process payment
+    // Process payment using the imported paymentOperations
     const paymentResponse = await paymentOperations.processTerminalPayment(
       terminalSettings.id,
       paymentData
