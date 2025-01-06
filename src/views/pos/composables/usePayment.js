@@ -169,7 +169,9 @@ export function usePayment() {
         fees: payment.fees || 0,
         payment_date: currentDate, // Add payment date
         reference_number: '', // Add empty reference number if required
-        notes: '' // Add empty notes if required
+        notes: '', // Add empty notes if required
+        user_id: invoice.invoice.user_id || 0, // Add user_id from invoice
+        company_id: 1 // Add company_id (default to 1 if not specified)
       }
 
       // Create payment through POS operations
