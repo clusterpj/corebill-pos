@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { usePosOperations } from '../../../services/api/pos-operations'
 import { logger } from '../../../utils/logger'
-import paymentOperations from './payment.js'
+import { paymentOperations } from '../../../services/api/pos-operations/payment'
 
 export function usePayment() {
   const loading = ref(false)

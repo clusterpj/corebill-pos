@@ -137,4 +137,4 @@ export const paymentOperations = {
   }
 };
 
-export default paymentOperations
+export { paymentOperations }
