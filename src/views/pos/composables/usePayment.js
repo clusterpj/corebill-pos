@@ -159,6 +159,9 @@ export function usePayment() {
       // Get current date in YYYY-MM-DD format
       const currentDate = new Date().toISOString().split('T')[0]
       
+      // Generate a unique payment number
+      const paymentNumber = `PAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+      
       // Prepare payment data with required fields
       const paymentData = {
         invoice_id: invoice.invoice.id,
@@ -167,11 +170,12 @@ export function usePayment() {
         received: payment.received,
         returned: payment.returned,
         fees: payment.fees || 0,
-        payment_date: currentDate, // Add payment date
-        reference_number: '', // Add empty reference number if required
-        notes: '', // Add empty notes if required
-        user_id: invoice.invoice.user_id || 0, // Add user_id from invoice
-        company_id: 1 // Add company_id (default to 1 if not specified)
+        payment_date: currentDate,
+        reference_number: '', 
+        notes: '', 
+        user_id: invoice.invoice.user_id || 0,
+        company_id: 1,
+        payment_number: paymentNumber // Add payment number
       }
 
       // Create payment through POS operations
