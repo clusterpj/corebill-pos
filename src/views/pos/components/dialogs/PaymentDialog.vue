@@ -950,11 +950,17 @@ watch(() => dialog.value, async (newValue) => {
   flex-direction: column;
   height: 100vh;
   background-color: rgb(var(--v-theme-surface));
+  --v-card-border-radius: 24px;
+  --v-card-elevation: 6;
 }
 
 .v-toolbar {
-  position: relative;
-  z-index: 1;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  backdrop-filter: blur(12px);
+  background-color: rgba(var(--v-theme-surface), 0.8) !important;
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.1);
 }
 
 .payment-content {
@@ -963,6 +969,19 @@ watch(() => dialog.value, async (newValue) => {
   display: flex;
   flex-direction: column;
   background-color: rgb(var(--v-theme-background));
+  padding: 24px;
+}
+
+@media (max-width: 960px) {
+  .payment-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .payment-content {
+    padding: 12px;
+  }
 }
 
 .loading-state {
@@ -987,6 +1006,13 @@ watch(() => dialog.value, async (newValue) => {
   position: sticky;
   top: 16px;
   z-index: 1;
+  border: 1px solid rgba(var(--v-border-color), 0.1);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  }
 }
 
 .payment-methods-grid {
@@ -995,19 +1021,36 @@ watch(() => dialog.value, async (newValue) => {
 
 .payment-method-btn {
   height: 64px !important;
-  border-radius: 12px;
+  border-radius: 16px;
   text-transform: none;
   letter-spacing: 0.5px;
   font-size: 1rem;
   font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(var(--v-border-color), 0.1);
   
   &:hover {
     transform: translateY(-2px);
-    transition: transform 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: rgba(var(--v-theme-primary), 0.3);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   }
   
   &.v-btn--disabled {
-    opacity: 0.7;
+    opacity: 0.6;
+    filter: grayscale(0.8);
+  }
+  
+  .v-icon {
+    transition: transform 0.2s ease;
+  }
+  
+  &:hover .v-icon {
+    transform: scale(1.1);
   }
 }
 
@@ -1040,19 +1083,41 @@ watch(() => dialog.value, async (newValue) => {
   left: 0;
   right: 0;
   padding: 16px;
-  background: rgb(var(--v-theme-surface));
-  border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: rgba(var(--v-theme-surface), 0.9);
+  border-top: 1px solid rgba(var(--v-border-color), 0.1);
   margin: 0 -16px -16px;
+  backdrop-filter: blur(12px);
+  z-index: 2;
 }
 
 .process-payment-btn {
   max-width: 600px;
   margin: 0 auto;
-  border-radius: 12px;
+  border-radius: 16px;
   text-transform: none;
   letter-spacing: 0.5px;
   font-size: 1.1rem;
   font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(var(--v-border-color), 0.1);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  
+  .v-icon {
+    transition: transform 0.2s ease;
+  }
+  
+  &:hover .v-icon {
+    transform: scale(1.1);
+  }
 }
 
 .error-alert {
