@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Core POS Logo</title>
+    <g id="Logo" fill="#000000">
+        <!-- Simple POS terminal shape -->
+        <path d="M96 64h320c17.7 0 32 14.3 32 32v320c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32V96c0-17.7 14.3-32 32-32zm32 80v224h256V144H128zm32 32h192v48H160v-48zm0 80h128v32H160v-32z"/>
+        <!-- Screen area -->
+        <rect x="144" y="128" width="224" height="160" rx="8"/>
+        <!-- Keypad area -->
+        <g transform="translate(144, 304)">
+            <rect x="0" y="0" width="64" height="32" rx="4"/>
+            <rect x="80" y="0" width="64" height="32" rx="4"/>
+            <rect x="160" y="0" width="64" height="32" rx="4"/>
+        </g>
+    </g>
+</svg>
