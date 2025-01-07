@@ -74,7 +74,7 @@ export class WindowManager {
               height = savedScreen.availHeight
               this.settings.screen = savedScreen
               this.saveSettings()
-              break
+              return
             }
           }
 
