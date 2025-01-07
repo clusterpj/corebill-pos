@@ -580,12 +580,10 @@ const selectPaymentMethod = (methodId) => {
 
 const handleDenominationClick = (money, index) => {
   const payment = payments.value[index]
-  const currentReceived = payment.displayReceived ? Number(payment.displayReceived) : 0
-  const amountToAdd = Number(money.amount)
-  const newTotal = currentReceived + amountToAdd
+  const selectedAmount = Number(money.amount)
   
-  // Update display amount (in dollars)
-  payment.displayReceived = newTotal.toFixed(2)
+  // Replace current amount with selected amount (in dollars)
+  payment.displayReceived = selectedAmount.toFixed(2)
   // Update internal amount (in cents)
   payment.received = PriceUtils.toCents(payment.displayReceived)
   
