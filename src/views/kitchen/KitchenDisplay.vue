@@ -146,7 +146,7 @@ const POLL_INTERVAL = 30000
 // Local state
 const loading = ref(false)
 const orders = ref([])
-const activeTab = ref('active')
+const activeTab = ref('active') // Default to 'active' tab
 const autoRefresh = ref(true)
 const refreshTimer = ref(null)
 
@@ -261,8 +261,16 @@ watch(autoRefresh, (enabled) => {
 
 onMounted(async () => {
   console.log('🚀 Component mounted')
+  console.log('Initial activeTab value:', activeTab.value)
   await fetchOrders()
   if (autoRefresh.value) startPolling()
+  
+  // Log tab state after mount
+  console.log('Tab state after mount:', {
+    activeTab: activeTab.value,
+    kitchenOrders: kitchenOrders.value.length,
+    completedOrders: completedOrders.value.length
+  })
 })
 
 onUnmounted(() => {
