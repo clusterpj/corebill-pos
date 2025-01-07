@@ -152,35 +152,33 @@ const refreshTimer = ref(null)
 
 // Computed properties
 const kitchenOrders = computed(() => {
-  return orders.value.filter(order => {
-    const hasKitchenItems = order.sections?.some(section => 
-      section.section?.name === 'KITCHEN' ||
-      section.name === 'KITCHEN'
-    )
-    const isProcessing = order.status === 'P'
-    return hasKitchenItems && isProcessing
-  })
+  return orders.value
+    .filter(order => {
+      const hasKitchenItems = order.sections?.some(section => 
+        section.section?.name === 'KITCHEN' ||
+        section.name === 'KITCHEN'
+      )
+      const isProcessing = order.status === 'P'
+      return hasKitchenItems && isProcessing
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.invoice_date || a.created_at || a.date)
+      const dateB = new Date(b.invoice_date || b.created_at || b.date)
+      return dateB - dateA // Sort newest first
+    })
 })
 
 const completedOrders = computed(() => {
-  console.log('Computing completed orders from:', orders.value)
-  return orders.value.filter(order => {
-    // Add debugging logs
-    console.log('Checking order:', order)
-    
-    // Check if order has sections
-    const hasKitchenItems = order.sections?.some(section => 
-      section.section?.name === 'KITCHEN' ||
-      section.name === 'KITCHEN'
-    ) ?? true // If sections not loaded yet, assume it might have kitchen items
-    
-    // Check status - order.status might be coming from the API response
-    const isCompleted = order.status === 'C'
-    
-    console.log(`Order ${order.id} - hasKitchenItems: ${hasKitchenItems}, isCompleted: ${isCompleted}`)
-    
-    return isCompleted // For now, just check completion status
-  })
+  return orders.value
+    .filter(order => {
+      const isCompleted = order.status === 'C'
+      return isCompleted
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.invoice_date || a.created_at || a.date)
+      const dateB = new Date(b.invoice_date || b.created_at || b.date)
+      return dateB - dateA // Sort newest first
+    })
 })
 
 async function fetchOrders() {
