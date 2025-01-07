@@ -2,7 +2,7 @@
   <v-container fluid class="fill-height pa-0">
     <v-row class="fill-height ma-0">
       <!-- Cart Section -->
-      <v-col cols="7" class="pa-4">
+      <v-col cols="12" md="7" class="pa-4">
         <v-fade-transition>
           <v-card class="cart-display h-100 d-flex flex-column" elevation="2" v-show="!isRefreshing">
             <v-card-title class="text-center text-h5 py-4 flex-shrink-0">
@@ -92,7 +92,7 @@
       </v-col>
 
       <!-- Promo Section -->
-      <v-col cols="5" class="pa-0 d-flex">
+      <v-col cols="12" md="5" class="pa-0 d-flex">
         <PromoSlider class="fill-height w-100" />
       </v-col>
     </v-row>
@@ -227,10 +227,27 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+html, body {
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+}
+
+.customer-display-layout {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
 .cart-display {
   will-change: opacity;
   backface-visibility: hidden;
   transform: translateZ(0);
+  height: 100%;
+  max-height: 100vh;
+  overflow: hidden;
 }
 
 .order-items {
@@ -239,6 +256,23 @@ onUnmounted(() => {
 
 .cart-summary {
   background: #f5f5f5;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+}
+
+.v-container {
+  max-width: 100vw;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
+.v-row {
+  min-height: 100vh;
+}
+
+.v-col {
+  overflow: hidden;
 }
 
 .totals {

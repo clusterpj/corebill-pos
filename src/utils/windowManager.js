@@ -124,27 +124,41 @@ export class WindowManager {
       const customerWindow = window.open(
         '/customer-display',
         'customerDisplay',
-        `left=${left},top=${top},fullscreen=yes`
+        `left=${left},top=${top},width=${width},height=${height},fullscreen=yes`
       );
 
       if (customerWindow) {
         // Force window position and size
         const setupWindow = () => {
           try {
-            // Move to correct screen and enter fullscreen
+            // Move to correct screen
             customerWindow.moveTo(left, top)
+            
+            // Set initial size
+            customerWindow.resizeTo(width, height)
             
             // Use document.fullscreen API if available
             if (customerWindow.document.documentElement.requestFullscreen) {
               customerWindow.document.documentElement.requestFullscreen()
+                .then(() => {
+                  // Ensure proper scaling
+                  customerWindow.document.body.style.zoom = '1'
+                  customerWindow.document.body.style.transform = 'scale(1)'
+                })
             }
             
             // Focus the window
             customerWindow.focus()
             
-            // Save position
+            // Save position and size
             this.settings.position = { left, top }
+            this.settings.size = { width, height }
             this.saveSettings()
+            
+            // Add resize handler to maintain fullscreen
+            customerWindow.addEventListener('resize', () => {
+              customerWindow.resizeTo(width, height)
+            })
           } catch (e) {
             console.warn('Could not position window:', e)
           }
