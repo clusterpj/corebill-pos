@@ -120,44 +120,31 @@ export class WindowManager {
         height = this.settings.size.height
       }
 
-      // Open customer display window with specific position and size
+      // Open customer display window in fullscreen mode
       const customerWindow = window.open(
         '/customer-display',
         'customerDisplay',
-        `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`
+        `left=${left},top=${top},fullscreen=yes`
       );
 
       if (customerWindow) {
         // Force window position and size
         const setupWindow = () => {
           try {
+            // Move to correct screen and enter fullscreen
             customerWindow.moveTo(left, top)
-            customerWindow.resizeTo(width, height)
             
-            // Save new position/size
-            this.settings.position = { left, top }
-            this.settings.size = { width, height }
-            this.saveSettings()
+            // Use document.fullscreen API if available
+            if (customerWindow.document.documentElement.requestFullscreen) {
+              customerWindow.document.documentElement.requestFullscreen()
+            }
             
-            // Try to focus the window
+            // Focus the window
             customerWindow.focus()
             
-            // Add event listeners for manual moves/resizes
-            customerWindow.addEventListener('resize', () => {
-              this.settings.size = {
-                width: customerWindow.innerWidth,
-                height: customerWindow.innerHeight
-              }
-              this.saveSettings()
-            })
-            
-            customerWindow.addEventListener('move', () => {
-              this.settings.position = {
-                left: customerWindow.screenX,
-                top: customerWindow.screenY
-              }
-              this.saveSettings()
-            })
+            // Save position
+            this.settings.position = { left, top }
+            this.saveSettings()
           } catch (e) {
             console.warn('Could not position window:', e)
           }
@@ -171,20 +158,21 @@ export class WindowManager {
       return customerWindow;
     } catch (error) {
       console.error('Error opening customer display:', error);
-      // Fallback to basic window open
+      // Fallback to basic fullscreen window
       const fallbackWindow = window.open(
         '/customer-display',
         'customerDisplay',
-        'menubar=no,toolbar=no,location=no,status=no,fullscreen=yes'
+        'fullscreen=yes'
       );
       
-      if (fallbackWindow && window.screen) {
-        // Try to position on second screen
+      if (fallbackWindow) {
+        // Try to enter fullscreen mode
         setTimeout(() => {
-          fallbackWindow.moveTo(window.screen.width, 0);
-          fallbackWindow.resizeTo(window.screen.width, window.screen.height);
-          fallbackWindow.focus();
-        }, 100);
+          if (fallbackWindow.document.documentElement.requestFullscreen) {
+            fallbackWindow.document.documentElement.requestFullscreen()
+          }
+          fallbackWindow.focus()
+        }, 100)
       }
       
       return fallbackWindow;
