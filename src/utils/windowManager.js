@@ -135,24 +135,43 @@ export class WindowManager {
               // Set initial size to match screen dimensions
               customerWindow.resizeTo(width, height);
               
+              // Add CSS to remove any potential borders/padding
+              const style = document.createElement('style');
+              style.textContent = `
+                html, body {
+                  margin: 0;
+                  padding: 0;
+                  overflow: hidden;
+                  width: 100vw;
+                  height: 100vh;
+                }
+                * {
+                  box-sizing: border-box;
+                }
+              `;
+              customerWindow.document.head.appendChild(style);
+              
               // Enter fullscreen mode using the modern API
               if (customerWindow.document.documentElement.requestFullscreen) {
+                // First resize to exact screen dimensions
+                customerWindow.resizeTo(width, height);
+                
+                // Then enter fullscreen
                 customerWindow.document.documentElement.requestFullscreen()
                   .then(() => {
-                    // Ensure proper scaling
+                    // Force full dimensions
                     customerWindow.document.body.style.overflow = 'hidden';
                     customerWindow.document.body.style.margin = '0';
                     customerWindow.document.body.style.padding = '0';
+                    customerWindow.document.body.style.width = '100vw';
+                    customerWindow.document.body.style.height = '100vh';
                     
-                    // Adjust window size to account for any browser chrome
-                    const actualWidth = customerWindow.innerWidth;
-                    const actualHeight = customerWindow.innerHeight;
-                    
-                    if (actualWidth !== width || actualHeight !== height) {
-                      const widthDiff = width - actualWidth;
-                      const heightDiff = height - actualHeight;
-                      customerWindow.resizeTo(width + widthDiff, height + heightDiff);
-                    }
+                    // Double check dimensions after fullscreen
+                    setTimeout(() => {
+                      if (customerWindow.innerWidth !== width || customerWindow.innerHeight !== height) {
+                        customerWindow.resizeTo(width, height);
+                      }
+                    }, 100);
                   })
                   .catch(err => {
                     console.warn('Fullscreen error:', err);

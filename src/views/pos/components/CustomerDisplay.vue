@@ -227,12 +227,22 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-html, body {
-  overflow: hidden;
-  margin: 0;
-  padding: 0;
-  width: 100vw;
-  height: 100vh;
+:deep(html),
+:deep(body) {
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+}
+
+:deep(.v-application__wrap) {
+  min-height: 100vh !important;
+  height: 100vh !important;
+  overflow: hidden !important;
 }
 
 .customer-display-layout {
