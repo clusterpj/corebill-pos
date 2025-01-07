@@ -120,73 +120,92 @@ export class WindowManager {
         height = this.settings.size.height
       }
 
-      // Open customer display window in fullscreen mode
+      // Open customer display window
       const customerWindow = window.open(
         '/customer-display',
         'customerDisplay',
-        `left=${left},top=${top},width=${width},height=${height},fullscreen=yes`
+        `left=${left},top=${top},width=${width},height=${height}`
       );
 
       if (customerWindow) {
-        // Force window position and size
         const setupWindow = () => {
           try {
-            // Move to correct screen
-            customerWindow.moveTo(left, top)
-            
-            // Set initial size
-            customerWindow.resizeTo(width, height)
-            
-            // Use document.fullscreen API if available
-            if (customerWindow.document.documentElement.requestFullscreen) {
-              customerWindow.document.documentElement.requestFullscreen()
-                .then(() => {
-                  // Ensure proper scaling
-                  customerWindow.document.body.style.zoom = '1'
-                  customerWindow.document.body.style.transform = 'scale(1)'
-                })
-            }
-            
-            // Focus the window
-            customerWindow.focus()
-            
-            // Save position and size
-            this.settings.position = { left, top }
-            this.settings.size = { width, height }
-            this.saveSettings()
-            
-            // Add resize handler to maintain fullscreen
-            customerWindow.addEventListener('resize', () => {
+            // Wait for window to load
+            customerWindow.addEventListener('load', () => {
+              // Move to correct screen
+              customerWindow.moveTo(left, top)
+              
+              // Set initial size to match screen dimensions
               customerWindow.resizeTo(width, height)
+              
+              // Enter fullscreen mode using the modern API
+              if (customerWindow.document.documentElement.requestFullscreen) {
+                customerWindow.document.documentElement.requestFullscreen()
+                  .then(() => {
+                    // Ensure proper scaling
+                    customerWindow.document.body.style.overflow = 'hidden'
+                    customerWindow.document.body.style.margin = '0'
+                    customerWindow.document.body.style.padding = '0'
+                    
+                    // Force fullscreen dimensions
+                    customerWindow.resizeTo(width, height)
+                  })
+                  .catch(err => {
+                    console.warn('Fullscreen error:', err)
+                    // Fallback to window dimensions
+                    customerWindow.resizeTo(width, height)
+                  })
+              } else {
+                // Fallback for browsers without fullscreen API
+                customerWindow.resizeTo(width, height)
+              }
+              
+              // Focus the window
+              customerWindow.focus()
+              
+              // Save position and size
+              this.settings.position = { left, top }
+              this.settings.size = { width, height }
+              this.saveSettings()
+            })
+            
+            // Handle window closing
+            customerWindow.addEventListener('beforeunload', () => {
+              if (customerWindow.document.fullscreenElement) {
+                customerWindow.document.exitFullscreen()
+              }
             })
           } catch (e) {
             console.warn('Could not position window:', e)
           }
         }
 
-        // Try immediately, then again after short delay
-        setupWindow()
-        setTimeout(setupWindow, 100)
+        // Setup window after short delay to ensure it's ready
+        setTimeout(setupWindow, 500)
       }
 
       return customerWindow;
     } catch (error) {
       console.error('Error opening customer display:', error);
-      // Fallback to basic fullscreen window
+      // Fallback to basic window
       const fallbackWindow = window.open(
         '/customer-display',
         'customerDisplay',
-        'fullscreen=yes'
+        `width=${window.screen.availWidth},height=${window.screen.availHeight}`
       );
       
       if (fallbackWindow) {
-        // Try to enter fullscreen mode
         setTimeout(() => {
-          if (fallbackWindow.document.documentElement.requestFullscreen) {
-            fallbackWindow.document.documentElement.requestFullscreen()
+          try {
+            fallbackWindow.resizeTo(window.screen.availWidth, window.screen.availHeight)
+            if (fallbackWindow.document.documentElement.requestFullscreen) {
+              fallbackWindow.document.documentElement.requestFullscreen()
+            }
+            fallbackWindow.focus()
+          } catch (err) {
+            console.warn('Fallback window setup error:', err)
           }
-          fallbackWindow.focus()
-        }, 100)
+        }, 500)
       }
       
       return fallbackWindow;
