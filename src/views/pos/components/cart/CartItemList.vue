@@ -217,9 +217,12 @@ const handleModifyItem = (itemId, index) => {
     .filter(i => i.id === itemId)
     .map(i => i.instanceId)
   
+  // Ensure we have unique instance IDs
+  const uniqueInstanceIds = [...new Set(instanceIds)]
+  
   modifyingItemId.value = itemId
   modifyingItemName.value = item.name
-  modifyingInstanceIds.value = instanceIds
+  modifyingInstanceIds.value = uniqueInstanceIds
   showModificationModal.value = true
   emit('modify', itemId, index)
 }
