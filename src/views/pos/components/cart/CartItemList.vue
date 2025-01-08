@@ -209,23 +209,30 @@ const handleModifyItem = (itemId, index) => {
   
   // If this is a grouped item, split it into individual items
   if (item.quantity > 1) {
-    // Remove the grouped item
+    // Create individual items first
+    const newItems = Array.from({ length: item.quantity }, (_, i) => ({
+      ...item,
+      quantity: 1,
+      instanceId: `${item.id}-${Date.now()}-${i}`
+    }))
+    
+    // Add the new items first
+    newItems.forEach(newItem => {
+      emit('add', newItem)
+    })
+    
+    // Then remove the grouped item
     emit('remove', itemId, index)
     
-    // Add individual items
-    for (let i = 0; i < item.quantity; i++) {
-      emit('add', {
-        ...item,
-        quantity: 1,
-        instanceId: `${item.id}-${Date.now()}-${i}`
-      })
-    }
-    
-    // Get the new index of the first item
-    index = props.items.findIndex(i => i.id === itemId)
+    // Use the first new item's instance ID
+    modifyingItemId.value = itemId
+    modifyingItemName.value = item.name
+    modifyingInstanceIds.value = newItems.map(i => i.instanceId)
+    showModificationModal.value = true
+    return
   }
   
-  // Ensure each item has a unique instance ID
+  // For single items or already split items
   if (!item.instanceId) {
     item.instanceId = `${item.id}-${Date.now()}-${index}`
   }
@@ -235,12 +242,9 @@ const handleModifyItem = (itemId, index) => {
     .filter(i => i.id === itemId)
     .map(i => i.instanceId)
   
-  // Ensure we have unique instance IDs
-  const uniqueInstanceIds = [...new Set(instanceIds)]
-  
   modifyingItemId.value = itemId
   modifyingItemName.value = item.name
-  modifyingInstanceIds.value = uniqueInstanceIds
+  modifyingInstanceIds.value = [...new Set(instanceIds)]
   showModificationModal.value = true
   emit('modify', itemId, index)
 }
