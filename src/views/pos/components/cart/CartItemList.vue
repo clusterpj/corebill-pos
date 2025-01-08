@@ -51,6 +51,15 @@
                 class="touch-btn"
               />
               <v-btn
+                icon="mdi-pencil"
+                size="small"
+                variant="tonal"
+                density="comfortable"
+                color="primary"
+                @click="handleModifyItem(item.id, index)"
+                class="touch-btn"
+              />
+              <v-btn
                 icon="mdi-delete"
                 size="small"
                 variant="tonal"
@@ -79,7 +88,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit', 'remove', 'updateQuantity'])
+const emit = defineEmits(['edit', 'remove', 'updateQuantity', 'modify'])
 
 // Log initial cart state
 console.log('CartItemList - Initial cart state:', {
@@ -172,6 +181,15 @@ const handleEditItem = (itemId, index) => {
   })
   emit('edit', itemId, index)
 }
+
+const handleModifyItem = (itemId, index) => {
+  console.log('CartItemList - Modifying item:', {
+    itemId,
+    index,
+    item: props.items[index]
+  })
+  emit('modify', itemId, index)
+}
 </script>
 
 <style scoped>
@@ -245,6 +263,12 @@ const handleEditItem = (itemId, index) => {
   min-width: 36px !important;
   width: 36px;
   height: 36px !important;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
 }
 
 .touch-btn:active {
