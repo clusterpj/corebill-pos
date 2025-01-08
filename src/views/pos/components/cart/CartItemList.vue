@@ -196,14 +196,21 @@ const handleEditItem = (itemId, index) => {
 }
 
 const handleModifyItem = (itemId, index) => {
+  const item = props.items[index]
   console.log('CartItemList - Modifying item:', {
     itemId,
     index,
-    item: props.items[index]
+    item
   })
-  modifyingItemId.value = itemId
+  
+  // Ensure each item has a unique instance ID
+  if (!item.instanceId) {
+    item.instanceId = `${itemId}-${Date.now()}-${index}`
+  }
+  
+  modifyingItemId.value = item.instanceId
   showModificationModal.value = true
-  emit('modify', itemId, index)
+  emit('modify', item.instanceId, index)
 }
 </script>
 

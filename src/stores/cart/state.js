@@ -2,7 +2,7 @@ import { OrderType } from '../../types/order'
 import { markRaw } from 'vue'
 
 export const state = () => ({
-  items: [],
+  items: [], // Each item will have a unique instanceId
   discountType: 'fixed',
   discountValue: 0,
   taxRate: 0.08, // 8% tax rate

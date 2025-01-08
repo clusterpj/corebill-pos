@@ -105,8 +105,8 @@ import { PriceUtils } from '@/utils/price'
 import { useCartStore } from '@/stores/cart-store'
 
 const props = defineProps({
-  itemId: {
-    type: Number,
+  instanceId: {
+    type: String,
     required: true
   },
   isOpen: {
@@ -121,7 +121,7 @@ const cartStore = useCartStore()
 
 // Get the item from the cart
 const item = computed(() => 
-  cartStore.items.find(i => i.id === props.itemId)
+  cartStore.items.find(i => i.instanceId === props.instanceId)
 )
 
 // Available modifications (this would come from your product data)
@@ -194,7 +194,7 @@ const saveModifications = () => {
   }))
 
   cartStore.modifyItem({
-    itemId: props.itemId,
+    instanceId: props.instanceId,
     modifications,
     notes: notes.value
   })

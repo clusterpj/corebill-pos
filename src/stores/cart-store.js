@@ -94,20 +94,21 @@ export const useCartStore = defineStore('cart', {
       cartSync.saveCartState(this.$state)
     },
 
-    modifyItem({ itemId, modifications, notes }) {
+    modifyItem({ instanceId, modifications, notes }) {
       try {
-        const item = this.items.find(i => i.id === itemId)
+        const item = this.items.find(i => i.instanceId === instanceId)
         if (item) {
           // Update the item
           item.modifications = modifications
           item.notes = notes
           
           // Recalculate price
-          const basePrice = item.price
+          const basePrice = item.basePrice || item.price
           const modificationTotal = modifications?.reduce((sum, mod) => {
             return sum + (mod.options.find(opt => opt.selected)?.priceAdjustment || 0)
           }, 0) || 0
           item.price = basePrice + modificationTotal
+          item.basePrice = basePrice // Store original price
           
           // Save to localStorage
           cartSync.saveCartState(this.$state)
