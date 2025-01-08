@@ -201,6 +201,8 @@ const handleModifyItem = (itemId, index) => {
     index,
     item: props.items[index]
   })
+  modifyingItemId.value = itemId
+  showModificationModal.value = true
   emit('modify', itemId, index)
 }
 </script>
