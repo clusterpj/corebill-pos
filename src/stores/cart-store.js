@@ -94,6 +94,35 @@ export const useCartStore = defineStore('cart', {
       cartSync.saveCartState(this.$state)
     },
 
+    modifyItem({ itemId, modifications, notes }) {
+      try {
+        const item = this.items.find(i => i.id === itemId)
+        if (item) {
+          // Update the item
+          item.modifications = modifications
+          item.notes = notes
+          
+          // Recalculate price
+          const basePrice = item.price
+          const modificationTotal = modifications?.reduce((sum, mod) => {
+            return sum + (mod.options.find(opt => opt.selected)?.priceAdjustment || 0)
+          }, 0) || 0
+          item.price = basePrice + modificationTotal
+          
+          // Save to localStorage
+          cartSync.saveCartState(this.$state)
+        }
+      } catch (error) {
+        logger.error('Error in modifyItem:', {
+          error,
+          itemId,
+          modifications,
+          notes,
+          currentState: this.$state
+        })
+      }
+    },
+
     clearCart() {
       try {
         mutations.clearCart(this)

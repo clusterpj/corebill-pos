@@ -51,6 +51,27 @@ export const mutations = {
     state.type = type
   },
 
+  SET_ITEM_MODIFICATIONS(state, { itemId, modifications }) {
+    const item = state.items.find(i => i.id === itemId)
+    if (item) {
+      item.modifications = modifications
+    }
+  },
+  
+  SET_ITEM_NOTES(state, { itemId, notes }) {
+    const item = state.items.find(i => i.id === itemId)
+    if (item) {
+      item.notes = notes
+    }
+  },
+  
+  UPDATE_ITEM_PRICE(state, { itemId, price }) {
+    const item = state.items.find(i => i.id === itemId)
+    if (item) {
+      item.price = price
+    }
+  },
+
   clearCart(state) {
     state.items = []
     state.discountType = 'fixed'

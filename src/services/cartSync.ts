@@ -4,7 +4,23 @@ const CART_STORAGE_KEY = 'current-cart-state'
 const CART_CHANNEL_NAME = 'pos-cart-sync'
 
 interface CartState {
-  items: any[]
+  items: Array<{
+    id: number
+    name: string
+    price: number
+    quantity: number
+    modifications?: Array<{
+      id: number
+      name: string
+      options: Array<{
+        id: number
+        name: string
+        priceAdjustment: number
+        selected: boolean
+      }>
+    }>
+    notes?: string
+  }>
   discountType?: string
   discountValue?: number
   taxRate?: number
@@ -40,7 +56,19 @@ class CartSyncService {
             name: item.name || '',
             price: item.price || 0,
             quantity: item.quantity || 1,
-            // Add other required item properties with defaults
+            modifications: Array.isArray(item.modifications)
+              ? item.modifications.map(mod => ({
+                  id: mod.id || 0,
+                  name: mod.name || '',
+                  options: mod.options.map(opt => ({
+                    id: opt.id || 0,
+                    name: opt.name || '',
+                    priceAdjustment: Number(opt.priceAdjustment) || 0,
+                    selected: Boolean(opt.selected)
+                  }))
+                }))
+              : [],
+            notes: item.notes || ''
           }))
         : []
       
