@@ -193,27 +193,11 @@ const stopAutoRefresh = () => {
   logger.info('Auto-refresh stopped')
 }
 
-onMounted(() => {
-  logger.info('CustomerDisplay mounted, initializing cart sync...')
-  
-  // Initialize from storage first
-  cartStore.initializeFromStorage()
-  
-  // Subscribe to cart updates
-  unsubscribeFromCartSync = cartSync.subscribeToUpdates((newState) => {
-    logger.info('Received cart update:', newState)
-    cartStore.$patch(newState)
-  })
-
-  // Start auto-refresh
-  startAutoRefresh()
-
-  logger.info('CustomerDisplay initialized:', {
-    store: currentStore.value,
-    cartItems: cartItems.value?.length || 0,
-    cartTotal: cartTotal.value || 0
-  })
-})
+// Add viewport height handling
+const updateViewportHeight = () => {
+  const vh = window.innerHeight * 0.01
+  document.documentElement.style.setProperty('--vh', `${vh}px`)
+}
 
 onUnmounted(() => {
   // Clean up subscription
@@ -221,43 +205,68 @@ onUnmounted(() => {
     unsubscribeFromCartSync()
   }
   
+  // Remove resize event listener
+  window.removeEventListener('resize', updateViewportHeight)
+  
   // Stop auto-refresh
   stopAutoRefresh()
 })
 </script>
 
 <style scoped>
+/* Define viewport height variable */
+:root {
+  --vh: 1vh;
+}
+
+/* Global layout styles */
 :deep(html),
 :deep(body) {
-  overflow: hidden !important;
   margin: 0 !important;
   padding: 0 !important;
+  overflow: hidden !important;
   width: 100vw !important;
   height: 100vh !important;
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
+  height: calc(var(--vh, 1vh) * 100) !important;
 }
 
+:deep(#app),
+:deep(.v-application),
 :deep(.v-application__wrap) {
   min-height: 100vh !important;
-  height: 100vh !important;
+  min-height: calc(var(--vh, 1vh) * 100) !important;
+  max-height: 100vh !important;
+  max-height: calc(var(--vh, 1vh) * 100) !important;
   overflow: hidden !important;
 }
 
-.customer-display-layout {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+.v-container {
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  max-height: calc(var(--vh, 1vh) * 100) !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.v-row {
+  margin: 0 !important;
+  min-height: 100vh !important;
+  min-height: calc(var(--vh, 1vh) * 100) !important;
+}
+
+.v-col {
+  padding: 16px !important;
+  overflow: hidden !important;
 }
 
 .cart-display {
+  height: calc(100vh - 32px) !important;
+  height: calc((var(--vh, 1vh) * 100) - 32px) !important;
+  max-height: calc(100vh - 32px) !important;
+  max-height: calc((var(--vh, 1vh) * 100) - 32px) !important;
   will-change: opacity;
   backface-visibility: hidden;
   transform: translateZ(0);
-  height: 100%;
-  max-height: 100vh;
-  overflow: hidden;
 }
 
 .order-items {
@@ -271,24 +280,11 @@ onUnmounted(() => {
   z-index: 2;
 }
 
-.v-container {
-  max-width: 100vw;
-  max-height: 100vh;
-  overflow: hidden;
-}
-
-.v-row {
-  min-height: 100vh;
-}
-
-.v-col {
-  overflow: hidden;
-}
-
 .totals {
   background: transparent !important;
 }
 
+/* Transitions */
 .v-fade-transition {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -312,7 +308,7 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* Add hardware acceleration */
+/* Performance optimizations */
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

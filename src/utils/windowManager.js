@@ -1,6 +1,12 @@
 export class WindowManager {
   static screenChangeHandler = null
   
+  static settings = {
+    position: null,
+    size: null,
+    screen: null
+  }
+
   static async detectScreenChanges() {
     if (typeof window.getScreenDetails === 'function') {
       const screenDetails = await window.getScreenDetails()
@@ -8,13 +14,10 @@ export class WindowManager {
         const currentScreens = screenDetails.screens
         const savedScreen = this.settings.screen
         
-        // Check if our saved screen is still available
-        const screenStillExists = currentScreens.some(s => 
-          s.availLeft === savedScreen?.availLeft &&
-          s.availTop === savedScreen?.availTop
-        )
-        
-        if (!screenStillExists) {
+        if (savedScreen && !currentScreens.some(s => 
+          s.availLeft === savedScreen.availLeft &&
+          s.availTop === savedScreen.availTop
+        )) {
           console.log('Configured screen disconnected, resetting settings')
           this.settings.screen = null
           this.saveSettings()
@@ -23,11 +26,6 @@ export class WindowManager {
       
       screenDetails.addEventListener('screenschange', this.screenChangeHandler)
     }
-  }
-  static settings = {
-    position: null,
-    size: null,
-    screen: null
   }
 
   static async loadSettings() {
@@ -47,151 +45,107 @@ export class WindowManager {
 
   static async openCustomerDisplay() {
     await this.loadSettings()
+    
     try {
-      // Get screen dimensions using modern Screen API
-      let left = 0;
-      let top = 0;
-      let width = window.screen.availWidth;
-      let height = window.screen.availHeight;
+      let targetScreen = null
+      let left = 0
+      let top = 0
+      let width = window.screen.availWidth
+      let height = window.screen.availHeight
 
-      // Check if we have multiple screens
-      if (window.screen.isExtended) {
-        // Try using modern Screen API first
-        if (typeof window.getScreenDetails === 'function') {
-          const screenDetails = await window.getScreenDetails();
-          const screens = screenDetails.screens;
-          
-          // Use saved screen if available and still connected
-          if (this.settings.screen) {
-            const savedScreen = screens.find(s => 
-              s.availLeft === this.settings.screen.availLeft &&
-              s.availTop === this.settings.screen.availTop
-            );
-            if (savedScreen) {
-              left = savedScreen.availLeft;
-              top = savedScreen.availTop;
-              width = savedScreen.availWidth;
-              height = savedScreen.availHeight;
-              this.settings.screen = savedScreen;
-              this.saveSettings();
-              return;
-            }
-          }
+      // Try to get screen details using modern API
+      if (typeof window.getScreenDetails === 'function') {
+        const screenDetails = await window.getScreenDetails()
+        const screens = screenDetails.screens
 
-          // Find best secondary screen (not the primary screen)
-          const secondaryScreen = screens.find(s => 
-            s.availLeft !== 0 || s.availTop !== 0
-          ) || screens[1];
-          
-          if (secondaryScreen) {
-            left = secondaryScreen.availLeft;
-            top = secondaryScreen.availTop;
-            width = secondaryScreen.availWidth;
-            height = secondaryScreen.availHeight;
-            this.settings.screen = secondaryScreen;
-            this.saveSettings();
-          }
+        // Try to use saved screen if available
+        if (this.settings.screen) {
+          targetScreen = screens.find(s => 
+            s.availLeft === this.settings.screen.availLeft &&
+            s.availTop === this.settings.screen.availTop
+          )
         }
-        // Fallback to older APIs
-        else if (typeof window.screen.availLeft !== 'undefined') {
-          // Detect secondary monitor by checking if availLeft is greater than primary screen width
-          if (window.screen.availLeft > window.screen.width) {
-            left = window.screen.availLeft;
-            top = window.screen.availTop;
-            width = window.screen.availWidth;
-            height = window.screen.availHeight;
-          } else {
-            // Force position to secondary screen by setting left to primary screen width
-            left = window.screen.width;
-            width = window.screen.availWidth;
-            height = window.screen.availHeight;
+
+        // If no saved screen or it's not available, find best secondary screen
+        if (!targetScreen) {
+          targetScreen = screens.find(s => !s.isPrimary) || screens[0]
+        }
+
+        if (targetScreen) {
+          left = targetScreen.availLeft
+          top = targetScreen.availTop
+          width = targetScreen.availWidth
+          height = targetScreen.availHeight
+          this.settings.screen = {
+            availLeft: targetScreen.availLeft,
+            availTop: targetScreen.availTop,
+            availWidth: targetScreen.availWidth,
+            availHeight: targetScreen.availHeight
           }
         }
       }
 
-      // Use saved position/size if available
-      if (this.settings.position && this.settings.size) {
-        left = this.settings.position.left
-        top = this.settings.position.top
-        width = this.settings.size.width
-        height = this.settings.size.height
-      }
+      // Create the window with specific features
+      const features = [
+        `left=${left}`,
+        `top=${top}`,
+        `width=${width}`,
+        `height=${height}`,
+        'menubar=no',
+        'toolbar=no',
+        'location=no',
+        'status=no',
+        'resizable=yes'
+      ].join(',')
 
-      // Open customer display window with minimal features
-      const customerWindow = window.open(
-        '/customer-display',
-        'customerDisplay',
-        `left=${left},top=${top},width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no`
-      );
+      const customerWindow = window.open('/customer-display', 'customerDisplay', features)
 
       if (customerWindow) {
         const setupWindow = () => {
           try {
-            // Wait for window to load
-            customerWindow.addEventListener('load', () => {
-              // Move to correct screen
-              customerWindow.moveTo(left, top);
-              
-              // Set initial size to match screen dimensions
-              customerWindow.resizeTo(width, height);
-              
-              // Add CSS to remove any potential borders/padding
-              const style = document.createElement('style');
+            customerWindow.addEventListener('load', async () => {
+              // Force correct positioning
+              customerWindow.moveTo(left, top)
+              customerWindow.resizeTo(width, height)
+
+              // Apply fullscreen styles
+              const style = customerWindow.document.createElement('style')
               style.textContent = `
                 html, body {
-                  margin: 0;
-                  padding: 0;
-                  overflow: hidden;
-                  width: 100vw;
-                  height: 100vh;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  overflow: hidden !important;
+                  width: 100vw !important;
+                  height: 100vh !important;
                 }
-                * {
-                  box-sizing: border-box;
+                * { box-sizing: border-box !important; }
+              `
+              customerWindow.document.head.appendChild(style)
+
+              // Request fullscreen after a short delay
+              setTimeout(async () => {
+                try {
+                  if (customerWindow.document.documentElement.requestFullscreen) {
+                    await customerWindow.document.documentElement.requestFullscreen()
+                  }
+                  
+                  // Double-check dimensions after fullscreen
+                  customerWindow.moveTo(left, top)
+                  customerWindow.resizeTo(width, height)
+                } catch (err) {
+                  console.warn('Fullscreen request failed:', err)
                 }
-              `;
-              customerWindow.document.head.appendChild(style);
-              
-              // Enter fullscreen mode using the modern API
-              if (customerWindow.document.documentElement.requestFullscreen) {
-                // First resize to exact screen dimensions
-                customerWindow.resizeTo(width, height);
-                
-                // Then enter fullscreen
-                customerWindow.document.documentElement.requestFullscreen()
-                  .then(() => {
-                    // Force full dimensions
-                    customerWindow.document.body.style.overflow = 'hidden';
-                    customerWindow.document.body.style.margin = '0';
-                    customerWindow.document.body.style.padding = '0';
-                    customerWindow.document.body.style.width = '100vw';
-                    customerWindow.document.body.style.height = '100vh';
-                    
-                    // Double check dimensions after fullscreen
-                    setTimeout(() => {
-                      if (customerWindow.innerWidth !== width || customerWindow.innerHeight !== height) {
-                        customerWindow.resizeTo(width, height);
-                      }
-                    }, 100);
-                  })
-                  .catch(err => {
-                    console.warn('Fullscreen error:', err);
-                    // Fallback to window dimensions
-                    customerWindow.resizeTo(width, height);
-                  });
-              } else {
-                // Fallback for browsers without fullscreen API
-                customerWindow.resizeTo(width, height);
-              }
-              
+              }, 100)
+
+              // Save final position and size
+              this.settings.position = { left, top }
+              this.settings.size = { width, height }
+              this.saveSettings()
+
               // Focus the window
-              customerWindow.focus();
-              
-              // Save position and size
-              this.settings.position = { left, top };
-              this.settings.size = { width, height };
-              this.saveSettings();
-            });
-            
+              customerWindow.focus()
+            })
+
             // Handle window closing
             customerWindow.addEventListener('beforeunload', () => {
               if (customerWindow.document.fullscreenElement) {
@@ -199,39 +153,18 @@ export class WindowManager {
               }
             })
           } catch (e) {
-            console.warn('Could not position window:', e)
+            console.warn('Window setup error:', e)
           }
         }
 
-        // Setup window after short delay to ensure it's ready
-        setTimeout(setupWindow, 500)
+        // Setup window after ensuring it's ready
+        setTimeout(setupWindow, 100)
       }
 
-      return customerWindow;
+      return customerWindow
     } catch (error) {
-      console.error('Error opening customer display:', error);
-      // Fallback to basic window
-      const fallbackWindow = window.open(
-        '/customer-display',
-        'customerDisplay',
-        `width=${window.screen.availWidth},height=${window.screen.availHeight}`
-      );
-      
-      if (fallbackWindow) {
-        setTimeout(() => {
-          try {
-            fallbackWindow.resizeTo(window.screen.availWidth, window.screen.availHeight)
-            if (fallbackWindow.document.documentElement.requestFullscreen) {
-              fallbackWindow.document.documentElement.requestFullscreen()
-            }
-            fallbackWindow.focus()
-          } catch (err) {
-            console.warn('Fallback window setup error:', err)
-          }
-        }, 500)
-      }
-      
-      return fallbackWindow;
+      console.error('Error opening customer display:', error)
+      return null
     }
   }
 }
