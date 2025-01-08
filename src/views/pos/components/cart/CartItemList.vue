@@ -207,6 +207,16 @@ const handleModifyItem = (itemId, index) => {
     item
   })
   
+  // For single items or already split items
+  if (!item.instanceId) {
+    item.instanceId = `${item.id}-${Date.now()}-${index}`
+  }
+  
+  // Get all instance IDs for this item type
+  const instanceIds = props.items
+    .filter(i => i.id === itemId)
+    .map(i => i.instanceId)
+  
   // If this is a grouped item, split it into individual items
   if (item.quantity > 1) {
     // Create individual items first
@@ -224,27 +234,15 @@ const handleModifyItem = (itemId, index) => {
     // Then remove the grouped item
     emit('remove', itemId, index)
     
-    // Use the first new item's instance ID
-    modifyingItemId.value = itemId
-    modifyingItemName.value = item.name
+    // Use the new items' instance IDs
     modifyingInstanceIds.value = newItems.map(i => i.instanceId)
-    showModificationModal.value = true
-    return
+  } else {
+    // Use existing instance IDs
+    modifyingInstanceIds.value = [...new Set(instanceIds)]
   }
-  
-  // For single items or already split items
-  if (!item.instanceId) {
-    item.instanceId = `${item.id}-${Date.now()}-${index}`
-  }
-  
-  // Get all instance IDs for this item type
-  const instanceIds = props.items
-    .filter(i => i.id === itemId)
-    .map(i => i.instanceId)
   
   modifyingItemId.value = itemId
   modifyingItemName.value = item.name
-  modifyingInstanceIds.value = [...new Set(instanceIds)]
   showModificationModal.value = true
   emit('modify', itemId, index)
 }
