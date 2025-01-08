@@ -7,7 +7,7 @@
   >
     <v-card>
       <v-card-title class="d-flex justify-space-between align-center">
-        <span>Modify Item</span>
+        <span>Modify {{ props.itemName }}</span>
         <v-btn
           icon="mdi-close"
           @click="closeModal"
@@ -21,7 +21,7 @@
             :key="instanceId"
             :value="instanceId"
           >
-            Item {{ index + 1 }}
+            {{ props.itemName }} {{ index + 1 }}
           </v-tab>
         </v-tabs>
 
@@ -125,6 +125,10 @@ import { useCartStore } from '@/stores/cart-store'
 const props = defineProps({
   itemId: {
     type: Number,
+    required: true
+  },
+  itemName: {
+    type: String,
     required: true
   },
   instanceIds: {

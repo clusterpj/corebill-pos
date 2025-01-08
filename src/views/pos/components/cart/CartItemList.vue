@@ -78,6 +78,7 @@
     <ModificationModal
       v-if="modifyingItemId"
       :item-id="modifyingItemId"
+      :item-name="modifyingItemName"
       :instance-ids="modifyingInstanceIds"
       :is-open="showModificationModal"
       @close="showModificationModal = false"
@@ -103,6 +104,7 @@ const emit = defineEmits(['edit', 'remove', 'updateQuantity', 'modify'])
 // Modification modal state
 const showModificationModal = ref(false)
 const modifyingItemId = ref(null)
+const modifyingItemName = ref('')
 const modifyingInstanceIds = ref([])
 
 // Log initial cart state
@@ -216,6 +218,7 @@ const handleModifyItem = (itemId, index) => {
     .map(i => i.instanceId)
   
   modifyingItemId.value = itemId
+  modifyingItemName.value = item.name
   modifyingInstanceIds.value = instanceIds
   showModificationModal.value = true
   emit('modify', itemId, index)
