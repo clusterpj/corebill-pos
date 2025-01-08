@@ -207,9 +207,27 @@ const handleModifyItem = (itemId, index) => {
     item
   })
   
+  // If this is a grouped item, split it into individual items
+  if (item.quantity > 1) {
+    // Remove the grouped item
+    emit('remove', itemId, index)
+    
+    // Add individual items
+    for (let i = 0; i < item.quantity; i++) {
+      emit('add', {
+        ...item,
+        quantity: 1,
+        instanceId: `${item.id}-${Date.now()}-${i}`
+      })
+    }
+    
+    // Get the new index of the first item
+    index = props.items.findIndex(i => i.id === itemId)
+  }
+  
   // Ensure each item has a unique instance ID
   if (!item.instanceId) {
-    item.instanceId = `${itemId}-${Date.now()}-${index}`
+    item.instanceId = `${item.id}-${Date.now()}-${index}`
   }
   
   // Get all instance IDs for this item type

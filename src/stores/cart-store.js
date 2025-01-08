@@ -27,14 +27,26 @@ export const useCartStore = defineStore('cart', {
           return
         }
         
-        // Add unique instance ID to each item
-        const itemsToAdd = Array.from({ length: quantity }, (_, i) => ({
-          ...product,
-          instanceId: `${product.id}-${Date.now()}-${i}`,
-          quantity: 1
-        }))
+        // Check if we already have this product in the cart
+        const existingItem = this.items.find(i => 
+          i.id === product.id && 
+          !i.modifications?.length && 
+          !i.notes
+        )
         
-        this.items.push(...itemsToAdd)
+        if (existingItem) {
+          // If we have an unmodified version, just increase quantity
+          existingItem.quantity += quantity
+        } else {
+          // Add unique instance ID to each item
+          const itemsToAdd = Array.from({ length: quantity }, (_, i) => ({
+            ...product,
+            instanceId: `${product.id}-${Date.now()}-${i}`,
+            quantity: 1
+          }))
+          
+          this.items.push(...itemsToAdd)
+        }
         
         const stateToSync = {
           ...this.$state,
