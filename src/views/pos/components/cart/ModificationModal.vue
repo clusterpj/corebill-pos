@@ -183,7 +183,7 @@ const selectedOptions = ref({})
 const notes = ref('')
 
 // Price calculations
-const basePrice = computed(() => item.value?.price || 0)
+const basePrice = computed(() => currentItem.value?.price || 0)
 const modificationTotal = computed(() => {
   return availableModifications.value.reduce((total, mod) => {
     const selectedOption = mod.options.find(
@@ -201,8 +201,8 @@ const formatPrice = (cents) => PriceUtils.format(cents)
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     // Initialize selected options from existing modifications
-    if (item.value?.modifications) {
-      item.value.modifications.forEach(mod => {
+    if (currentItem.value?.modifications) {
+      currentItem.value.modifications.forEach(mod => {
         const selected = mod.options.find(opt => opt.selected)
         if (selected) {
           selectedOptions.value[mod.id] = selected.id
@@ -210,7 +210,7 @@ watch(() => props.isOpen, (isOpen) => {
       })
     }
     // Initialize notes
-    notes.value = item.value?.notes || ''
+    notes.value = currentItem.value?.notes || ''
   }
 })
 
