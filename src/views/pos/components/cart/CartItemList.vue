@@ -103,12 +103,6 @@ const emit = defineEmits(['edit', 'remove', 'updateQuantity', 'modify'])
 const showModificationModal = ref(false)
 const modifyingItemId = ref(null)
 
-const handleModifyItem = (itemId, index) => {
-  modifyingItemId.value = itemId
-  showModificationModal.value = true
-  emit('modify', itemId, index)
-}
-
 // Log initial cart state
 console.log('CartItemList - Initial cart state:', {
   itemCount: props.items.length,
