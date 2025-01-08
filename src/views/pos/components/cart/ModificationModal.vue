@@ -94,64 +94,6 @@
             </v-form>
           </v-window-item>
         </v-window>
-            <v-card
-              v-for="mod in availableModifications"
-              :key="mod.id"
-              class="mb-4"
-              variant="outlined"
-            >
-              <v-card-title class="text-subtitle-1">
-                {{ mod.name }}
-              </v-card-title>
-              <v-card-text>
-                <v-radio-group
-                  v-model="selectedOptions[mod.id]"
-                  hide-details
-                >
-                  <v-radio
-                    v-for="option in mod.options"
-                    :key="option.id"
-                    :label="`${option.name} (${formatPrice(option.priceAdjustment)})`"
-                    :value="option.id"
-                  />
-                </v-radio-group>
-              </v-card-text>
-            </v-card>
-          </div>
-
-          <!-- Notes Section -->
-          <v-textarea
-            v-model="notes"
-            label="Special Instructions"
-            rows="2"
-            auto-grow
-            hide-details
-            class="mb-4"
-          />
-
-          <v-divider class="my-4" />
-
-          <!-- Price Summary -->
-          <div class="d-flex justify-space-between">
-            <span class="text-body-1">Base Price:</span>
-            <span class="text-body-1 font-weight-medium">
-              {{ formatPrice(basePrice) }}
-            </span>
-          </div>
-          <div class="d-flex justify-space-between">
-            <span class="text-body-1">Modifications:</span>
-            <span class="text-body-1 font-weight-medium">
-              {{ formatPrice(modificationTotal) }}
-            </span>
-          </div>
-          <v-divider class="my-2" />
-          <div class="d-flex justify-space-between">
-            <span class="text-body-1">Total Price:</span>
-            <span class="text-body-1 font-weight-medium">
-              {{ formatPrice(totalPrice) }}
-            </span>
-          </div>
-        </v-form>
       </v-card-text>
 
       <v-card-actions>
