@@ -26,7 +26,16 @@ export const useCartStore = defineStore('cart', {
           logger.warn('Invalid product data:', product)
           return
         }
-        actions.addItem(this, product, quantity)
+        
+        // Add unique instance ID to each item
+        const itemsToAdd = Array.from({ length: quantity }, (_, i) => ({
+          ...product,
+          instanceId: `${product.id}-${Date.now()}-${i}`,
+          quantity: 1
+        }))
+        
+        this.items.push(...itemsToAdd)
+        
         const stateToSync = {
           ...this.$state,
           items: this.items.map(item => ({
@@ -34,7 +43,9 @@ export const useCartStore = defineStore('cart', {
             name: item.name,
             price: item.price,
             quantity: item.quantity,
-            // Add other required item properties
+            instanceId: item.instanceId,
+            modifications: item.modifications || [],
+            notes: item.notes || ''
           }))
         }
         cartSync.saveCartState(stateToSync)
