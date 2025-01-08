@@ -111,6 +111,13 @@ export const useCartStore = defineStore('cart', {
           
           // Save to localStorage
           cartSync.saveCartState(this.$state)
+          
+          logger.info('Item modified successfully:', {
+            itemId,
+            modifications,
+            notes,
+            newPrice: item.price
+          })
         }
       } catch (error) {
         logger.error('Error in modifyItem:', {
@@ -120,6 +127,7 @@ export const useCartStore = defineStore('cart', {
           notes,
           currentState: this.$state
         })
+        throw error
       }
     },
 

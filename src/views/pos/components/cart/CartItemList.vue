@@ -73,13 +73,22 @@
         </div>
       </v-list-item>
     </v-list>
+
+    <!-- Modification Modal -->
+    <ModificationModal
+      v-if="modifyingItemId"
+      :item-id="modifyingItemId"
+      :is-open="showModificationModal"
+      @close="showModificationModal = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { logger } from '@/utils/logger'
 import { PriceUtils } from '@/utils/price'
+import ModificationModal from './ModificationModal.vue'
 
 const props = defineProps({
   items: {
@@ -89,6 +98,16 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['edit', 'remove', 'updateQuantity', 'modify'])
+
+// Modification modal state
+const showModificationModal = ref(false)
+const modifyingItemId = ref(null)
+
+const handleModifyItem = (itemId, index) => {
+  modifyingItemId.value = itemId
+  showModificationModal.value = true
+  emit('modify', itemId, index)
+}
 
 // Log initial cart state
 console.log('CartItemList - Initial cart state:', {
