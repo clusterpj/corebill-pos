@@ -15,9 +15,25 @@
       </v-card-title>
 
       <v-card-text>
-        <v-form @submit.prevent="saveModifications">
-          <!-- Modifications Section -->
-          <div v-if="availableModifications.length > 0">
+        <v-tabs v-model="activeTab">
+          <v-tab
+            v-for="(instanceId, index) in instanceIds"
+            :key="instanceId"
+            :value="instanceId"
+          >
+            Item {{ index + 1 }}
+          </v-tab>
+        </v-tabs>
+
+        <v-window v-model="activeTab">
+          <v-window-item
+            v-for="instanceId in instanceIds"
+            :key="instanceId"
+            :value="instanceId"
+          >
+            <v-form @submit.prevent="saveModifications(instanceId)">
+              <!-- Modifications Section -->
+              <div v-if="availableModifications.length > 0">
             <v-card
               v-for="mod in availableModifications"
               :key="mod.id"
@@ -105,8 +121,12 @@ import { PriceUtils } from '@/utils/price'
 import { useCartStore } from '@/stores/cart-store'
 
 const props = defineProps({
-  instanceId: {
-    type: String,
+  itemId: {
+    type: Number,
+    required: true
+  },
+  instanceIds: {
+    type: Array,
     required: true
   },
   isOpen: {
@@ -119,9 +139,19 @@ const emit = defineEmits(['update:isOpen', 'close'])
 
 const cartStore = useCartStore()
 
-// Get the item from the cart
-const item = computed(() => 
-  cartStore.items.find(i => i.instanceId === props.instanceId)
+// Track active tab
+const activeTab = ref(props.instanceIds[0])
+
+// Get all items for this product type
+const items = computed(() => 
+  props.instanceIds.map(instanceId => 
+    cartStore.items.find(i => i.instanceId === instanceId)
+  )
+)
+
+// Get modifications for current tab
+const currentItem = computed(() =>
+  items.value.find(i => i.instanceId === activeTab.value)
 )
 
 // Available modifications (this would come from your product data)
@@ -183,7 +213,7 @@ watch(() => props.isOpen, (isOpen) => {
 })
 
 // Save modifications to store
-const saveModifications = () => {
+const saveModifications = (instanceId) => {
   const modifications = availableModifications.value.map(mod => ({
     id: mod.id,
     name: mod.name,
@@ -194,12 +224,10 @@ const saveModifications = () => {
   }))
 
   cartStore.modifyItem({
-    instanceId: props.instanceId,
+    instanceId,
     modifications,
     notes: notes.value
   })
-
-  closeModal()
 }
 
 const closeModal = () => {
