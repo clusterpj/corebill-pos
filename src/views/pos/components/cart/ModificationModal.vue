@@ -115,9 +115,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['update:isOpen', 'close'])
-
-const emit = defineEmits(['close'])
+const emit = defineEmits(['update:isOpen', 'close'])
 
 const cartStore = useCartStore()
 
