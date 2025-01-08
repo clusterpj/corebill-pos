@@ -1,6 +1,7 @@
 <template>
   <v-dialog
-    v-model="isOpen"
+    :model-value="isOpen"
+    @update:model-value="(value) => $emit('update:isOpen', value)"
     max-width="600"
     persistent
   >
@@ -113,6 +114,8 @@ const props = defineProps({
     required: true
   }
 })
+
+defineEmits(['update:isOpen', 'close'])
 
 const emit = defineEmits(['close'])
 
