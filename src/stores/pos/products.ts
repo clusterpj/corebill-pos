@@ -149,54 +149,53 @@ export const createProductsModule = (
             let retries = 3
             while (retries > 0) {
               try {
-                logger.debug(`[Products] Fetching sections for product ${product.id}`)
-                const sections = await sectionApi.getSectionsForItem(product.id)
-                logger.debug(`[Products] Received sections for product ${product.id}:`, sections)
+            try {
+              logger.debug(`[Products] Fetching sections for product ${product.id}`)
+              const sections = await sectionApi.getSectionsForItem(product.id)
+              logger.debug(`[Products] Received sections for product ${product.id}:`, sections)
+              
+              if (sections && sections.length > 0) {
+                const section = sections[0] // Get the first section
+                logger.debug(`[Products] Using section for product ${product.id}:`, section)
                 
-                if (sections && sections.length > 0) {
-                  const section = sections[0] // Get the first section
-                  logger.debug(`[Products] Using section for product ${product.id}:`, section)
+                if (section && section.id) {
+                  // Create a new product object with section information
+                  Object.assign(product, {
+                    section_id: section.id,
+                    section_type: 'bar', // Default to 'bar' if section.name is 'BAR', otherwise 'kitchen'
+                    section_name: section.name
+                  })
                   
-                  if (section && section.id) {
-                    // Create a new product object with section information
-                    Object.assign(product, {
-                      section_id: section.id,
-                      section_type: 'bar', // Default to 'bar' if section.name is 'BAR', otherwise 'kitchen'
-                      section_name: section.name
-                    })
-                    
-                    // Update section type based on section name
-                    if (section.name.toUpperCase() === 'BAR') {
-                      product.section_type = 'bar'
-                    } else if (section.name.toUpperCase() === 'KITCHEN') {
-                      product.section_type = 'kitchen'
-                    }
-                    
-                    logger.debug(`[Products] Updated product ${product.id} with section:`, { 
-                      id: product.id,
-                      name: product.name,
-                      section: {
-                        id: product.section_id,
-                        type: product.section_type,
-                        name: product.section_name
-                      }
-                    })
-                  } else {
-                    logger.debug(`[Products] Invalid section data for product ${product.id}`)
-                    setDefaultSection(product)
+                  // Update section type based on section name
+                  if (section.name.toUpperCase() === 'BAR') {
+                    product.section_type = 'bar'
+                  } else if (section.name.toUpperCase() === 'KITCHEN') {
+                    product.section_type = 'kitchen'
                   }
+                  
+                  logger.debug(`[Products] Updated product ${product.id} with section:`, { 
+                    id: product.id,
+                    name: product.name,
+                    section: {
+                      id: product.section_id,
+                      type: product.section_type,
+                      name: product.section_name
+                    }
+                  })
                 } else {
-                  logger.debug(`[Products] No sections found for product ${product.id}`)
+                  logger.debug(`[Products] Invalid section data for product ${product.id}`)
                   setDefaultSection(product)
                 }
-                break // Exit retry loop on success
-              } catch (error) {
-                logger.warn(`[Products] Failed to fetch section for product ${product.id}, retrying... (${retries} attempts remaining)`, error)
-                retries--
-                if (retries === 0) {
-                  logger.error(`[Products] Failed to fetch section for product ${product.id} after 3 attempts`, error)
-                  setDefaultSection(product)
-                }
+              } else {
+                logger.debug(`[Products] No sections found for product ${product.id}`)
+                setDefaultSection(product)
+              }
+            } catch (error) {
+              logger.warn(`[Products] Failed to fetch section for product ${product.id}, retrying... (${retries} attempts remaining)`, error)
+              retries--
+              if (retries === 0) {
+                logger.error(`[Products] Failed to fetch section for product ${product.id} after 3 attempts`, error)
+                setDefaultSection(product)
               }
             }
           }))
