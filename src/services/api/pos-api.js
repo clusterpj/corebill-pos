@@ -145,14 +145,31 @@ const operations = {
       logger.info('Fetching items from endpoint:', endpoint)
       logger.debug('Request parameters', params)
 
-      const response = await apiClient.get(endpoint, { params })
+      // Set default pagination if not provided
+      const pagination = {
+        limit: params.limit || 100,
+        page: params.page || 1
+      }
+
+      const response = await apiClient.get(endpoint, { 
+        params: {
+          ...params,
+          ...pagination
+        }
+      })
       logger.http('GET', endpoint, { params }, response)
 
       if (!response.data) {
         throw new Error('Invalid response format: missing data')
       }
 
-      return response.data
+      return {
+        items: {
+          data: response.data.data || [],
+          itemTotalCount: response.data.total || 0
+        },
+        itemTotalCount: response.data.total || 0
+      }
     } catch (error) {
       logger.error('Failed to fetch items', {
         error,
