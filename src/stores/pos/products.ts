@@ -79,13 +79,7 @@ export const createProductsModule = (
     try {
       // First fetch all sections to have them available
       logger.debug('[Products] Fetching all sections')
-      let allSections = []
-      try {
-        allSections = await sectionApi.getAllSections('all')
-      } catch (error) {
-        logger.warn('Failed to fetch sections, using empty array', error)
-        allSections = []
-      }
+      const allSections = await sectionApi.getAllSections('all')
       logger.debug('[Products] All sections:', allSections)
 
       // Debug: Log current store and category state
@@ -126,12 +120,8 @@ export const createProductsModule = (
         itemTotalCount: response.itemTotalCount
       })
 
-      // Handle both response formats
-      const productsData = response.items?.data || response.data?.items?.data || []
-      const totalItems = response.itemTotalCount || response.data?.itemTotalCount || 0
-
-      if (productsData.length > 0) {
-        const products = Array.isArray(productsData) ? productsData : []
+      if (response.items?.data) {
+        const products = Array.isArray(response.items.data) ? response.items.data : []
         logger.debug('[Products] Received products:', {
           count: products.length,
           firstProduct: products[0] || null
@@ -198,7 +188,7 @@ export const createProductsModule = (
         // Store the sections map in state for future use
         state.sectionsMap = sectionsMap
         
-        state.totalItems.value = totalItems
+        state.totalItems.value = response.itemTotalCount || 0
         logger.info(`[Products] Loaded ${products.length} products with section information`)
         
         // If there are more products to fetch, continue fetching
