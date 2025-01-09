@@ -33,11 +33,26 @@ export const sectionApi = {
   async getAllSections(limit: 'all' | number = 'all'): Promise<Section[]> {
     try {
       const response = await apiClient.get<SectionResponse>('/v1/core-pos/sections', {
-        params: { limit }
+        params: { limit },
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       })
-      logger.debug('[SectionAPI] Fetched all sections:', response.data)
-      return response.data?.sections || []
+      
+      // Validate response is JSON
+      if (typeof response.data === 'string' && response.data.startsWith('<!DOCTYPE html>')) {
+        throw new Error('Invalid response format - received HTML instead of JSON')
+      }
+      
+      if (!response.data?.sections) {
+        throw new Error('Invalid sections data in response')
+      }
+      
+      logger.debug('[SectionAPI] Fetched all sections:', response.data.sections)
+      return response.data.sections
     } catch (error) {
+      logger.error('[SectionAPI] Failed to fetch sections:', error)
       throw errorHandler.handleApi(error, '[SectionAPI] getAllSections')
     }
   },
