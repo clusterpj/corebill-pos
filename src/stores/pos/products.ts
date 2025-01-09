@@ -89,9 +89,7 @@ export const createProductsModule = (
       })
       
       // Now fetch products in batches
-      const categoryIds = state.selectedCategory.value === 'all'
-        ? state.categories.value.map(c => c.item_category_id)
-        : [state.selectedCategory.value]
+      const categoryIds = [state.selectedCategory.value]
 
       const params = {
         search: state.searchQuery.value,
@@ -204,8 +202,14 @@ export const createProductsModule = (
     logger.debug(`[Products] Set default section for product ${product.id}`)
   }
 
-  const setCategory = async (categoryId: string | number) => {
-    state.selectedCategory.value = categoryId
+  const setCategory = async (categoryId: number) => {
+    if (!categoryId) {
+      logger.warn('Invalid category ID provided')
+      return
+    }
+    
+    // Set first category as default if available
+    state.selectedCategory.value = state.categories.value[0]?.item_category_id || 0
     state.currentPage.value = 1
     await fetchProducts()
   }
