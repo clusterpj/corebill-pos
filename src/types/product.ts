@@ -1,5 +1,6 @@
 // src/types/product.ts
 import { Section } from '@/services/api/section-api'
+import type { Ref } from 'vue'
 
 export interface Product {
   id: number
