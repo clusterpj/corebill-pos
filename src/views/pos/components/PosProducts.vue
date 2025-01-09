@@ -67,7 +67,7 @@
           <v-row no-gutters>
             <v-col cols="12">
               <category-tabs
-                :categories="posStore.categories"
+                :categories="posStore.categoriesForDisplay"
                 @change="handleCategoryChange"
               />
             </v-col>
