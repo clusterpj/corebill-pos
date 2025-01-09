@@ -2,18 +2,10 @@ import { logger } from '@/utils/logger'
 import { sectionApi } from '@/services/api/section-api'
 import type { ProductsState, Product, ProductCategory } from '@/types/product'
 import type { Ref } from 'vue'
-import type { Section } from '@/services/api/section-api'
 
 interface PosApi {
   getItemCategories: () => Promise<{ success: boolean; data?: ProductCategory[]; error?: string }>
-  getItems: (params: any) => Promise<{ 
-    items?: { 
-      data: Product[] 
-      itemTotalCount: number 
-    } 
-    itemTotalCount?: number
-    error?: string 
-  }>
+  getItems: (params: any) => Promise<{ items?: { data: Product[]; itemTotalCount: number }; error?: string }>
   createItem: (data: any) => Promise<any>
   updateItem: (id: number, data: any) => Promise<any>
 }
@@ -246,9 +238,4 @@ export const createProductsModule = (
     createItem,
     updateItem
   }
-}
-{
-  "words": [
-    "avalara"
-  ]
 }
