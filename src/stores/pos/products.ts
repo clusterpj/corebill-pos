@@ -66,7 +66,7 @@ export const createProductsModule = (
     }
   }
 
-  const fetchProducts = async (page = 1, perPage = 100) => {
+  const fetchProducts = async (page = 1, perPage = 20) => {
     if (!companyStore.isConfigured) {
       logger.warn('Company configuration incomplete, skipping products fetch')
       return
@@ -112,7 +112,9 @@ export const createProductsModule = (
         id: companyStore.selectedStore,
         limit: perPage,
         page: page,
-        sku: state.searchQuery.value
+        sku: state.searchQuery.value,
+        orderBy: 'name',
+        orderByField: 'asc'
       }
 
       logger.debug('[Products] Fetch products params:', params)
@@ -138,12 +140,15 @@ export const createProductsModule = (
         })
         
         // Process products in smaller chunks to avoid memory issues
-        const chunkSize = 50
+        const chunkSize = 10
         for (let i = 0; i < products.length; i += chunkSize) {
           const chunk = products.slice(i, i + chunkSize)
           
-          // Process section information for each chunk
+          // Process section information for each chunk with retry logic
           await Promise.all(chunk.map(async (product) => {
+            let retries = 3
+            while (retries > 0) {
+              try {
             try {
               logger.debug(`[Products] Fetching sections for product ${product.id}`)
               const sections = await sectionApi.getSectionsForItem(product.id)
@@ -186,8 +191,12 @@ export const createProductsModule = (
                 setDefaultSection(product)
               }
             } catch (error) {
-              logger.error(`[Products] Failed to fetch section for product ${product.id}:`, error)
-              setDefaultSection(product)
+              logger.warn(`[Products] Failed to fetch section for product ${product.id}, retrying... (${retries} attempts remaining)`, error)
+              retries--
+              if (retries === 0) {
+                logger.error(`[Products] Failed to fetch section for product ${product.id} after 3 attempts`, error)
+                setDefaultSection(product)
+              }
             }
           }))
           
