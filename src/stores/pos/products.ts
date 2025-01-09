@@ -247,8 +247,3 @@ export const createProductsModule = (
     updateItem
   }
 }
-{
-  "words": [
-    "avalara"
-  ]
-}
