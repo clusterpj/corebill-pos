@@ -30,7 +30,7 @@ export const sectionApi = {
    * @param limit 'all' or number
    * @returns Promise<Section[]>
    */
-  async getAllSections(limit: 'all' | number = 'all', retries = 3): Promise<Section[]> {
+  async getAllSections(limit: 'all' | number = 'all'): Promise<Section[]> {
     try {
       const response = await apiClient.get<SectionResponse>('/v1/core-pos/sections', {
         params: { limit },
@@ -42,18 +42,10 @@ export const sectionApi = {
       
       // Validate response is JSON
       if (typeof response.data === 'string' && response.data.startsWith('<!DOCTYPE html>')) {
-        if (retries > 0) {
-          logger.warn(`Received HTML response, retrying... (${retries} attempts remaining)`)
-          return this.getAllSections(limit, retries - 1)
-        }
         throw new Error('Invalid response format - received HTML instead of JSON')
       }
       
       if (!response.data?.sections) {
-        if (retries > 0) {
-          logger.warn(`Invalid sections data, retrying... (${retries} attempts remaining)`)
-          return this.getAllSections(limit, retries - 1)
-        }
         throw new Error('Invalid sections data in response')
       }
       

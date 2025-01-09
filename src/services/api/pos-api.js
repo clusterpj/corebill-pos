@@ -138,7 +138,7 @@ const operations = {
   },
 
   // Product Management
-  async getItems(params = {}, retries = 3) {
+  async getItems(params = {}) {
     logger.startGroup('POS API: Get Items')
     try {
       const endpoint = getApiEndpoint('pos.items')
@@ -147,7 +147,7 @@ const operations = {
 
       // Set default pagination if not provided
       const pagination = {
-        limit: params.limit || 20,
+        limit: params.limit || 100,
         page: params.page || 1
       }
 
@@ -157,15 +157,6 @@ const operations = {
           ...pagination
         }
       })
-
-      // Validate response format
-      if (typeof response.data === 'string' && response.data.startsWith('<!DOCTYPE html>')) {
-        if (retries > 0) {
-          logger.warn(`Received HTML response, retrying... (${retries} attempts remaining)`)
-          return this.getItems(params, retries - 1)
-        }
-        throw new Error('Invalid response format - received HTML instead of JSON')
-      }
       logger.http('GET', endpoint, { params }, response)
 
       if (!response.data) {
