@@ -1,8 +1,8 @@
 import { ref } from 'vue'
-import { useCartStore } from '../../../stores/cart-store'
-import { useCompanyStore } from '../../../stores/company'
-import { posOperations } from '../../../services/api/pos-operations'
-import { logger } from '../../../utils/logger'
+import { useCartStore } from '@/stores/cart-store'
+import { useCompanyStore } from '@/stores/company'
+import { posOperations } from '@/services/api/pos-operations'
+import { logger } from '@/utils/logger'
 
 export function useOrderManagement() {
   const cartStore = useCartStore()

@@ -343,6 +343,27 @@ const operations = {
       }
     },
 
+    async getAll(params = {}) {
+      logger.startGroup('POS API: Get All Invoices')
+      try {
+        const endpoint = getApiEndpoint('pos.invoice.getAll')
+        logger.info('Fetching invoices from endpoint:', endpoint)
+        
+        const response = await apiClient.get(endpoint, { params })
+        logger.debug('Invoices response:', response.data)
+        
+        return {
+          success: true,
+          data: response.data.invoices || []
+        }
+      } catch (error) {
+        logger.error('Failed to fetch invoices', error)
+        throw error
+      } finally {
+        logger.endGroup()
+      }
+    },
+
     async update(id, invoiceData) {
       logger.startGroup('POS API: Update Invoice')
       try {

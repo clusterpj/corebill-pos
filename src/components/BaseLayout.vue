@@ -1,15 +1,16 @@
 <!-- src/components/BaseLayout.vue -->
 <template>
-  <v-app>
-    <v-fade-transition>
-      <v-btn
-        v-show="!drawerBehavior.permanent"
-        size="large"
-        variant="elevated"
-        color="primary"
-        @click="toggleDrawer"
-        class="menu-toggle"
-      >
+  <v-app :class="{ 'customer-display': isCustomerDisplay }">
+    <template v-if="!isCustomerDisplay">
+      <v-fade-transition>
+        <v-btn
+          v-show="!drawerBehavior.permanent"
+          size="large"
+          variant="elevated"
+          color="primary"
+          @click="toggleDrawer"
+          class="menu-toggle"
+        >
         <v-icon
           size="24"
           color="white"
@@ -152,6 +153,7 @@
       </div>
 
     </v-navigation-drawer>
+    </template>
 
     <!-- Logout Confirmation Dialog -->
     <v-dialog v-model="showLogoutDialog" max-width="400">
@@ -230,14 +232,19 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useAuthStore } from '../stores/auth'
 import { useCompanyStore } from '../stores/company'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { logger } from '../utils/logger'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const companyStore = useCompanyStore()
 const drawer = ref(false)
 const { mobile, mdAndUp } = useDisplay()
+
+const isCustomerDisplay = computed(() => {
+  return route.path === '/customer-display'
+})
 
 // Dialog controls
 const showLogoutDialog = ref(false)
@@ -424,6 +431,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.customer-display :deep(.v-toolbar),
+.customer-display :deep(.v-navigation-drawer),
+.customer-display :deep(.v-btn.menu-toggle) {
+  display: none !important;
+}
 /* Transition styles */
 .fade-enter-active,
 .fade-leave-active {

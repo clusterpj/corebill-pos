@@ -19,7 +19,7 @@
         <v-btn
           color="success"
           prepend-icon="mdi-cash-register"
-          @click="handlePayment"
+          @click="showPaymentDialog = true"
           :disabled="!canPay"
           :loading="isProcessingPayment"
           class="text-none action-btn"
@@ -89,12 +89,6 @@ const canPay = computed(() => {
   })
   return canPayValue
 })
-
-// Handle payment initiation
-const handlePayment = async () => {
-  logger.debug('Handle payment called')
-  showPaymentDialog.value = true
-}
 
 // Handle payment completion
 const handlePaymentComplete = async (result) => {

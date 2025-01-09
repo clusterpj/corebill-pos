@@ -1,4 +1,4 @@
-import { OrderType } from '../../../../../types/order'
+import { OrderType } from '@/types/enums'
 
 // Format date for API (YYYY-MM-DD)
 export const formatApiDate = (date) => {

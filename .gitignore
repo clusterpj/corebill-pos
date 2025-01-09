@@ -1,8 +1,7 @@
 echo "node_modules/
-dist/
 .env
 .DS_Store
 .next/
-build/
 *.log" > .gitignore
 node_modules
+.aider*

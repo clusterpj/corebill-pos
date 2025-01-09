@@ -9,7 +9,16 @@ export function useCart() {
   const updating = ref(false)
 
   const clearOrder = () => {
-    cartStore.clearCart()
+    try {
+      logger.debug('Clearing order, current state:', {
+        items: cartStore.items?.length,
+        total: cartStore.total
+      })
+      cartStore.clearCart()
+    } catch (error) {
+      logger.error('Error clearing order:', error)
+      window.toastr?.['error']('Failed to clear order')
+    }
   }
 
   const updateQuantity = (itemId, quantity, index) => {

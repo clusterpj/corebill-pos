@@ -1,9 +1,11 @@
 import { useCompanyStore } from '../company'
 import { logger } from '../../utils/logger'
-import { prepareItemsForApi, getCurrentDate, getDueDate, priceHelpers } from './helpers'
+import { prepareItemsForApi, getCurrentDate, getDueDate } from './helpers'
+import { PriceUtils } from '../../utils/price'
 import { OrderType } from '../../types/order'
 
 export const invoiceActions = {
+  // Invoice preparation actions
   prepareInvoiceData(state, getters, { storeId, cashRegisterId, referenceNumber }) {
     logger.startGroup('Cart Store: Prepare Invoice Data')
     try {
@@ -24,9 +26,26 @@ export const invoiceActions = {
 
       // Format items with proper price conversions
       const items = state.items.map(item => {
-        const itemPrice = priceHelpers.toCents(item.price)
+        // Log original price
+        logger.debug('Processing item price:', {
+          itemId: item.id,
+          itemName: item.name,
+          originalPrice: item.price,
+          isInDollars: PriceUtils.isInDollars(item.price)
+        });
+
+        const itemPrice = PriceUtils.ensureCents(item.price)
         const itemQuantity = parseInt(item.quantity)
         const itemTotal = itemPrice * itemQuantity
+
+        // Log converted price
+        logger.debug('Price conversion result:', {
+          itemId: item.id,
+          originalPrice: item.price,
+          convertedPrice: itemPrice,
+          quantity: itemQuantity,
+          total: itemTotal
+        });
 
         return {
           item_id: Number(item.id),
@@ -40,13 +59,23 @@ export const invoiceActions = {
           discount: "0",
           discount_val: 0,
           discount_type: "fixed",
-          tax: priceHelpers.toCents(item.tax || 0),
+          tax: PriceUtils.ensureCents(item.tax || 0),
           retention_amount: 0,
           retention_concept: null,
           retention_percentage: null,
           retentions_id: null
         }
       })
+
+      // Log final items array
+      logger.debug('Final items array:', items.map(item => ({
+        id: item.item_id,
+        name: item.name,
+        price: item.price,
+        formattedPrice: PriceUtils.format(item.price),
+        total: item.total,
+        formattedTotal: PriceUtils.format(item.total)
+      })));
 
       const invoice = {
         print_pdf: false,
@@ -61,13 +90,13 @@ export const invoiceActions = {
         due_date: dueDate,
         invoice_number: referenceNumber || "-",
         user_id: Number(currentCustomer.id),
-        total: priceHelpers.toCents(getters.total),
-        due_amount: priceHelpers.toCents(getters.total),
-        sub_total: priceHelpers.toCents(getters.subtotal),
-        tax: priceHelpers.toCents(getters.taxAmount),
+        total: PriceUtils.ensureCents(getters.total),
+        due_amount: PriceUtils.ensureCents(getters.total),
+        sub_total: PriceUtils.ensureCents(getters.subtotal),
+        tax: PriceUtils.ensureCents(getters.taxAmount),
         discount_type: state.discountType,
         discount: state.discountValue.toString(),
-        discount_val: priceHelpers.toCents(getters.discountAmount),
+        discount_val: PriceUtils.ensureCents(getters.discountAmount),
         discount_per_item: "NO",
         items: items,
         invoice_template_id: 1,

@@ -1,4 +1,5 @@
 import { OrderType } from '../../types/order'
+import { markRaw } from 'vue'
 
 export const state = () => ({
   items: [],
@@ -19,7 +20,8 @@ export const state = () => ({
 
 export const mutations = {
   setNotes(state, notes) {
-    state.notes = notes
+    if (notes === state.notes) return
+    state.notes = markRaw(notes)
   },
 
   setSelectedTables(state, tables) {

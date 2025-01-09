@@ -78,20 +78,27 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { useCompanyStore } from '../../stores/company'
-import { useRouter } from 'vue-router'
+import { onMounted, ref, computed } from 'vue'
+import { useCompanyStore } from '@/stores/company'
+import { useRouter, useRoute } from 'vue-router'
+import { WindowManager } from '@/utils/windowManager'
 import PosCart from './components/PosCart.vue'
 import PosProducts from './components/PosProducts.vue'
 import PosFooter from './components/PosFooter.vue'
 import ReferenceDialog from './components/dialogs/ReferenceDialog.vue'
 import { useOrderManagement } from './composables/useOrderManagement'
 import { useErrorHandling } from './composables/useErrorHandling'
-import { logger } from '../../utils/logger'
+import { logger } from '@/utils/logger'
 
 // Store initialization
 const companyStore = useCompanyStore()
 const router = useRouter()
+const route = useRoute()
+const drawer = ref(false)
+
+const isCustomerDisplay = computed(() => {
+  return route.path === '/customer-display'
+})
 
 // Composables
 const {
@@ -135,6 +142,16 @@ async function initializePos() {
 // Initialize on mount
 onMounted(async () => {
   await initializePos()
+  
+  // Open customer display on secondary screen
+  try {
+    const customerWindow = await WindowManager.openCustomerDisplay()
+    if (!customerWindow) {
+      logger.warn('Failed to open customer display on secondary screen')
+    }
+  } catch (error) {
+    logger.error('Error opening customer display:', error)
+  }
 })
 </script>
 

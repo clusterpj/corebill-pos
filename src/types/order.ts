@@ -20,6 +20,23 @@ export enum OrderType {
   PICKUP = 'PICKUP'
 }
 
+export enum OrderStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled'
+}
+
+export interface OrderItem {
+  id: number
+  name: string
+  price: number
+  quantity: number
+  section_id?: number
+  section_type?: 'kitchen' | 'bar'
+  section_name?: string
+}
+
 export interface Order {
   id?: number
   user_id?: number
@@ -28,12 +45,13 @@ export interface Order {
   tax: number
   discount?: number
   products: Product[]
-  status: string
+  status: OrderStatus | string
   type: OrderType
   paid_status: PaidStatus
   notes?: string
-  created_at?: Date
-  updated_at?: Date
+  created_at?: Date | string
+  updated_at?: Date | string
+  items: OrderItem[]
   
   // New invoice-related fields
   invoice_number?: string
