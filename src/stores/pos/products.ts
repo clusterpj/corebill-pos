@@ -66,7 +66,7 @@ export const createProductsModule = (
     }
   }
 
-  const fetchProducts = async (page = 1, perPage = 100) => {
+  const fetchProducts = async () => {
     if (!companyStore.isConfigured) {
       logger.warn('Company configuration incomplete, skipping products fetch')
       return
@@ -88,7 +88,7 @@ export const createProductsModule = (
         sectionsMap[section.id] = section
       })
       
-      // Now fetch products in batches
+      // Now fetch products
       const categoryIds = state.selectedCategory.value === 'all'
         ? state.categories.value.map(c => c.item_category_id)
         : [state.selectedCategory.value]
@@ -99,8 +99,8 @@ export const createProductsModule = (
         avalara_bool: false,
         is_pos: 1,
         id: companyStore.selectedStore,
-        limit: perPage,
-        page: page,
+        limit: state.itemsPerPage.value,
+        page: state.currentPage.value,
         sku: state.searchQuery.value
       }
 
@@ -110,74 +110,61 @@ export const createProductsModule = (
       if (response.items?.data) {
         const products = Array.isArray(response.items.data) ? response.items.data : []
         
-        // Process products in smaller chunks to avoid memory issues
-        const chunkSize = 50
-        for (let i = 0; i < products.length; i += chunkSize) {
-          const chunk = products.slice(i, i + chunkSize)
-          
-          // Process section information for each chunk
-          await Promise.all(chunk.map(async (product) => {
-            try {
-              logger.debug(`[Products] Fetching sections for product ${product.id}`)
-              const sections = await sectionApi.getSectionsForItem(product.id)
-              logger.debug(`[Products] Received sections for product ${product.id}:`, sections)
+        // Fetch section information for each product
+        await Promise.all(products.map(async (product) => {
+          try {
+            logger.debug(`[Products] Fetching sections for product ${product.id}`)
+            const sections = await sectionApi.getSectionsForItem(product.id)
+            logger.debug(`[Products] Received sections for product ${product.id}:`, sections)
+            
+            if (sections && sections.length > 0) {
+              const section = sections[0] // Get the first section
+              logger.debug(`[Products] Using section for product ${product.id}:`, section)
               
-              if (sections && sections.length > 0) {
-                const section = sections[0] // Get the first section
-                logger.debug(`[Products] Using section for product ${product.id}:`, section)
+              if (section && section.id) {
+                // Create a new product object with section information
+                Object.assign(product, {
+                  section_id: section.id,
+                  section_type: 'bar', // Default to 'bar' if section.name is 'BAR', otherwise 'kitchen'
+                  section_name: section.name
+                })
                 
-                if (section && section.id) {
-                  // Create a new product object with section information
-                  Object.assign(product, {
-                    section_id: section.id,
-                    section_type: 'bar', // Default to 'bar' if section.name is 'BAR', otherwise 'kitchen'
-                    section_name: section.name
-                  })
-                  
-                  // Update section type based on section name
-                  if (section.name.toUpperCase() === 'BAR') {
-                    product.section_type = 'bar'
-                  } else if (section.name.toUpperCase() === 'KITCHEN') {
-                    product.section_type = 'kitchen'
-                  }
-                  
-                  logger.debug(`[Products] Updated product ${product.id} with section:`, { 
-                    id: product.id,
-                    name: product.name,
-                    section: {
-                      id: product.section_id,
-                      type: product.section_type,
-                      name: product.section_name
-                    }
-                  })
-                } else {
-                  logger.debug(`[Products] Invalid section data for product ${product.id}`)
-                  setDefaultSection(product)
+                // Update section type based on section name
+                if (section.name.toUpperCase() === 'BAR') {
+                  product.section_type = 'bar'
+                } else if (section.name.toUpperCase() === 'KITCHEN') {
+                  product.section_type = 'kitchen'
                 }
+                
+                logger.debug(`[Products] Updated product ${product.id} with section:`, { 
+                  id: product.id,
+                  name: product.name,
+                  section: {
+                    id: product.section_id,
+                    type: product.section_type,
+                    name: product.section_name
+                  }
+                })
               } else {
-                logger.debug(`[Products] No sections found for product ${product.id}`)
+                logger.debug(`[Products] Invalid section data for product ${product.id}`)
                 setDefaultSection(product)
               }
-            } catch (error) {
-              logger.error(`[Products] Failed to fetch section for product ${product.id}:`, error)
+            } else {
+              logger.debug(`[Products] No sections found for product ${product.id}`)
               setDefaultSection(product)
             }
-          }))
-          
-          // Add the processed chunk to our products array
-          state.products.value = [...state.products.value, ...chunk]
-        }
+          } catch (error) {
+            logger.error(`[Products] Failed to fetch section for product ${product.id}:`, error)
+            setDefaultSection(product)
+          }
+        }))
         
         // Store the sections map in state for future use
         state.sectionsMap = sectionsMap
         
+        state.products.value = products
         state.totalItems.value = response.itemTotalCount || 0
         logger.info(`[Products] Loaded ${products.length} products with section information`)
-        
-        // If there are more products to fetch, continue fetching
-        if (state.products.value.length < state.totalItems.value) {
-          await fetchProducts(page + 1, perPage)
-        }
       } else {
         logger.warn('No products data in response', response)
         state.products.value = []
