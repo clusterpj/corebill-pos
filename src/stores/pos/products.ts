@@ -81,13 +81,6 @@ export const createProductsModule = (
       logger.debug('[Products] Fetching all sections')
       const allSections = await sectionApi.getAllSections('all')
       logger.debug('[Products] All sections:', allSections)
-
-      // Debug: Log current store and category state
-      logger.debug('[Products] Current store and category state:', {
-        selectedStore: companyStore.selectedStore,
-        selectedCategory: state.selectedCategory.value,
-        categories: state.categories.value
-      })
       
       // Create a map of section ID to section for quick lookup
       const sectionsMap: Record<number, Section> = {}
@@ -112,20 +105,8 @@ export const createProductsModule = (
       logger.debug('[Products] Fetch products params:', params)
       const response = await posApi.getItems(params)
       
-      // Debug: Log the API response
-      logger.debug('[Products] API Response:', {
-        status: response.status,
-        data: response.data,
-        items: response.items,
-        itemTotalCount: response.itemTotalCount
-      })
-
       if (response.items?.data) {
         const products = Array.isArray(response.items.data) ? response.items.data : []
-        logger.debug('[Products] Received products:', {
-          count: products.length,
-          firstProduct: products[0] || null
-        })
         
         // Process products in smaller chunks to avoid memory issues
         const chunkSize = 50
@@ -227,20 +208,9 @@ export const createProductsModule = (
       return
     }
     
-    logger.debug('[Products] Setting category:', {
-      categoryId,
-      availableCategories: state.categories.value
-    })
-
     // Set first category as default if available
     state.selectedCategory.value = state.categories.value[0]?.item_category_id || 0
     state.currentPage.value = 1
-    
-    logger.debug('[Products] Fetching products for category:', {
-      selectedCategory: state.selectedCategory.value,
-      currentPage: state.currentPage.value
-    })
-    
     await fetchProducts()
   }
 
