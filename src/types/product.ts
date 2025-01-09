@@ -17,7 +17,7 @@ export interface Product {
   attributes?: Record<string, any>
   
   // Section related fields
-  section_id?: number
+  section_id?: number | null
   section?: Section
   section_type?: 'kitchen' | 'bar' | 'other'
   section_name?: string
@@ -29,4 +29,22 @@ export interface ProductCategory {
   description?: string
   parent_id?: number
   status: 'active' | 'inactive'
+  item_category_id?: number // Added to match actual usage
+}
+
+export interface ProductsState {
+  products: Ref<Product[]>
+  categories: Ref<ProductCategory[]>
+  totalItems: Ref<number>
+  loading: Ref<{
+    categories: boolean
+    products: boolean
+    itemOperation: boolean
+  }>
+  error: Ref<string | null>
+  selectedCategory: Ref<string | number>
+  searchQuery: Ref<string>
+  currentPage: Ref<number>
+  itemsPerPage: Ref<number>
+  sectionsMap: Record<number, Section>
 }
