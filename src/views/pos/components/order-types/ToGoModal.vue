@@ -347,12 +347,12 @@ const clearAllErrors = () => {
 
 const processOrder = async () => {
   // State machine transition: IDLE -> PROCESSING
-  stateMachine.send('START_PROCESS')
+  stateMachine.send({ type: 'START_PROCESS' })
   console.log('🚦 Starting TO-GO order process...')
   
   if (!validateForm()) {
     console.error('❌ Form validation failed')
-    stateMachine.send('VALIDATION_FAILED')
+    stateMachine.send({ type: 'VALIDATION_FAILED' })
     return
   }
 
@@ -439,13 +439,13 @@ const processOrder = async () => {
       console.log('📥 Hold order response:', result)
       
       // State machine transition: PROCESSING -> HOLD_CREATED
-      stateMachine.send('HOLD_CREATED')
+      stateMachine.send({ type: 'HOLD_CREATED' })
       
       // Cache the hold invoice data
       cache.set(`holdInvoice_${result.id}`, holdInvoiceData)
     } catch (error) {
       console.error('❌ Hold order creation failed:', error)
-      stateMachine.send('HOLD_FAILED')
+      stateMachine.send({ type: 'HOLD_FAILED' })
       throw error
     }
 
@@ -517,7 +517,7 @@ const processOrder = async () => {
     console.log('✅ Payment flow ready')
     
     // State machine transition: HOLD_CREATED -> PAYMENT_READY
-    stateMachine.send('PAYMENT_READY')
+    stateMachine.send({ type: 'PAYMENT_READY' })
     
     // Track analytics event
     analytics.track('PaymentDialogOpened', {
