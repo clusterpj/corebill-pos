@@ -178,6 +178,50 @@ import { OrderType } from '../../../../types/order'
 import { usePosStore } from '../../../../stores/pos-store'
 import { parseOrderNotes } from '../../../../stores/cart/helpers'
 import PaymentDialog from '../dialogs/PaymentDialog.vue'
+import { createMachine, interpret } from 'xstate'
+
+// Define state machine
+const stateMachine = interpret(createMachine({
+  id: 'togoOrder',
+  initial: 'idle',
+  states: {
+    idle: {
+      on: {
+        START_PROCESS: 'processing'
+      }
+    },
+    processing: {
+      on: {
+        VALIDATION_FAILED: 'error',
+        HOLD_CREATED: 'holdCreated',
+        HOLD_FAILED: 'error'
+      }
+    },
+    holdCreated: {
+      on: {
+        PAYMENT_READY: 'paymentReady',
+        PAYMENT_FAILED: 'error'
+      }
+    },
+    paymentReady: {
+      on: {
+        PAYMENT_COMPLETE: 'complete',
+        PAYMENT_FAILED: 'error'
+      }
+    },
+    complete: {
+      type: 'final'
+    },
+    error: {
+      on: {
+        RETRY: 'idle'
+      }
+    }
+  }
+}))
+
+// Start the state machine
+stateMachine.start()
 
 const props = defineProps({
   disabled: { type: Boolean, default: false }
