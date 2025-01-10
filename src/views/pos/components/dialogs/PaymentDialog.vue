@@ -99,25 +99,36 @@
                 <v-col cols="12" md="8">
                   <!-- Payment Methods Selection -->
                   <div class="text-subtitle-1 mb-3 font-weight-medium">Select Payment Method</div>
-                  <v-row class="payment-methods-grid">
-                    <v-col v-for="method in paymentMethods" 
-                           :key="method.id" 
-                           cols="6" 
-                           sm="4">
-                      <v-btn
-                        block
-                        :color="isMethodSelected(method.id) ? 'primary' : undefined"
-                        :variant="isMethodSelected(method.id) ? 'flat' : 'outlined'"
-                        class="payment-method-btn"
-                        height="64"
-                        @click="selectPaymentMethod(method.id)"
-                        :disabled="isMethodDisabled(method.id)"
-                      >
-                        <v-icon :icon="getPaymentMethodIcon(method.name)" class="mr-2"></v-icon>
-                        {{ method.name }}
-                      </v-btn>
-                    </v-col>
-                  </v-row>
+                  <template v-if="paymentMethods.length > 0">
+                    <v-row class="payment-methods-grid">
+                      <v-col v-for="method in paymentMethods" 
+                             :key="method.id" 
+                             cols="6" 
+                             sm="4">
+                        <v-btn
+                          block
+                          :color="isMethodSelected(method.id) ? 'primary' : undefined"
+                          :variant="isMethodSelected(method.id) ? 'flat' : 'outlined'"
+                          class="payment-method-btn"
+                          height="64"
+                          @click="selectPaymentMethod(method.id)"
+                          :disabled="isMethodDisabled(method.id)"
+                        >
+                          <v-icon :icon="getPaymentMethodIcon(method.name)" class="mr-2"></v-icon>
+                          {{ method.name }}
+                        </v-btn>
+                      </v-col>
+                    </v-row>
+                  </template>
+                  <template v-else>
+                    <v-alert
+                      type="warning"
+                      variant="tonal"
+                      class="mb-4"
+                    >
+                      No payment methods available. Please configure payment methods in settings.
+                    </v-alert>
+                  </template>
 
                   <!-- Active Payment Methods -->
                   <div v-if="payments.length > 0" class="active-payments-section">
@@ -389,6 +400,7 @@ const invoiceTotal = computed(() => {
   return total // Already in cents
 })
 
+const payment = usePayment()
 const {
   loading: paymentLoading,
   error: paymentError,
@@ -401,7 +413,22 @@ const {
   calculateFees,
   getPaymentMethod,
   isCashOnly
-} = usePayment()
+} = payment
+
+// Debug payment methods
+watch(paymentMethods, (newMethods) => {
+  console.log('Payment methods updated:', newMethods)
+}, { immediate: true })
+
+watch(paymentLoading, (loading) => {
+  console.log('Payment loading state:', loading)
+})
+
+watch(paymentError, (error) => {
+  if (error) {
+    console.error('Payment error:', error)
+  }
+})
 
 const {
   loading: tableLoading,
@@ -953,37 +980,40 @@ const processPayment = async () => {
 // Initialize
 watch(() => dialog.value, async (newValue) => {
   console.log('🪟 PaymentDialog - Watch triggered:', { newValue })
-  console.log('🪟 PaymentDialog - Vuetify dialog state:', {
-    isActive: document.querySelector('.v-dialog')?.classList.contains('v-dialog--active'),
-    isVisible: document.querySelector('.v-dialog')?.style.display !== 'none'
-  })
   if (newValue) {
     try {
       console.log('🪟 PaymentDialog - Initializing...')
-      // Get company settings
-      await fetchSettings()
-
-      // Reset payments array
+      
+      // Reset state
       payments.value = []
       processing.value = false
-      
-      // Reset tip state
       tipAmount.value = 0
       selectedTipPercent.value = null
       customTipPercent.value = ''
       
-      // Fetch payment methods
-      await fetchPaymentMethods()
+      // Fetch required data
+      console.log('Fetching company settings...')
+      await fetchSettings()
+      
+      console.log('Fetching payment methods...')
+      const methods = await fetchPaymentMethods()
+      console.log('Fetched payment methods:', methods)
+      
+      if (!methods || methods.length === 0) {
+        console.warn('No payment methods available')
+        window.toastr?.warning('No payment methods available')
+      }
+      
       console.log('🪟 PaymentDialog - Initialization complete')
     } catch (error) {
       console.error('🪟 PaymentDialog - Initialization failed:', error)
-      window.toastr?.['error']('Failed to initialize payment')
+      window.toastr?.['error']('Failed to initialize payment: ' + (error.message || 'Unknown error'))
       dialog.value = false
     }
   } else {
     console.log('🪟 PaymentDialog - Dialog closed')
   }
-})
+}, { immediate: true })
 </script>
 
 <style scoped>
