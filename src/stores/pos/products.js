@@ -345,11 +345,25 @@ export const createProductsModule = (state, posApi, companyStore) => {
     }
   }
 
+  const clearCache = () => {
+    logger.startGroup('POS Store: Clear Products Cache')
+    try {
+      cache.clear('products')
+      logger.info('Products cache cleared successfully')
+    } catch (error) {
+      logger.error('Failed to clear products cache', error)
+      throw error
+    } finally {
+      logger.endGroup()
+    }
+  }
+
   return {
     fetchCategories,
     fetchProducts,
     setCategory,
     createItem,
-    updateItem
+    updateItem,
+    clearCache
   }
 }
