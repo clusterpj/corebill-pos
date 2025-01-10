@@ -820,7 +820,21 @@ const processPayment = async () => {
     // Use the prepared invoice data
     const holdInvoice = props.invoice.invoice
     if (!holdInvoice) {
+      console.error('No invoice data provided', {
+        propsInvoice: props.invoice,
+        holdInvoice
+      })
       throw new Error('Invoice data not provided')
+    }
+
+    // Ensure we have the required invoice fields
+    if (!holdInvoice.id || !holdInvoice.total) {
+      console.error('Invalid invoice data', {
+        id: holdInvoice.id,
+        total: holdInvoice.total,
+        invoice: holdInvoice
+      })
+      throw new Error('Invalid invoice data')
     }
     
     // Calculate the total with tip (convert from dollars to cents for API)
@@ -930,16 +944,17 @@ const processPayment = async () => {
     console.log(' [Payment] Payment creation result:', result)
     
     // Show invoice PDF in modal
-    const invoiceId = result?.invoice_id || invoiceResult?.invoice?.id || invoiceResult?.id;
+    const invoiceId = result?.invoice_id || invoiceResult?.invoice?.id || invoiceResult?.id || props.invoice?.id;
     if (invoiceId) {
       console.log('📄 [Invoice PDF] Starting PDF preparation', {
         paymentResult: result,
         invoiceResult: invoiceResult,
-        invoiceId
+        invoiceId,
+        propsInvoice: props.invoice
       });
 
       // Get the invoice details from the nested structure
-      const invoice = invoiceResult?.invoice?.invoice || invoiceResult?.invoice || result?.invoice;
+      const invoice = invoiceResult?.invoice?.invoice || invoiceResult?.invoice || result?.invoice || props.invoice;
       
       if (!invoice?.unique_hash) {
         console.error('📄 [Invoice PDF] Missing invoice hash:', invoice);
@@ -989,8 +1004,8 @@ const processPayment = async () => {
     // Track payment failure
     analytics.track('PaymentFailed', {
       error: err.message,
-      invoiceId: currentInvoice.value?.id,
-      totalAmount: currentInvoice.value?.total
+      invoiceId: props.invoice?.id || invoiceResult?.invoice?.id,
+      totalAmount: props.invoice?.total || invoiceResult?.invoice?.total
     })
   } finally {
     processing.value = false
@@ -998,8 +1013,8 @@ const processPayment = async () => {
     // Track payment completion
     analytics.track('PaymentCompleted', {
       success: !error.value,
-      invoiceId: currentInvoice.value?.id,
-      totalAmount: currentInvoice.value?.total
+      invoiceId: props.invoice?.id || invoiceResult?.invoice?.id,
+      totalAmount: props.invoice?.total || invoiceResult?.invoice?.total
     })
   }
 }
