@@ -87,9 +87,43 @@ export const createProductsModule = (state, posApi, companyStore) => {
   // Initialize cache
   cache.init()
   
-  // Remove the duplicate cache definition here and keep using the one at the top of the file
-  
+  // Preload all products in the background
+  const preloadAllProducts = async () => {
+    if (!companyStore.isConfigured) return
+    
+    logger.startGroup('POS Store: Preloading All Products')
+    try {
+      const params = {
+        avalara_bool: false,
+        is_pos: 1,
+        id: companyStore.selectedStore,
+        limit: 1000, // Load more products initially
+        page: 1
+      }
+
+      const response = await posApi.getItems(params)
+      
+      if (response.items?.data) {
+        const products = Array.isArray(response.items.data) ? response.items.data : []
+        
+        // Cache all products with a special key
+        cache.set('all_products', {
+          products,
+          timestamp: Date.now()
+        })
+        
+        logger.info(`[Preload] Cached ${products.length} products`)
+      }
+    } catch (error) {
+      logger.error('[Preload] Failed to preload products', error)
+    } finally {
+      logger.endGroup()
+    }
+  }
+
   const fetchCategories = async () => {
+    // Start preloading products in the background
+    preloadAllProducts()
     if (!companyStore.isConfigured) {
       logger.warn('Company configuration incomplete, skipping categories fetch')
       return
@@ -158,7 +192,35 @@ export const createProductsModule = (state, posApi, companyStore) => {
       return
     }
 
-    // Generate cache key based on current state
+    // First check if we have preloaded all products
+    const preloaded = cache.get('all_products')
+    if (preloaded && !cache.shouldFetch()) {
+      // Filter preloaded products by current category/search
+      const categoryIds = state.selectedCategory.value === 'all'
+        ? state.categories.value.map(c => c.item_category_id)
+        : [state.selectedCategory.value]
+      
+      const filteredProducts = preloaded.products.filter(product => {
+        const matchesCategory = categoryIds.includes(product.category_id)
+        const matchesSearch = state.searchQuery.value 
+          ? product.name.toLowerCase().includes(state.searchQuery.value.toLowerCase())
+          : true
+        return matchesCategory && matchesSearch
+      })
+      
+      // Paginate the filtered results
+      const startIndex = (page - 1) * perPage
+      const paginatedProducts = filteredProducts.slice(startIndex, startIndex + perPage)
+      
+      logger.debug('[Products] Using preloaded products')
+      state.products.value = paginatedProducts
+      state.totalItems.value = filteredProducts.length
+      state.currentPage.value = page
+      state.itemsPerPage.value = perPage
+      return
+    }
+
+    // Fallback to regular fetch if no preloaded data
     const cacheKey = JSON.stringify({
       page,
       perPage,
@@ -350,6 +412,7 @@ export const createProductsModule = (state, posApi, companyStore) => {
     fetchProducts,
     setCategory,
     createItem,
-    updateItem
+    updateItem,
+    preloadAllProducts
   }
 }
