@@ -30,10 +30,22 @@
                 variant="outlined"
                 color="primary"
                 size="small"
-                class="grid-settings-btn"
+                class="grid-settings-btn me-2"
                 @click="showGridSettings = true"
               >
                 Grid Settings
+              </v-btn>
+              
+              <v-btn
+                prepend-icon="mdi-cached"
+                variant="outlined"
+                color="warning"
+                size="small"
+                class="clear-cache-btn"
+                @click="clearCache"
+                :loading="clearingCache"
+              >
+                Clear Cache
               </v-btn>
 
               <v-dialog
@@ -125,6 +137,21 @@
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
 const showGridSettings = ref(false)
+const clearingCache = ref(false)
+
+const clearCache = async () => {
+  clearingCache.value = true
+  try {
+    await posStore.clearCache()
+    window.toastr?.success('Product cache cleared successfully')
+    await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
+  } catch (error) {
+    logger.error('Failed to clear cache', error)
+    window.toastr?.error('Failed to clear product cache')
+  } finally {
+    clearingCache.value = false
+  }
+}
 import { usePosStore } from '../../../stores/pos-store'
 import { useCartStore } from '../../../stores/cart-store'
 import { logger } from '../../../utils/logger'
@@ -379,6 +406,22 @@ const handleQuickAdd = async (searchTerm) => {
 
 .grid-settings-btn {
   min-width: 135px;
+}
+
+.clear-cache-btn {
+  min-width: 120px;
+}
+
+@media (max-width: 600px) {
+  .grid-settings-btn,
+  .clear-cache-btn {
+    min-width: auto;
+    padding: 0 12px;
+  }
+  
+  .clear-cache-btn {
+    margin-left: 4px;
+  }
 }
 
 @media (max-width: 600px) {
