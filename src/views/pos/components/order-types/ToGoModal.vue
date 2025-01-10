@@ -467,22 +467,23 @@ const processOrder = async () => {
     })
 
     console.log('📤 Creating hold order...')
+    let holdResult
     try {
-      const result = await posStore.holdOrder(holdInvoiceData)
-      console.log('📥 Hold order response:', result)
+      holdResult = await posStore.holdOrder(holdInvoiceData)
+      console.log('📥 Hold order response:', holdResult)
       
       // State machine transition: PROCESSING -> HOLD_CREATED
       stateMachine.send({ type: 'HOLD_CREATED' })
       
       // Cache the hold invoice data
-      cache.set(`holdInvoice_${result.id}`, holdInvoiceData)
+      cache.set(`holdInvoice_${holdResult.id}`, holdInvoiceData)
     } catch (error) {
       console.error('❌ Hold order creation failed:', error)
       stateMachine.send({ type: 'HOLD_FAILED' })
       throw error
     }
 
-    if (!result?.success) {
+    if (!holdResult?.success) {
       console.error('❌ Hold order creation failed:', result?.message || 'No error message')
       throw new Error(result?.message || 'Failed to create hold order')
     }
