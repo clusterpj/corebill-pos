@@ -419,10 +419,12 @@ const processOrder = async () => {
     console.log('📄 Base invoice data:', baseInvoiceData)
 
     console.log('📦 Creating hold invoice data...')
+    // Create unique description with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const holdInvoiceData = {
       ...baseInvoiceData,
       type: OrderType.TO_GO,
-      description: `TO_GO_${customerInfo.name}`,
+      description: `TO_GO_${customerInfo.name}_${timestamp}`,
       cash_register_id: companyStore.selectedCashier?.id || companyStore.company?.id || 1,
       hold_items: cartStore.items.map(item => ({
         item_id: item.id,
@@ -504,8 +506,9 @@ const processOrder = async () => {
     await posStore.fetchHoldInvoices()
     
     console.log('🔎 Searching for new hold invoice...')
+    // Find the invoice by timestamp since description is now unique
     const holdInvoice = posStore.holdInvoices.find(inv => 
-      inv.description === holdInvoiceData.description &&
+      inv.description.includes(timestamp) &&
       inv.type === OrderType.TO_GO
     )
 
