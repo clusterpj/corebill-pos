@@ -3,6 +3,10 @@ import { errorHandler } from '@/utils/errorHandler'
 import { logger } from '@/utils/logger'
 
 class KitchenApiError extends Error {
+  /**
+   * @param {string} message
+   * @param {string} code
+   */
   constructor(message, code) {
     super(message)
     this.name = 'KitchenApiError'
@@ -11,6 +15,10 @@ class KitchenApiError extends Error {
 }
 
 class NetworkError extends Error {
+  /**
+   * @param {string} message
+   * @param {Error} originalError
+   */
   constructor(message, originalError) {
     super(message)
     this.name = 'NetworkError'
@@ -20,6 +28,11 @@ class NetworkError extends Error {
 }
 
 export class KitchenService {
+  /**
+   * @param {() => Promise<any>} operation
+   * @param {object} context
+   * @param {number} [maxRetries=3]
+   */
   static async retryWithBackoff(operation, context, maxRetries = 3) {
     let lastError = null
     
@@ -41,6 +54,9 @@ export class KitchenService {
     
     throw new NetworkError('Network connection failed', lastError)
   }
+  /**
+   * @param {number} sectionId
+   */
   static async fetchOrders(sectionId) {
     try {
       logger.info(`[KitchenService] Fetching all orders for section ${sectionId}`)
@@ -64,6 +80,10 @@ export class KitchenService {
     }
   }
 
+  /**
+   * @param {number} sectionId
+   * @param {'P' | 'C'} status
+   */
   static async fetchOrdersByStatus(sectionId, status) {
     try {
       console.log(`🔍 [KitchenService] Fetching ${status} orders for section ${sectionId}`)
@@ -79,7 +99,7 @@ export class KitchenService {
       console.log(`📦 [KitchenService] Raw ${status} orders:`, response.data)
 
       const orders = response.data?.orders || []
-      const processedOrders = orders.map(order => {
+      const processedOrders = orders.map(/** @param {any} order */ order => {
         console.log('Processing order:', order)
         return {
           ...order,
@@ -92,14 +112,14 @@ export class KitchenService {
 
       // Fetch details for each order - passing the status to fetchOrderItems
       const orderDetails = await Promise.all(
-        processedOrders.map(order => {
+        processedOrders.map(/** @param {any} order */ order => {
           console.log(`📝 Fetching details for order ${order.id} of type ${order.type}`)
           return this.fetchOrderItems(order.id, order.type, status) // Pass status here
         })
       )
 
       // Merge order details with orders
-      return processedOrders.map((order, index) => {
+      return processedOrders.map(/** @param {any} order */ (order, index) => {
         const details = orderDetails[index]
         console.log(`Processing order ${order.id} details:`, details)
         return {
@@ -117,6 +137,11 @@ export class KitchenService {
     }
   }
 
+  /**
+   * @param {number} orderId
+   * @param {'HOLD' | 'INVOICE'} [type='HOLD']
+   * @param {'P' | 'C'} [status='P']
+   */
   static async fetchOrderItems(orderId, type = 'HOLD', status = 'P') {
     try {
       // Normalize the type for API call
@@ -144,6 +169,11 @@ export class KitchenService {
     }
   }
 
+  /**
+   * @param {number | number[]} orderIds
+   * @param {'completed' | 'pending'} status
+   * @param {'HOLD' | 'INVOICE'} type
+   */
   static async updateOrderStatus(orderIds, status, type) {
     const context = { 
       operation: 'updateOrderStatus', 
