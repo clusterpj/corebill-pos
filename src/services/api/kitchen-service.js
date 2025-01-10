@@ -39,8 +39,8 @@ export class KitchenService {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         return await operation()
-      } catch (error) {
-        lastError = error
+      } catch (/** @type {unknown} */ error) {
+        lastError = error instanceof Error ? error : new Error(String(error))
         const delay = Math.pow(2, attempt - 1) * 1000 // Exponential backoff: 1s, 2s, 4s
         
         logger.warn(`Retrying operation in ${delay}ms (attempt ${attempt}/${maxRetries}):`, {
@@ -119,7 +119,7 @@ export class KitchenService {
       )
 
       // Merge order details with orders
-      return processedOrders.map(/** @param {any} order */ (order, index) => {
+      return processedOrders.map(/** @param {any} order *//** @param {number} index */ (order, index) => {
         const details = orderDetails[index]
         console.log(`Processing order ${order.id} details:`, details)
         return {
