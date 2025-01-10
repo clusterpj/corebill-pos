@@ -2,6 +2,9 @@ import { logger } from '../../utils/logger'
 import { sectionApi } from '../../services/api/section-api'
 
 export const createProductsModule = (state, posApi, companyStore) => {
+  // Initialize cache
+  cache.init()
+  
   const fetchCategories = async () => {
     if (!companyStore.isConfigured) {
       logger.warn('Company configuration incomplete, skipping categories fetch')
@@ -39,18 +42,59 @@ export const createProductsModule = (state, posApi, companyStore) => {
     }
   }
 
-  // Enhanced caching system
+  // Enhanced caching system with localStorage persistence
   const cache = {
     products: new Map(),
     sections: new Map(),
     CACHE_TTL: 1000 * 60 * 5, // 5 minutes
     lastFetch: null,
+    STORAGE_KEY: 'pos-products-cache',
+    
+    // Load cache from localStorage on initialization
+    init() {
+      try {
+        const storedCache = localStorage.getItem(this.STORAGE_KEY)
+        if (storedCache) {
+          const parsed = JSON.parse(storedCache)
+          if (parsed.products) {
+            this.products = new Map(Object.entries(parsed.products))
+          }
+          if (parsed.sections) {
+            this.sections = new Map(Object.entries(parsed.sections))
+          }
+          this.lastFetch = parsed.lastFetch
+          logger.debug('[Cache] Loaded from localStorage')
+        }
+      } catch (error) {
+        logger.error('[Cache] Failed to load from localStorage', error)
+      }
+    },
+    
+    // Save cache to localStorage
+    persist() {
+      try {
+        const cacheData = {
+          products: Object.fromEntries(this.products),
+          sections: Object.fromEntries(this.sections),
+          lastFetch: this.lastFetch
+        }
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cacheData))
+        logger.debug('[Cache] Persisted to localStorage')
+      } catch (error) {
+        logger.error('[Cache] Failed to persist to localStorage', error)
+      }
+    },
     
     get(key, type = 'products') {
       const cacheMap = this[type]
       const entry = cacheMap.get(key)
       if (entry && Date.now() - entry.timestamp < this.CACHE_TTL) {
         return entry.data
+      }
+      // Remove expired entry
+      if (entry) {
+        cacheMap.delete(key)
+        this.persist()
       }
       return null
     },
@@ -61,6 +105,7 @@ export const createProductsModule = (state, posApi, companyStore) => {
         data,
         timestamp: Date.now()
       })
+      this.persist()
     },
     
     clear(type) {
@@ -70,6 +115,7 @@ export const createProductsModule = (state, posApi, companyStore) => {
         this.products.clear()
         this.sections.clear()
       }
+      this.persist()
     },
     
     shouldFetch() {
