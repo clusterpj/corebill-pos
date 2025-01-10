@@ -193,6 +193,17 @@ import { parseOrderNotes } from '../../../../stores/cart/helpers'
 import PaymentDialog from '../dialogs/PaymentDialog.vue'
 import { createMachine, interpret } from 'xstate'
 
+// Safe analytics wrapper
+const analytics = {
+  track: (eventName, properties = {}) => {
+    if (window.analytics) {
+      window.analytics.track(eventName, properties)
+    } else {
+      console.log(`[Analytics] ${eventName}:`, properties)
+    }
+  }
+}
+
 // Simple in-memory cache implementation
 const cache = {
   _data: new Map(),
