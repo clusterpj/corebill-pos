@@ -33,10 +33,6 @@ export const usePosStore = defineStore('pos', () => {
       await companyStore.initializeStore()
       await productsModule.fetchCategories()
       await ordersModule.fetchHoldInvoices()
-      
-      // Start preloading products after initial setup
-      productsModule.preloadAllProducts()
-      
       logger.info('POS Store initialized successfully')
     } catch (error) {
       logger.error('Failed to initialize POS store', error)
