@@ -1029,8 +1029,8 @@ const processPayment = async () => {
     // Track payment failure
     analytics.track('PaymentFailed', {
       error: err.message,
-      invoiceId: props.invoice?.id || invoiceResult?.invoice?.id,
-      totalAmount: props.invoice?.total || invoiceResult?.invoice?.total
+      invoiceId: props.invoice?.id,
+      totalAmount: props.invoice?.total
     })
   } finally {
     processing.value = false
@@ -1038,8 +1038,8 @@ const processPayment = async () => {
     // Track payment completion
     analytics.track('PaymentCompleted', {
       success: !error.value,
-      invoiceId: props.invoice?.id || invoiceResult?.invoice?.id,
-      totalAmount: props.invoice?.total || invoiceResult?.invoice?.total
+      invoiceId: props.invoice?.id,
+      totalAmount: props.invoice?.total
     })
   }
 }
