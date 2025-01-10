@@ -461,6 +461,15 @@ const dialog = computed({
       vDialogElement: document.querySelector('.v-dialog'),
       vDialogVisible: document.querySelector('.v-dialog')?.style.display
     })
+    
+    // Add haptic feedback
+    if (value && window.navigator?.vibrate) {
+      window.navigator.vibrate(50)
+    }
+    
+    // Track visibility changes
+    analytics.track(value ? 'PaymentDialogOpened' : 'PaymentDialogClosed')
+    
     emit('update:modelValue', value)
   }
 })
