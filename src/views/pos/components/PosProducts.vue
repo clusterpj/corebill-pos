@@ -123,7 +123,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 const showGridSettings = ref(false)
 import { usePosStore } from '../../../stores/pos-store'
 import { useCartStore } from '../../../stores/cart-store'
