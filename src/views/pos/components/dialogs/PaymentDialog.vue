@@ -944,17 +944,27 @@ const processPayment = async () => {
     console.log(' [Payment] Payment creation result:', result)
     
     // Show invoice PDF in modal
-    const invoiceId = result?.invoice_id || invoiceResult?.invoice?.id || invoiceResult?.id || props.invoice?.id;
+    const invoiceId = result?.regularResults?.[0]?.payment?.invoice_id || 
+                     result?.invoice_id || 
+                     invoiceResult?.invoice?.id || 
+                     invoiceResult?.id || 
+                     props.invoice?.id;
+    
     if (invoiceId) {
       console.log('📄 [Invoice PDF] Starting PDF preparation', {
         paymentResult: result,
         invoiceResult: invoiceResult,
         invoiceId,
-        propsInvoice: props.invoice
+        propsInvoice: props.invoice,
+        regularResults: result?.regularResults
       });
 
       // Get the invoice details from the nested structure
-      const invoice = invoiceResult?.invoice?.invoice || invoiceResult?.invoice || result?.invoice || props.invoice;
+      const invoice = result?.regularResults?.[0]?.payment?.invoice || 
+                     invoiceResult?.invoice?.invoice || 
+                     invoiceResult?.invoice || 
+                     result?.invoice || 
+                     props.invoice;
       
       if (!invoice?.unique_hash) {
         console.error('📄 [Invoice PDF] Missing invoice hash:', invoice);
@@ -994,9 +1004,24 @@ const processPayment = async () => {
       }
     }
     
-    // Emit success and close dialog
-    emit('payment-complete', result)
+    // Emit success with invoice ID and close dialog
+    const completeResult = {
+      ...result,
+      invoiceId: result?.regularResults?.[0]?.payment?.invoice_id || 
+                result?.invoice_id || 
+                invoiceResult?.invoice?.id || 
+                invoiceResult?.id || 
+                props.invoice?.id
+    }
+    
+    emit('payment-complete', completeResult)
     dialog.value = false
+    
+    console.log(' [Payment] Payment completed with result:', {
+      success: true,
+      invoiceId: completeResult.invoiceId,
+      paymentResult: result
+    })
   } catch (err) {
     console.error(' [Payment] Payment failed:', err)
     window.toastr?.['error'](err.message || 'Failed to process payment')
