@@ -164,6 +164,7 @@
       v-model="showPaymentDialog"
       :invoice="currentInvoice"
       @payment-complete="handlePaymentComplete"
+      v-if="showPaymentDialog"
     />
   </v-dialog>
 </template>
@@ -446,24 +447,8 @@ const processOrder = async () => {
     }
     console.log('✅ Invoice data validation passed')
 
-    console.log('🚪 Closing TO-GO dialog...')
-    dialog.value = false
-    await nextTick()
     console.log('💳 Opening payment dialog...')
-    console.log('💳 Current DOM state before opening:', {
-      paymentDialogElement: document.querySelector('.payment-dialog'),
-      paymentDialogVisible: document.querySelector('.payment-dialog')?.style.display,
-      vDialogElement: document.querySelector('.v-dialog'),
-      vDialogVisible: document.querySelector('.v-dialog')?.style.display
-    })
     showPaymentDialog.value = true
-    await nextTick()
-    console.log('💳 Current DOM state after opening:', {
-      paymentDialogElement: document.querySelector('.payment-dialog'),
-      paymentDialogVisible: document.querySelector('.payment-dialog')?.style.display,
-      vDialogElement: document.querySelector('.v-dialog'),
-      vDialogVisible: document.querySelector('.v-dialog')?.style.display
-    })
     console.log('✅ Payment flow ready')
 
     logger.debug('Dialogs state:', {
@@ -490,6 +475,8 @@ const handlePaymentComplete = (result) => {
   Object.keys(customerInfo).forEach(key => {
     customerInfo[key] = ''
   })
+  // Clear cart
+  cartStore.clearCart()
 }
 
 const closeModal = () => {
