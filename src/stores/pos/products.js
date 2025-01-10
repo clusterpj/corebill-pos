@@ -39,31 +39,67 @@ export const createProductsModule = (state, posApi, companyStore) => {
     }
   }
 
-  // Cache for products and sections
-  const productsCache = new Map()
-  const sectionsCache = new Map()
-  const CACHE_TTL = 1000 * 60 * 5 // 5 minutes cache
+  // Enhanced caching system
+  const cache = {
+    products: new Map(),
+    sections: new Map(),
+    CACHE_TTL: 1000 * 60 * 5, // 5 minutes
+    lastFetch: null,
+    
+    get(key, type = 'products') {
+      const cacheMap = this[type]
+      const entry = cacheMap.get(key)
+      if (entry && Date.now() - entry.timestamp < this.CACHE_TTL) {
+        return entry.data
+      }
+      return null
+    },
+    
+    set(key, data, type = 'products') {
+      const cacheMap = this[type]
+      cacheMap.set(key, {
+        data,
+        timestamp: Date.now()
+      })
+    },
+    
+    clear(type) {
+      if (type) {
+        this[type].clear()
+      } else {
+        this.products.clear()
+        this.sections.clear()
+      }
+    },
+    
+    shouldFetch() {
+      if (!this.lastFetch) return true
+      return Date.now() - this.lastFetch > this.CACHE_TTL
+    }
+  }
 
   const getCachedSections = async () => {
-    const now = Date.now()
-    if (sectionsCache.has('all') && now - sectionsCache.get('all').timestamp < CACHE_TTL) {
-      return sectionsCache.get('all').data
+    const cached = cache.get('all', 'sections')
+    if (cached) {
+      logger.debug('[Products] Using cached sections')
+      return cached
     }
     
-    logger.debug('[Products] Fetching all sections')
+    logger.debug('[Products] Fetching fresh sections')
     const allSections = await sectionApi.getAllSections('all')
-    sectionsCache.set('all', { data: allSections, timestamp: now })
+    cache.set('all', allSections, 'sections')
     return allSections
   }
 
   const getCachedProductSections = async (productId) => {
-    const now = Date.now()
-    if (sectionsCache.has(productId) && now - sectionsCache.get(productId).timestamp < CACHE_TTL) {
-      return sectionsCache.get(productId).data
+    const cached = cache.get(productId, 'sections')
+    if (cached) {
+      logger.debug(`[Products] Using cached sections for product ${productId}`)
+      return cached
     }
     
     const sections = await sectionApi.getSectionsForItem(productId)
-    sectionsCache.set(productId, { data: sections, timestamp: now })
+    cache.set(productId, sections, 'sections')
     return sections
   }
 
@@ -71,6 +107,28 @@ export const createProductsModule = (state, posApi, companyStore) => {
     if (!companyStore.isConfigured) {
       logger.warn('Company configuration incomplete, skipping products fetch')
       return
+    }
+
+    // Generate cache key based on current state
+    const cacheKey = JSON.stringify({
+      page,
+      perPage,
+      category: state.selectedCategory.value,
+      search: state.searchQuery.value,
+      store: companyStore.selectedStore
+    })
+
+    // Check if we have cached products
+    if (!cache.shouldFetch()) {
+      const cachedProducts = cache.get(cacheKey)
+      if (cachedProducts) {
+        logger.debug('[Products] Using cached products')
+        state.products.value = cachedProducts.products
+        state.totalItems.value = cachedProducts.totalItems
+        state.currentPage.value = page
+        state.itemsPerPage.value = perPage
+        return
+      }
     }
 
     logger.startGroup('POS Store: Fetch Products')
@@ -106,43 +164,67 @@ export const createProductsModule = (state, posApi, companyStore) => {
       if (response.items?.data) {
         const products = Array.isArray(response.items.data) ? response.items.data : []
         
-        // Process products in batches
+        // Process products in batches with concurrency control
         const batchSize = 10
-        for (let i = 0; i < products.length; i += batchSize) {
-          const batch = products.slice(i, i + batchSize)
-          await Promise.all(batch.map(async (product) => {
-            try {
-              const sections = await getCachedProductSections(product.id)
-              
-              if (sections && sections.length > 0) {
-                const section = sections[0]
-                if (section && section.id) {
-                  Object.assign(product, {
-                    section_id: section.id,
-                    section_type: section.name.toUpperCase() === 'BAR' ? 'bar' : 
-                                 section.name.toUpperCase() === 'KITCHEN' ? 'kitchen' : 'other',
-                    section_name: section.name
-                  })
+        const concurrency = 5
+        const processBatch = async (batch) => {
+          const results = []
+          for (let i = 0; i < batch.length; i += concurrency) {
+            const chunk = batch.slice(i, i + concurrency)
+            const processed = await Promise.all(chunk.map(async (product) => {
+              try {
+                const sections = await getCachedProductSections(product.id)
+                
+                if (sections && sections.length > 0) {
+                  const section = sections[0]
+                  if (section && section.id) {
+                    Object.assign(product, {
+                      section_id: section.id,
+                      section_type: section.name.toUpperCase() === 'BAR' ? 'bar' : 
+                                   section.name.toUpperCase() === 'KITCHEN' ? 'kitchen' : 'other',
+                      section_name: section.name
+                    })
+                  } else {
+                    setDefaultSection(product)
+                  }
                 } else {
                   setDefaultSection(product)
                 }
-              } else {
+                return product
+              } catch (error) {
+                logger.error(`[Products] Failed to fetch section for product ${product.id}:`, error)
                 setDefaultSection(product)
+                return product
               }
-            } catch (error) {
-              logger.error(`[Products] Failed to fetch section for product ${product.id}:`, error)
-              setDefaultSection(product)
-            }
-          }))
+            }))
+            results.push(...processed)
+          }
+          return results
+        }
+
+        // Process all batches
+        const processedProducts = []
+        for (let i = 0; i < products.length; i += batchSize) {
+          const batch = products.slice(i, i + batchSize)
+          const processed = await processBatch(batch)
+          processedProducts.push(...processed)
         }
         
+        // Update state and cache
         state.sectionsMap = sectionsMap
-        state.products.value = products
+        state.products.value = processedProducts
         state.totalItems.value = response.itemTotalCount || 0
         state.currentPage.value = page
         state.itemsPerPage.value = perPage
         
-        logger.info(`[Products] Loaded ${products.length} products with section information`)
+        // Cache the results
+        cache.set(cacheKey, {
+          products: processedProducts,
+          totalItems: response.itemTotalCount || 0
+        })
+        cache.lastFetch = Date.now()
+        
+        logger.info(`[Products] Loaded ${processedProducts.length} products with section information`)
       } else {
         logger.warn('No products data in response', response)
         state.products.value = []
