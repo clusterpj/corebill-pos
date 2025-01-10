@@ -302,14 +302,20 @@ const clearAllErrors = () => {
 }
 
 const processOrder = async () => {
+  // State machine transition: IDLE -> PROCESSING
+  stateMachine.send('START_PROCESS')
   console.log('🚦 Starting TO-GO order process...')
+  
   if (!validateForm()) {
     console.error('❌ Form validation failed')
+    stateMachine.send('VALIDATION_FAILED')
     return
   }
 
+  // Show loading state
   processing.value = true
   error.value = null
+  showLoadingOverlay.value = true
 
   try {
     console.log('📞 Formatting phone number...')
@@ -384,9 +390,20 @@ const processOrder = async () => {
     })
 
     console.log('📤 Creating hold order...')
-    const result = await posStore.holdOrder(holdInvoiceData)
-    
-    console.log('📥 Hold order response:', result)
+    try {
+      const result = await posStore.holdOrder(holdInvoiceData)
+      console.log('📥 Hold order response:', result)
+      
+      // State machine transition: PROCESSING -> HOLD_CREATED
+      stateMachine.send('HOLD_CREATED')
+      
+      // Cache the hold invoice data
+      cache.set(`holdInvoice_${result.id}`, holdInvoiceData)
+    } catch (error) {
+      console.error('❌ Hold order creation failed:', error)
+      stateMachine.send('HOLD_FAILED')
+      throw error
+    }
 
     if (!result?.success) {
       console.error('❌ Hold order creation failed:', result?.message || 'No error message')
@@ -448,8 +465,21 @@ const processOrder = async () => {
     console.log('✅ Invoice data validation passed')
 
     console.log('💳 Opening payment dialog...')
+    
+    // Add animation delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
     showPaymentDialog.value = true
     console.log('✅ Payment flow ready')
+    
+    // State machine transition: HOLD_CREATED -> PAYMENT_READY
+    stateMachine.send('PAYMENT_READY')
+    
+    // Track analytics event
+    analytics.track('PaymentDialogOpened', {
+      orderId: currentInvoice.value?.id,
+      totalAmount: currentInvoice.value?.total
+    })
 
     logger.debug('Dialogs state:', {
       togoDialog: dialog.value,

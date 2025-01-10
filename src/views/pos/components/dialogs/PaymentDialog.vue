@@ -518,13 +518,22 @@ const isValid = computed(() => {
 
 // Methods
 const formatCurrency = (amount) => {
+  // Cache formatted values for better performance
+  const cached = currencyCache.get(amount)
+  if (cached) {
+    return cached
+  }
+
   console.log('PaymentDialog - Formatting currency:', {
     inputAmount: amount,
     isDollarAmount: PriceUtils.isInDollars(amount),
     isCentsAmount: amount > 100,
     formattedResult: PriceUtils.format(amount)
   })
-  return PriceUtils.format(amount) // PriceUtils.format already handles cents to dollars conversion
+  
+  const formatted = PriceUtils.format(amount)
+  currencyCache.set(amount, formatted)
+  return formatted
 }
 
 const hasPaymentFees = (methodId) => {
