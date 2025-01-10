@@ -142,12 +142,19 @@ const clearingCache = ref(false)
 const clearCache = async () => {
   clearingCache.value = true
   try {
-    await posStore.clearCache()
-    window.toastr?.success('Product cache cleared successfully')
-    await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
+    const success = await posStore.clearCache()
+    if (success) {
+      window.toastr?.success('Product cache cleared successfully')
+      // Force refresh products with cache busting
+      await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
+    }
   } catch (error) {
-    logger.error('Failed to clear cache', error)
-    window.toastr?.error('Failed to clear product cache')
+    logger.error('Failed to clear cache', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    })
+    window.toastr?.error(`Failed to clear cache: ${error.message}`)
   } finally {
     clearingCache.value = false
   }

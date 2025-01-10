@@ -348,11 +348,30 @@ export const createProductsModule = (state, posApi, companyStore) => {
   const clearCache = () => {
     logger.startGroup('POS Store: Clear Products Cache')
     try {
+      // Clear both memory and localStorage caches
       cache.clear('products')
+      localStorage.removeItem(cache.STORAGE_KEY)
+      
+      // Log detailed cache state
+      logger.debug('Cache state after clear:', {
+        productsSize: cache.products.size,
+        sectionsSize: cache.sections.size,
+        localStorage: localStorage.getItem(cache.STORAGE_KEY)
+      })
+      
       logger.info('Products cache cleared successfully')
+      return true
     } catch (error) {
-      logger.error('Failed to clear products cache', error)
-      throw error
+      logger.error('Failed to clear products cache', {
+        error: error.message,
+        stack: error.stack,
+        cacheState: {
+          productsSize: cache.products.size,
+          sectionsSize: cache.sections.size,
+          localStorage: localStorage.getItem(cache.STORAGE_KEY)
+        }
+      })
+      throw new Error(`Failed to clear cache: ${error.message}`)
     } finally {
       logger.endGroup()
     }
