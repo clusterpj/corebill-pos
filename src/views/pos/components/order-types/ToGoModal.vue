@@ -301,23 +301,29 @@ const clearAllErrors = () => {
 }
 
 const processOrder = async () => {
-  if (!validateForm()) return
+  console.log('🚦 Starting TO-GO order process...')
+  if (!validateForm()) {
+    console.error('❌ Form validation failed')
+    return
+  }
 
   processing.value = true
   error.value = null
 
   try {
-    // Format phone number
+    console.log('📞 Formatting phone number...')
     const formattedPhone = customerInfo.phone.replace(/\D/g, '')
+    console.log('✅ Phone formatted:', formattedPhone)
 
-    // Get base invoice data
+    console.log('📝 Preparing base invoice data...')
     const baseInvoiceData = cartStore.prepareHoldInvoiceData(
       selectedStore.value,
       selectedCashier.value,
       `TO_GO_${customerInfo.name}`
     )
+    console.log('📄 Base invoice data:', baseInvoiceData)
 
-    // Create hold invoice data without tip fields
+    console.log('📦 Creating hold invoice data...')
     const holdInvoiceData = {
       ...baseInvoiceData,
       type: OrderType.TO_GO,
@@ -333,18 +339,22 @@ const processOrder = async () => {
         tax: item.tax || 0
       }))
     }
+    console.log('📄 Hold invoice data:', holdInvoiceData)
 
-    // Remove tip-related fields that aren't supported for hold invoices
+    console.log('✂️ Removing unsupported tip fields...')
     delete holdInvoiceData.tip
     delete holdInvoiceData.tip_type
     delete holdInvoiceData.tip_val
+    console.log('✅ Tip fields removed')
 
-    // Validate items exist
+    console.log('🛒 Validating cart items...')
     if (!holdInvoiceData.hold_items?.length) {
+      console.error('❌ No items found in cart')
       throw new Error('No items found in cart')
     }
+    console.log(`✅ Cart contains ${holdInvoiceData.hold_items.length} items`)
 
-    // Ensure the notes are properly formatted for the invoice
+    console.log('📝 Formatting order notes...')
     const notesObj = {
       customerNotes: customerInfo.notes,
       timestamp: new Date().toISOString(),
@@ -359,8 +369,10 @@ const processOrder = async () => {
         }
       }
     }
-
+    console.log('📄 Notes object:', notesObj)
+    
     holdInvoiceData.notes = JSON.stringify(notesObj)
+    console.log('✅ Notes added to invoice data')
 
     logger.debug('Processing TO-GO order with data:', {
       type: holdInvoiceData.type,
@@ -370,38 +382,46 @@ const processOrder = async () => {
       notes: holdInvoiceData.notes
     })
 
-    // Create hold order
+    console.log('📤 Creating hold order...')
     const result = await posStore.holdOrder(holdInvoiceData)
     
-    logger.debug('Hold order response:', result)
+    console.log('📥 Hold order response:', result)
 
     if (!result?.success) {
+      console.error('❌ Hold order creation failed:', result?.message || 'No error message')
       throw new Error(result?.message || 'Failed to create hold order')
     }
+    console.log('✅ Hold order created successfully')
 
-    // Fetch the latest hold invoices to get our new one
+    console.log('🔍 Fetching hold invoices...')
     await posStore.fetchHoldInvoices()
     
-    // Find our newly created hold invoice
+    console.log('🔎 Searching for new hold invoice...')
     const holdInvoice = posStore.holdInvoices.find(inv => 
       inv.description === holdInvoiceData.description &&
       inv.type === OrderType.TO_GO
     )
 
     if (!holdInvoice) {
-      logger.error('Could not find newly created hold invoice')
+      console.error('❌ Could not find newly created hold invoice')
       throw new Error('Failed to retrieve created hold invoice')
     }
+    console.log('✅ Found hold invoice:', holdInvoice)
 
-    // Validate essential fields
+    console.log('🔍 Validating hold invoice fields...')
     if (!holdInvoice.total || !holdInvoice.hold_items?.length) {
-      logger.error('Missing required hold invoice fields:', holdInvoice)
+      console.error('❌ Missing required hold invoice fields:', {
+        total: holdInvoice.total,
+        items: holdInvoice.hold_items?.length
+      })
       throw new Error('Invalid hold invoice data: missing total or items')
     }
+    console.log('✅ Hold invoice validation passed')
 
-    // Store the hold invoice ID
+    console.log('📌 Storing hold invoice ID...')
     const holdInvoiceId = holdInvoice.id
     cartStore.setHoldInvoiceId(holdInvoiceId)
+    console.log('✅ Hold invoice ID stored:', holdInvoiceId)
 
     logger.info('TO-GO hold order created successfully:', {
       holdInvoiceId: holdInvoiceId,
@@ -410,22 +430,28 @@ const processOrder = async () => {
       items: holdInvoice.hold_items?.length
     })
 
+    console.log('📄 Setting current invoice...')
     currentInvoice.value = {
       invoice: holdInvoice,
       invoicePrefix: 'TO-GO',
       nextInvoiceNumber: holdInvoiceId,
       description: holdInvoice.description
     }
+    console.log('✅ Current invoice set:', currentInvoice.value)
 
-    // Ensure invoice data is valid
+    console.log('🔍 Validating invoice data...')
     if (!currentInvoice.value.invoice?.total) {
+      console.error('❌ Invalid invoice data - missing total')
       throw new Error('Invalid invoice data for payment')
     }
+    console.log('✅ Invoice data validation passed')
 
-    // Close TOGO dialog first, then show payment dialog
+    console.log('🚪 Closing TO-GO dialog...')
     dialog.value = false
     await nextTick()
+    console.log('💳 Opening payment dialog...')
     showPaymentDialog.value = true
+    console.log('✅ Payment flow ready')
 
     logger.debug('Dialogs state:', {
       togoDialog: dialog.value,
@@ -434,9 +460,11 @@ const processOrder = async () => {
     })
 
   } catch (err) {
+    console.error('❌ TO-GO order processing failed:', err)
     error.value = err.message || 'Failed to process order'
     logger.error('Failed to process TO-GO order:', err)
   } finally {
+    console.log('🏁 Processing complete')
     processing.value = false
   }
 }
