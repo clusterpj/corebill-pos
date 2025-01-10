@@ -455,6 +455,12 @@ const dialog = computed({
   },
   set: (value) => {
     console.log('🪟 PaymentDialog - Setting dialog value:', value)
+    console.log('🪟 PaymentDialog - Current DOM state:', {
+      dialogElement: document.querySelector('.payment-dialog'),
+      dialogVisible: document.querySelector('.payment-dialog')?.style.display,
+      vDialogElement: document.querySelector('.v-dialog'),
+      vDialogVisible: document.querySelector('.v-dialog')?.style.display
+    })
     emit('update:modelValue', value)
   }
 })
@@ -926,6 +932,10 @@ const processPayment = async () => {
 // Initialize
 watch(() => dialog.value, async (newValue) => {
   console.log('🪟 PaymentDialog - Watch triggered:', { newValue })
+  console.log('🪟 PaymentDialog - Vuetify dialog state:', {
+    isActive: document.querySelector('.v-dialog')?.classList.contains('v-dialog--active'),
+    isVisible: document.querySelector('.v-dialog')?.style.display !== 'none'
+  })
   if (newValue) {
     try {
       console.log('🪟 PaymentDialog - Initializing...')

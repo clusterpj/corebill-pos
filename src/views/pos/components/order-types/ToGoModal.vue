@@ -450,7 +450,20 @@ const processOrder = async () => {
     dialog.value = false
     await nextTick()
     console.log('💳 Opening payment dialog...')
+    console.log('💳 Current DOM state before opening:', {
+      paymentDialogElement: document.querySelector('.payment-dialog'),
+      paymentDialogVisible: document.querySelector('.payment-dialog')?.style.display,
+      vDialogElement: document.querySelector('.v-dialog'),
+      vDialogVisible: document.querySelector('.v-dialog')?.style.display
+    })
     showPaymentDialog.value = true
+    await nextTick()
+    console.log('💳 Current DOM state after opening:', {
+      paymentDialogElement: document.querySelector('.payment-dialog'),
+      paymentDialogVisible: document.querySelector('.payment-dialog')?.style.display,
+      vDialogElement: document.querySelector('.v-dialog'),
+      vDialogVisible: document.querySelector('.v-dialog')?.style.display
+    })
     console.log('✅ Payment flow ready')
 
     logger.debug('Dialogs state:', {
