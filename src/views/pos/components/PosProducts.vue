@@ -86,14 +86,23 @@
             />
           </div>
 
-          <!-- Products Grid -->
-          <product-grid
-            v-else-if="posStore.products.length > 0"
-            :products="posStore.products"
-            :grid-settings="gridSettings"
-            @select="quickAdd"
-            class="products-grid"
-          />
+          <!-- Products Grid with Pagination -->
+          <div v-else-if="posStore.products.length > 0" class="products-grid-container">
+            <product-grid
+              :products="posStore.products"
+              :grid-settings="gridSettings"
+              @select="quickAdd"
+              class="products-grid"
+            />
+            
+            <v-pagination
+              v-model="currentPage"
+              :length="totalPages"
+              :total-visible="7"
+              class="mt-4"
+              @update:model-value="handlePageChange"
+            />
+          </div>
 
           <!-- Empty State -->
           <v-alert
@@ -159,13 +168,30 @@ onMounted(async () => {
   }
 })
 
+// Pagination state
+const currentPage = ref(1)
+const itemsPerPage = ref(50)
+const totalPages = computed(() => Math.ceil(posStore.totalItems / itemsPerPage.value))
+
 const handleSearch = async (query) => {
   logger.startGroup('POS Products: Search')
   try {
     posStore.searchQuery = query
-    await posStore.fetchProducts()
+    currentPage.value = 1
+    await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
   } catch (err) {
     logger.error('Search failed', err)
+  } finally {
+    logger.endGroup()
+  }
+}
+
+const handlePageChange = async (page) => {
+  logger.startGroup('POS Products: Page Change')
+  try {
+    await posStore.fetchProducts(page, itemsPerPage.value)
+  } catch (err) {
+    logger.error('Page change failed', err)
   } finally {
     logger.endGroup()
   }
@@ -174,7 +200,9 @@ const handleSearch = async (query) => {
 const handleCategoryChange = async (categoryId) => {
   logger.startGroup('POS Products: Category Change')
   try {
+    currentPage.value = 1
     await posStore.setCategory(categoryId)
+    await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
   } catch (err) {
     logger.error('Category change failed', err)
   } finally {
@@ -313,15 +341,28 @@ const handleQuickAdd = async (searchTerm) => {
   z-index: 1;
 }
 
-.products-grid {
+.products-grid-container {
   width: 100%;
   min-height: calc(100vh - 204px);
   height: calc(100vh - 204px);
+  display: flex;
+  flex-direction: column;
+}
+
+.products-grid {
+  flex: 1;
   contain: layout size style;
   position: relative;
   display: flex;
   overflow-y: auto;
   padding: 8px;
+}
+
+.v-pagination {
+  justify-content: center;
+  padding: 16px;
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .products-empty-state {
