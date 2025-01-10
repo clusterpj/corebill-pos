@@ -368,6 +368,17 @@
 import { ref, computed, watch } from 'vue'
 import { usePayment } from '../../composables/usePayment'
 
+// Safe analytics wrapper
+const analytics = {
+  track: (eventName, properties = {}) => {
+    if (window.analytics) {
+      window.analytics.track(eventName, properties)
+    } else {
+      console.log(`[Analytics] ${eventName}:`, properties)
+    }
+  }
+}
+
 // Cache for formatted currency values to improve performance
 const currencyCache = new Map()
 import { useTableManagement } from '../../composables/useTableManagement'
@@ -919,14 +930,16 @@ const processPayment = async () => {
     console.log(' [Payment] Payment creation result:', result)
     
     // Show invoice PDF in modal
-    if (result?.invoice_id) {
+    const invoiceId = result?.invoice_id || invoiceResult?.invoice?.id || invoiceResult?.id;
+    if (invoiceId) {
       console.log('📄 [Invoice PDF] Starting PDF preparation', {
         paymentResult: result,
-        invoiceResult: invoiceResult
+        invoiceResult: invoiceResult,
+        invoiceId
       });
 
       // Get the invoice details from the nested structure
-      const invoice = invoiceResult?.invoice?.invoice || invoiceResult?.invoice;
+      const invoice = invoiceResult?.invoice?.invoice || invoiceResult?.invoice || result?.invoice;
       
       if (!invoice?.unique_hash) {
         console.error('📄 [Invoice PDF] Missing invoice hash:', invoice);
@@ -972,8 +985,22 @@ const processPayment = async () => {
   } catch (err) {
     console.error(' [Payment] Payment failed:', err)
     window.toastr?.['error'](err.message || 'Failed to process payment')
+    
+    // Track payment failure
+    analytics.track('PaymentFailed', {
+      error: err.message,
+      invoiceId: currentInvoice.value?.id,
+      totalAmount: currentInvoice.value?.total
+    })
   } finally {
     processing.value = false
+    
+    // Track payment completion
+    analytics.track('PaymentCompleted', {
+      success: !error.value,
+      invoiceId: currentInvoice.value?.id,
+      totalAmount: currentInvoice.value?.total
+    })
   }
 }
 
