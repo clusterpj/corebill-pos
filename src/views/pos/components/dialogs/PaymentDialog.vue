@@ -449,8 +449,14 @@ const calculatedTip = computed(() => {
 
 // Dialog computed property
 const dialog = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  get: () => {
+    console.log('🪟 PaymentDialog - Getting dialog value:', props.modelValue)
+    return props.modelValue
+  },
+  set: (value) => {
+    console.log('🪟 PaymentDialog - Setting dialog value:', value)
+    emit('update:modelValue', value)
+  }
 })
 
 const remainingAmount = computed(() => {
@@ -919,8 +925,10 @@ const processPayment = async () => {
 
 // Initialize
 watch(() => dialog.value, async (newValue) => {
+  console.log('🪟 PaymentDialog - Watch triggered:', { newValue })
   if (newValue) {
     try {
+      console.log('🪟 PaymentDialog - Initializing...')
       // Get company settings
       await fetchSettings()
 
@@ -935,11 +943,14 @@ watch(() => dialog.value, async (newValue) => {
       
       // Fetch payment methods
       await fetchPaymentMethods()
+      console.log('🪟 PaymentDialog - Initialization complete')
     } catch (error) {
-      console.error('Failed to initialize payment dialog:', error)
+      console.error('🪟 PaymentDialog - Initialization failed:', error)
       window.toastr?.['error']('Failed to initialize payment')
       dialog.value = false
     }
+  } else {
+    console.log('🪟 PaymentDialog - Dialog closed')
   }
 })
 </script>
