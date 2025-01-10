@@ -586,16 +586,65 @@ const processOrder = async () => {
   }
 }
 
-const handlePaymentComplete = (result) => {
-  logger.info('Payment completed:', result)
-  showPaymentDialog.value = false
-  dialog.value = false
-  // Clear form
-  Object.keys(customerInfo).forEach(key => {
-    customerInfo[key] = ''
-  })
-  // Clear cart
-  cartStore.clearCart()
+const handlePaymentComplete = async (result) => {
+  try {
+    logger.startGroup('TO-GO: Handling payment completion')
+    logger.info('Payment completed with result:', result)
+    
+    // Validate payment result
+    if (!result?.success) {
+      throw new Error('Payment was not successful')
+    }
+
+    // Ensure we have an invoice ID
+    const invoiceId = result.invoiceId
+    if (!invoiceId) {
+      throw new Error('No invoice ID in payment result')
+    }
+
+    // Try to persist order history
+    try {
+      logger.debug('Attempting to persist order history...')
+      await posStore.persistOrderHistory({
+        invoiceId,
+        type: OrderType.TO_GO,
+        customerInfo,
+        total: result.paymentResult?.total || cartStore.total
+      })
+      logger.debug('Order history persisted successfully')
+    } catch (historyError) {
+      logger.error('Failed to persist order history:', historyError)
+      // Don't throw error here - payment was successful, just history failed
+      window.toastr?.warning('Payment successful but failed to save order history')
+    }
+
+    // Close dialogs
+    showPaymentDialog.value = false
+    dialog.value = false
+
+    // Clear form
+    Object.keys(customerInfo).forEach(key => {
+      customerInfo[key] = ''
+    })
+
+    // Clear cart
+    cartStore.clearCart()
+
+    // Show success message
+    window.toastr?.success('Order completed successfully')
+    
+    // Track analytics
+    analytics.track('OrderCompleted', {
+      invoiceId,
+      total: result.paymentResult?.total || cartStore.total,
+      paymentMethods: result.paymentResult?.regularResults?.length || 0
+    })
+  } catch (error) {
+    logger.error('Failed to handle payment completion:', error)
+    window.toastr?.error('Failed to complete order: ' + (error.message || 'Unknown error'))
+  } finally {
+    logger.endGroup()
+  }
 }
 
 const closeModal = () => {
