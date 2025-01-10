@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import type { Order } from '@/types/order'
 import { errorHandler } from '@/utils/errorHandler'
 import { logger } from '@/utils/logger'
 
@@ -39,8 +40,8 @@ export class KitchenService {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         return await operation()
-      } catch (/** @type {unknown} */ error) {
-        lastError = error instanceof Error ? error : new Error(String(error))
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error ?? 'Unknown error'))
         const delay = Math.pow(2, attempt - 1) * 1000 // Exponential backoff: 1s, 2s, 4s
         
         logger.warn(`Retrying operation in ${delay}ms (attempt ${attempt}/${maxRetries}):`, {
@@ -52,7 +53,7 @@ export class KitchenService {
       }
     }
     
-    throw new NetworkError('Network connection failed', lastError)
+    throw new NetworkError('Network connection failed', lastError ?? new Error('Unknown error'))
   }
   /**
    * @param {number} sectionId
@@ -99,7 +100,7 @@ export class KitchenService {
       console.log(`📦 [KitchenService] Raw ${status} orders:`, response.data)
 
       const orders = response.data?.orders || []
-      const processedOrders = orders.map(/** @param {any} order */ order => {
+      const processedOrders = orders.map(/** @param {import('@/types/order').Order} order */ order => {
         console.log('Processing order:', order)
         return {
           ...order,
