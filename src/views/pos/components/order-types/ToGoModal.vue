@@ -166,6 +166,19 @@
       @payment-complete="handlePaymentComplete"
       v-if="showPaymentDialog"
     />
+
+    <!-- Loading Overlay -->
+    <v-overlay
+      :model-value="processing"
+      class="align-center justify-center"
+      persistent
+    >
+      <v-progress-circular
+        size="64"
+        color="primary"
+        indeterminate
+      />
+    </v-overlay>
   </v-dialog>
 </template>
 
@@ -359,7 +372,6 @@ const processOrder = async () => {
   // Show loading state
   processing.value = true
   error.value = null
-  showLoadingOverlay.value = true
 
   try {
     console.log('📞 Formatting phone number...')
