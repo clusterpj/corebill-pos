@@ -1,5 +1,7 @@
 import { apiClient } from './client'
-import type { Order } from '@/types/order'
+/**
+ * @typedef {import('@/types/order').Order} Order
+ */
 import { errorHandler } from '@/utils/errorHandler'
 import { logger } from '@/utils/logger'
 
