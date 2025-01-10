@@ -356,6 +356,9 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { usePayment } from '../../composables/usePayment'
+
+// Cache for formatted currency values to improve performance
+const currencyCache = new Map()
 import { useTableManagement } from '../../composables/useTableManagement'
 import { convertHeldOrderToInvoice } from '../held-orders/utils/invoiceConverter'
 import { posApi } from '@/services/api/pos-api'
