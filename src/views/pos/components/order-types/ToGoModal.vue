@@ -193,6 +193,27 @@ import { parseOrderNotes } from '../../../../stores/cart/helpers'
 import PaymentDialog from '../dialogs/PaymentDialog.vue'
 import { createMachine, interpret } from 'xstate'
 
+// Simple in-memory cache implementation
+const cache = {
+  _data: new Map(),
+  
+  get(key) {
+    return this._data.get(key)
+  },
+  
+  set(key, value) {
+    this._data.set(key, value)
+  },
+  
+  delete(key) {
+    this._data.delete(key)
+  },
+  
+  clear() {
+    this._data.clear()
+  }
+}
+
 // Define state machine
 const stateMachine = interpret(createMachine({
   id: 'togoOrder',
