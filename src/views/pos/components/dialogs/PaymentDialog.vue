@@ -959,12 +959,20 @@ const processPayment = async () => {
         regularResults: result?.regularResults
       });
 
-      // Get the invoice details from the nested structure with better error handling
-      const invoice = result?.regularResults?.[0]?.payment?.invoice || 
-                     invoiceResult?.invoice?.invoice || 
+      // Get the invoice details from multiple possible locations with better error handling
+      const invoice = result?.invoice || 
+                     result?.regularResults?.[0]?.payment?.invoice || 
                      invoiceResult?.invoice || 
-                     result?.invoice || 
+                     result || 
                      props.invoice;
+
+      console.log('📄 [Invoice PDF] Invoice data sources:', {
+        resultInvoice: result?.invoice,
+        paymentInvoice: result?.regularResults?.[0]?.payment?.invoice,
+        invoiceResult: invoiceResult?.invoice,
+        result,
+        propsInvoice: props.invoice
+      });
       
       if (!invoice?.unique_hash) {
         console.error('📄 [Invoice PDF] Missing invoice hash:', {

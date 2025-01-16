@@ -355,16 +355,23 @@ const handlePaymentComplete = async (result) => {
         throw new Error('Payment succeeded but failed to clear cart')
       }
 
-      // Get invoice details from the result
-      const invoice = result?.invoice?.invoice || result?.invoice
+      // Get invoice details from the result with better error handling
+      const invoice = result?.invoice || result?.regularResults?.[0]?.payment?.invoice || result
       
       if (!invoice?.unique_hash) {
         console.error('📄 [Invoice PDF] Missing invoice hash:', {
           result,
           invoice,
-          nestedInvoice: result?.invoice?.invoice
+          regularResults: result?.regularResults,
+          payment: result?.regularResults?.[0]?.payment
         })
         throw new Error('Could not generate invoice PDF: Missing invoice hash')
+      }
+
+      // Validate hash format - allow alphanumeric with dots and dashes
+      if (!/^[a-zA-Z0-9.-]+$/.test(invoice.unique_hash)) {
+        console.error('📄 [Invoice PDF] Invalid hash format:', invoice.unique_hash)
+        throw new Error('Invalid invoice hash format')
       }
 
       // Construct PDF URL with hash validation
@@ -375,7 +382,8 @@ const handlePaymentComplete = async (result) => {
         url: invoicePdfUrl,
         hash: invoice.unique_hash,
         baseUrl,
-        invoice
+        invoice,
+        payment: result?.regularResults?.[0]?.payment
       })
       
       // Validate hash format - allow alphanumeric with dots and dashes

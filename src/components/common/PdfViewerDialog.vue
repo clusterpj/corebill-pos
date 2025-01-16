@@ -91,9 +91,37 @@ watch(dialog, (newVal) => {
 
 const handleIframeLoad = () => {
   try {
-    // Validate PDF URL first
+    // Validate PDF URL and handle cross-origin issues
     if (!props.pdfUrl || !props.pdfUrl.includes('/pdf/')) {
       throw new Error('Invalid PDF URL format')
+    }
+
+    // Handle cross-origin iframe access
+    try {
+      const iframe = document.querySelector('iframe')
+      if (!iframe) {
+        throw new Error('PDF iframe not found')
+      }
+
+      // Set up message channel for cross-origin communication
+      const channel = new MessageChannel()
+      iframe.contentWindow.postMessage({ type: 'pdf-ready-check' }, '*', [channel.port2])
+
+      channel.port1.onmessage = (event) => {
+        if (event.data === 'pdf-ready') {
+          loading.value = false
+        } else {
+          throw new Error('PDF content not loaded correctly')
+        }
+      }
+    } catch (error) {
+      console.error('PDF loading error:', error)
+      loading.value = false
+      emit('error', {
+        type: 'pdf-load-error',
+        message: error.message,
+        url: props.pdfUrl
+      })
     }
 
     const iframe = document.querySelector('iframe')
