@@ -653,11 +653,25 @@ const handlePaymentComplete = async (result) => {
 const closeModal = () => {
   dialog.value = false
   error.value = null
+  
   // Clear form
   Object.keys(customerInfo).forEach(key => {
     customerInfo[key] = ''
   })
+  
+  // Clear cart when modal closes
+  if (!showPaymentDialog.value) {
+    cartStore.clearCart()
+  }
 }
+
+// Watch for payment dialog close
+watch(showPaymentDialog, (newValue) => {
+  if (!newValue) {
+    // Clear cart when payment dialog closes
+    cartStore.clearCart()
+  }
+})
 
 // Watch for dialog open to validate prerequisites and initialize notes
 watch(dialog, (newValue) => {
