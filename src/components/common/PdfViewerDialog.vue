@@ -73,7 +73,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['update:modelValue', 'closed'])
+const emit = defineEmits(['update:modelValue', 'closed', 'error'])
 
 const dialog = ref(props.modelValue)
 const loading = ref(true)
@@ -90,52 +90,69 @@ watch(dialog, (newVal) => {
 })
 
 const handleIframeLoad = () => {
-  const iframe = document.querySelector('iframe')
-  if (!iframe) {
-    console.error('PDF iframe not found')
-    loading.value = false
-    return
-  }
-
-  // Check if PDF is actually loaded
   try {
-    const pdfWindow = iframe.contentWindow
-    if (pdfWindow && pdfWindow.document.readyState === 'complete') {
-      // Verify PDF content
-      const pdfDoc = pdfWindow.document.querySelector('embed') || pdfWindow.document.querySelector('object')
-      if (pdfDoc && pdfDoc.src.includes(props.pdfUrl)) {
-        loading.value = false
-        detectPrinters()
-      } else {
-        console.error('PDF content not loaded correctly')
-        loading.value = false
-      }
+    // Validate PDF URL first
+    if (!props.pdfUrl || !props.pdfUrl.includes('/pdf/')) {
+      throw new Error('Invalid PDF URL format')
     }
-  } catch (error) {
-    console.error('Error verifying PDF content:', error)
+
+    const iframe = document.querySelector('iframe')
+    if (!iframe) {
+      throw new Error('PDF iframe not found')
+    }
+
+    // Check if PDF is actually loaded
+    const pdfWindow = iframe.contentWindow
+    if (!pdfWindow || pdfWindow.document.readyState !== 'complete') {
+      throw new Error('PDF window not ready')
+    }
+
+    // Verify PDF content
+    const pdfDoc = pdfWindow.document.querySelector('embed') || pdfWindow.document.querySelector('object')
+    if (!pdfDoc || !pdfDoc.src.includes(props.pdfUrl)) {
+      throw new Error('PDF content not loaded correctly')
+    }
+
     loading.value = false
+    detectPrinters()
+  } catch (error) {
+    console.error('PDF loading error:', error)
+    loading.value = false
+    emit('error', {
+      type: 'pdf-load-error',
+      message: error.message,
+      url: props.pdfUrl
+    })
   }
 }
 
 // Reset loading state when PDF URL changes
 watch(() => props.pdfUrl, (newUrl) => {
-  if (!newUrl) {
-    console.error('PDF URL is empty')
-    return
-  }
-  
-  // Validate URL format
-  if (!newUrl.startsWith('http') || !newUrl.includes('/pdf/')) {
-    console.error('Invalid PDF URL format:', newUrl)
-    return
-  }
+  try {
+    if (!newUrl) {
+      throw new Error('PDF URL is empty')
+    }
+    
+    // Validate URL format
+    if (!newUrl.startsWith('http') || !newUrl.includes('/pdf/')) {
+      throw new Error(`Invalid PDF URL format: ${newUrl}`)
+    }
 
-  loading.value = true
-  
-  // Force iframe reload if URL changes
-  const iframe = document.querySelector('iframe')
-  if (iframe) {
-    iframe.src = newUrl
+    loading.value = true
+    
+    // Force iframe reload if URL changes
+    const iframe = document.querySelector('iframe')
+    if (iframe) {
+      iframe.src = newUrl
+    }
+  } catch (error) {
+    console.error('PDF URL validation error:', error)
+    emit('error', {
+      type: 'pdf-url-error',
+      message: error.message,
+      url: newUrl
+    })
+    loading.value = false
   }
 }, { immediate: true })
 
