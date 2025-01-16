@@ -478,6 +478,98 @@ export const createProductsModule = (state, posApi, companyStore) => {
     }
   }
 
+  const preloadAllProducts = async () => {
+    logger.startGroup('POS Store: Preloading All Products')
+    try {
+      // Get all categories
+      const categories = state.categories.value
+      
+      // Preload products for each category
+      for (const category of categories) {
+        const categoryId = category.item_category_id
+        logger.debug(`Preloading products for category ${categoryId}`)
+        
+        // Initialize pagination
+        let page = 1
+        const perPage = 100
+        let totalPages = 1
+        
+        // Fetch all pages for this category
+        while (page <= totalPages) {
+          const params = {
+            categories_id: [categoryId],
+            avalara_bool: false,
+            is_pos: 1,
+            id: companyStore.selectedStore,
+            limit: perPage,
+            page: page
+          }
+          
+          const response = await posApi.getItems(params)
+          if (response.items?.data) {
+            // Update total pages
+            totalPages = Math.ceil(response.itemTotalCount / perPage)
+            
+            // Process and cache the products
+            const products = Array.isArray(response.items.data) ? response.items.data : []
+            const categoryCacheKey = `category_${categoryId}`
+            
+            // Get or initialize category cache
+            let categoryCache = cache.get(categoryCacheKey) || {
+              pages: {},
+              lastFetch: Date.now(),
+              totalItems: response.itemTotalCount || 0
+            }
+            
+            // Store this page's data
+            const cacheKey = JSON.stringify({
+              page,
+              perPage,
+              category: categoryId,
+              search: '',
+              store: companyStore.selectedStore
+            })
+            
+            categoryCache.pages[cacheKey] = {
+              products: products,
+              timestamp: Date.now()
+            }
+            
+            // Update category totals and timestamp
+            categoryCache.totalItems = response.itemTotalCount || 0
+            categoryCache.lastFetch = Date.now()
+            
+            // Update the category cache
+            cache.set(categoryCacheKey, categoryCache)
+            
+            // Update category list reference
+            const categoryList = cache.get('category_list') || new Set()
+            categoryList.add(categoryCacheKey)
+            cache.set('category_list', categoryList)
+            
+            logger.debug(`Preloaded page ${page}/${totalPages} for category ${categoryId}`, {
+              products: products.length,
+              totalItems: categoryCache.totalItems
+            })
+          }
+          
+          page++
+        }
+      }
+      
+      logger.info('Successfully preloaded all products')
+      return true
+    } catch (error) {
+      logger.error('Failed to preload products', {
+        error: error.message,
+        stack: error.stack
+      })
+      throw new Error(`Failed to preload products: ${error.message}`)
+    } finally {
+      logger.endGroup()
+    }
+  }
+
   const clearCache = async () => {
     logger.startGroup('POS Store: Clear Products Cache')
     try {
@@ -485,8 +577,8 @@ export const createProductsModule = (state, posApi, companyStore) => {
       cache.clear()
       localStorage.removeItem(cache.STORAGE_KEY)
       
-      // Force fetch fresh data
-      await fetchProducts(1, 50)
+      // Preload all products after clearing cache
+      await preloadAllProducts()
       
       // Log detailed cache state
       logger.debug('Cache state after clear:', {
@@ -495,7 +587,7 @@ export const createProductsModule = (state, posApi, companyStore) => {
         localStorage: localStorage.getItem(cache.STORAGE_KEY)
       })
       
-      logger.info('Products cache cleared successfully')
+      logger.info('Products cache cleared and preloaded successfully')
       return true
     } catch (error) {
       logger.error('Failed to clear products cache', {

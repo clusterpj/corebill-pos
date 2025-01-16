@@ -144,18 +144,18 @@ const clearCache = async () => {
   try {
     const success = await posStore.clearCache()
     if (success) {
-      window.toastr?.success('Product cache cleared successfully')
+      window.toastr?.success('Product cache cleared and preloaded successfully')
       // Reset pagination and force refresh
       currentPage.value = 1
       await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
     }
   } catch (error) {
-    logger.error('Failed to clear cache', {
+    logger.error('Failed to clear and preload cache', {
       error: error.message,
       stack: error.stack,
       timestamp: new Date().toISOString()
     })
-    window.toastr?.error(`Failed to clear cache: ${error.message}`)
+    window.toastr?.error(`Failed to clear and preload cache: ${error.message}`)
   } finally {
     clearingCache.value = false
   }
