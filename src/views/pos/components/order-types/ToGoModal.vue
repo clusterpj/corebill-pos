@@ -630,8 +630,14 @@ const handlePaymentComplete = async (result) => {
       customerInfo[key] = ''
     })
 
-    // Clear cart
-    cartStore.clearCart()
+    // Clear cart - ensure this happens even if other operations fail
+    try {
+      await cartStore.clearCart()
+      logger.debug('Cart cleared successfully')
+    } catch (clearError) {
+      logger.error('Failed to clear cart:', clearError)
+      throw new Error('Payment succeeded but failed to clear cart')
+    }
 
     // Show success message
     window.toastr?.success('Order completed successfully')

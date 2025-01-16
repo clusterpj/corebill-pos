@@ -95,9 +95,14 @@ const handlePaymentComplete = async (result) => {
   logger.info('Payment completion handler called with result:', result)
   
   if (result) {
-    // Clear the cart after successful payment
-    await cartStore.$reset()
-    window.toastr?.['success']('Payment processed successfully')
+    try {
+      // Clear the cart after successful payment
+      await cartStore.clearCart()
+      window.toastr?.['success']('Payment processed successfully')
+    } catch (error) {
+      logger.error('Failed to clear cart after payment:', error)
+      window.toastr?.['error']('Payment succeeded but failed to clear cart')
+    }
   }
   
   showPaymentDialog.value = false
