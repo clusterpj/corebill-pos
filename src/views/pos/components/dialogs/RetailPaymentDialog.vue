@@ -359,15 +359,31 @@ const handlePaymentComplete = async (result) => {
       const invoice = result?.invoice?.invoice || result?.invoice
       
       if (!invoice?.unique_hash) {
-        console.error('📄 [Invoice PDF] Missing invoice hash:', invoice)
+        console.error('📄 [Invoice PDF] Missing invoice hash:', {
+          result,
+          invoice,
+          nestedInvoice: result?.invoice?.invoice
+        })
         throw new Error('Could not generate invoice PDF: Missing invoice hash')
       }
 
-      // Get invoice PDF URL with fallback
-      const invoicePdfUrl = invoice.invoicePdfUrl || 
-        `${import.meta.env.VITE_API_URL.replace('/api/v1', '')}/invoices/pdf/${invoice.unique_hash}`
+      // Construct PDF URL with hash validation
+      const baseUrl = import.meta.env.VITE_API_URL.replace('/api/v1', '')
+      const invoicePdfUrl = `${baseUrl}/invoices/pdf/${invoice.unique_hash}`
 
-      console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', invoicePdfUrl)
+      console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', {
+        url: invoicePdfUrl,
+        hash: invoice.unique_hash,
+        baseUrl,
+        invoice
+      })
+      
+      // Validate hash format
+      if (!/^[a-f0-9]{32}$/i.test(invoice.unique_hash)) {
+        console.error('📄 [Invoice PDF] Invalid hash format:', invoice.unique_hash)
+        throw new Error('Invalid invoice hash format')
+      }
+
       currentPdfUrl.value = invoicePdfUrl
       showPdfViewer.value = true
 

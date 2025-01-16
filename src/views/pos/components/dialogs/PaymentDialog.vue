@@ -959,7 +959,7 @@ const processPayment = async () => {
         regularResults: result?.regularResults
       });
 
-      // Get the invoice details from the nested structure
+      // Get the invoice details from the nested structure with better error handling
       const invoice = result?.regularResults?.[0]?.payment?.invoice || 
                      invoiceResult?.invoice?.invoice || 
                      invoiceResult?.invoice || 
@@ -967,19 +967,31 @@ const processPayment = async () => {
                      props.invoice;
       
       if (!invoice?.unique_hash) {
-        console.error('📄 [Invoice PDF] Missing invoice hash:', invoice);
-        window.toastr?.['error']('Could not generate invoice PDF');
+        console.error('📄 [Invoice PDF] Missing invoice hash:', {
+          result,
+          invoiceResult,
+          propsInvoice: props.invoice,
+          regularResults: result?.regularResults
+        });
+        window.toastr?.['error']('Could not generate invoice PDF: Missing hash');
         return;
       }
 
-      // Get invoice PDF URL directly from invoice response
-      const invoicePdfUrl = invoice.invoicePdfUrl || 
-        `${import.meta.env.VITE_API_URL.replace('/api/v1', '')}/invoices/pdf/${invoice.unique_hash}`
+      // Validate hash format
+      if (!/^[a-f0-9]{32}$/i.test(invoice.unique_hash)) {
+        console.error('📄 [Invoice PDF] Invalid hash format:', invoice.unique_hash);
+        window.toastr?.['error']('Invalid invoice hash format');
+        return;
+      }
+
+      // Construct PDF URL with hash validation
+      const baseUrl = import.meta.env.VITE_API_URL.replace('/api/v1', '');
+      const invoicePdfUrl = `${baseUrl}/invoices/pdf/${invoice.unique_hash}`;
 
       console.log('📄 [Invoice PDF] Using invoice details:', {
         invoiceId: invoice.id,
         invoiceHash: invoice.unique_hash,
-        directPdfUrl: invoice.invoicePdfUrl,
+        baseUrl,
         constructedUrl: invoicePdfUrl,
         fullInvoice: invoice
       });
