@@ -250,25 +250,36 @@ export const createProductsModule = (state, posApi, companyStore) => {
       store: companyStore.selectedStore
     })
 
-    // Generate category cache key
-    const categoryCacheKey = `category_${state.selectedCategory.value}`
+    // Generate category cache key - ensure it's always a string
+    const categoryCacheKey = `category_${String(state.selectedCategory.value)}`
+    
+    // Initialize category cache if it doesn't exist
+    if (!cache.get(categoryCacheKey)) {
+      cache.set(categoryCacheKey, {
+        pages: {},
+        lastFetch: 0, // Initialize to 0 to force first fetch
+        totalItems: 0
+      })
+    }
 
-    // Check if we have cached products for this category
+    // Get the category cache
     const categoryCache = cache.get(categoryCacheKey)
-    if (categoryCache) {
-      // Check if we have the specific page cached
-      const pageCache = categoryCache.pages[cacheKey]
-      if (pageCache) {
-        logger.debug('[Products] Using cached products for category', {
-          category: state.selectedCategory.value,
-          page: page
-        })
-        state.products.value = pageCache.products
-        state.totalItems.value = pageCache.totalItems
-        state.currentPage.value = page
-        state.itemsPerPage.value = perPage
-        return
-      }
+    
+    // Check if we have the specific page cached and it's not expired
+    if (categoryCache?.pages[cacheKey] && 
+        Date.now() - categoryCache.pages[cacheKey].timestamp < cache.CACHE_TTL * 6) {
+      logger.debug('[Products] Using cached products for category', {
+        category: state.selectedCategory.value,
+        page: page,
+        cacheKey: cacheKey,
+        timestamp: categoryCache.pages[cacheKey].timestamp
+      })
+      
+      state.products.value = categoryCache.pages[cacheKey].products
+      state.totalItems.value = categoryCache.totalItems
+      state.currentPage.value = page
+      state.itemsPerPage.value = perPage
+      return
     }
 
     logger.startGroup('POS Store: Fetch Products')
@@ -357,9 +368,10 @@ export const createProductsModule = (state, posApi, companyStore) => {
         state.currentPage.value = page
         state.itemsPerPage.value = perPage
         
-        // Cache the results per category with proper structure
+        // Get or initialize category cache
         let categoryCache = cache.get(categoryCacheKey)
-  
+        
+        // Ensure we have a valid cache structure
         if (!categoryCache) {
           categoryCache = {
             pages: {},
@@ -367,24 +379,32 @@ export const createProductsModule = (state, posApi, companyStore) => {
             totalItems: response.itemTotalCount || 0
           }
         }
-  
+
         // Store this page's data
         categoryCache.pages[cacheKey] = {
           products: processedProducts,
           timestamp: Date.now()
         }
-  
+
         // Update category totals and timestamp
         categoryCache.totalItems = response.itemTotalCount || 0
         categoryCache.lastFetch = Date.now()
-  
+
         // Update the category cache
         cache.set(categoryCacheKey, categoryCache)
-  
-        // Also store a reference to this category in the main cache
+
+        // Update category list reference
         const categoryList = cache.get('category_list') || new Set()
         categoryList.add(categoryCacheKey)
         cache.set('category_list', categoryList)
+
+        // Debug log the cache state
+        logger.debug('[Products] Updated category cache', {
+          category: categoryCacheKey,
+          pages: Object.keys(categoryCache.pages),
+          totalItems: categoryCache.totalItems,
+          lastFetch: categoryCache.lastFetch
+        })
         
         logger.info(`[Products] Loaded ${processedProducts.length} products with section information`)
       } else {
