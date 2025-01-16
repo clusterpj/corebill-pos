@@ -90,17 +90,54 @@ watch(dialog, (newVal) => {
 })
 
 const handleIframeLoad = () => {
-  // Add a small delay to ensure the PDF is actually loaded
-  setTimeout(() => {
+  const iframe = document.querySelector('iframe')
+  if (!iframe) {
+    console.error('PDF iframe not found')
     loading.value = false
-    detectPrinters()
-  }, 500)
+    return
+  }
+
+  // Check if PDF is actually loaded
+  try {
+    const pdfWindow = iframe.contentWindow
+    if (pdfWindow && pdfWindow.document.readyState === 'complete') {
+      // Verify PDF content
+      const pdfDoc = pdfWindow.document.querySelector('embed') || pdfWindow.document.querySelector('object')
+      if (pdfDoc && pdfDoc.src.includes(props.pdfUrl)) {
+        loading.value = false
+        detectPrinters()
+      } else {
+        console.error('PDF content not loaded correctly')
+        loading.value = false
+      }
+    }
+  } catch (error) {
+    console.error('Error verifying PDF content:', error)
+    loading.value = false
+  }
 }
 
 // Reset loading state when PDF URL changes
-watch(() => props.pdfUrl, () => {
+watch(() => props.pdfUrl, (newUrl) => {
+  if (!newUrl) {
+    console.error('PDF URL is empty')
+    return
+  }
+  
+  // Validate URL format
+  if (!newUrl.startsWith('http') || !newUrl.includes('/pdf/')) {
+    console.error('Invalid PDF URL format:', newUrl)
+    return
+  }
+
   loading.value = true
-})
+  
+  // Force iframe reload if URL changes
+  const iframe = document.querySelector('iframe')
+  if (iframe) {
+    iframe.src = newUrl
+  }
+}, { immediate: true })
 
 const printerDialog = ref(false)
 const availablePrinters = ref([])
