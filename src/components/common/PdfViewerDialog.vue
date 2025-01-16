@@ -248,39 +248,52 @@ const printSettings = ref({
 // Detect network printers
 const detectPrinters = async () => {
   loadingPrinters.value = true
+  availablePrinters.value = []
+  
   try {
-    // First try to get printers from the system
-    if (navigator.userAgent.includes('Windows')) {
-      // Windows-specific printer detection
-      const printers = await window.electron?.getPrinters()
-      if (printers) {
-        availablePrinters.value = printers.map(p => ({
-          id: p.name,
-          name: p.displayName,
-          isDefault: p.isDefault
-        }))
-        return
-      }
+    // Check if WebUSB is available
+    if (!navigator.usb) {
+      throw new Error('WebUSB API not supported in this browser')
     }
 
-    // Fallback to network printer discovery
-    const response = await fetch('/api/printers', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+    // Request USB device access
+    const device = await navigator.usb.requestDevice({
+      filters: [
+        { classCode: 7 }, // Printer class
+        { vendorId: 0x03f0 }, // HP
+        { vendorId: 0x04a9 }, // Canon
+        { vendorId: 0x04b8 }, // Epson
+        { vendorId: 0x04f9 } // Brother
+      ]
     })
-    
-    if (response.ok) {
-      const data = await response.json()
-      availablePrinters.value = data.printers.map(p => ({
-        id: p.id,
-        name: p.name,
-        location: p.location
-      }))
-    } else {
-      console.error('Failed to fetch printers:', response.statusText)
+
+    if (!device) {
+      throw new Error('No USB printers found')
     }
+
+    // Open the device
+    await device.open()
+    
+    // Get printer information
+    const printerInfo = {
+      id: device.serialNumber,
+      name: device.productName || 'USB Printer',
+      manufacturer: device.manufacturerName || 'Unknown',
+      vendorId: device.vendorId,
+      productId: device.productId,
+      isUSB: true
+    }
+
+    // Add to available printers
+    availablePrinters.value = [printerInfo]
+
+    // Set as selected if only one
+    if (availablePrinters.value.length === 1) {
+      selectedPrinter.value = availablePrinters.value[0]
+    }
+
+    // Close the device when done
+    await device.close()
   } catch (error) {
     console.error('Error detecting printers:', error)
   } finally {
@@ -308,19 +321,35 @@ const printPdf = async () => {
       throw new Error('PDF content not loaded')
     }
 
-    // Prepare print options
-    const printOptions = {
-      printerName: selectedPrinter.value.name,
-      printBackground: true,
-      color: printSettings.value.color,
-      landscape: printSettings.value.orientation === 'Landscape',
-      copies: printSettings.value.copies,
-      pageSize: printSettings.value.paperSize
-    }
+    // Handle USB printing
+    if (selectedPrinter.value.isUSB) {
+      // Request USB device again
+      const device = await navigator.usb.requestDevice({
+        filters: [{ vendorId: selectedPrinter.value.vendorId }]
+      })
 
-    // Use Electron printing if available
-    if (window.electron) {
-      await window.electron.printPDF(pdfDoc.src, printOptions)
+      if (!device) {
+        throw new Error('USB printer not found')
+      }
+
+      await device.open()
+      
+      // Select configuration
+      await device.selectConfiguration(1)
+      
+      // Claim interface
+      await device.claimInterface(0)
+
+      // Convert PDF to raw printer data
+      const pdfData = await fetch(pdfDoc.src)
+      const pdfBuffer = await pdfData.arrayBuffer()
+      
+      // Send to printer
+      await device.transferOut(1, pdfBuffer)
+
+      // Release interface
+      await device.releaseInterface(0)
+      await device.close()
     } else {
       // Fallback to browser printing
       pdfWindow.print()
