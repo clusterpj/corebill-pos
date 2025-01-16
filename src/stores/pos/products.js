@@ -119,6 +119,13 @@ const cache = {
     }
     this.persist()
   },
+
+  clearCategory(categoryId) {
+    const categoryCacheKey = `category_${categoryId}`
+    this.products.delete(categoryCacheKey)
+    this.persist()
+    logger.debug(`[Cache] Cleared category cache for ${categoryId}`)
+  },
   
   shouldFetch() {
     if (!this.lastFetch) return true
@@ -228,13 +235,21 @@ export const createProductsModule = (state, posApi, companyStore) => {
       store: companyStore.selectedStore
     })
 
-    // Check if we have cached products
-    if (!cache.shouldFetch()) {
-      const cachedProducts = cache.get(cacheKey)
-      if (cachedProducts) {
-        logger.debug('[Products] Using cached products')
-        state.products.value = cachedProducts.products
-        state.totalItems.value = cachedProducts.totalItems
+    // Generate category cache key
+    const categoryCacheKey = `category_${state.selectedCategory.value}`
+
+    // Check if we have cached products for this category
+    const categoryCache = cache.get(categoryCacheKey)
+    if (categoryCache) {
+      // Check if we have the specific page cached
+      const pageCache = categoryCache.pages[cacheKey]
+      if (pageCache) {
+        logger.debug('[Products] Using cached products for category', {
+          category: state.selectedCategory.value,
+          page: page
+        })
+        state.products.value = pageCache.products
+        state.totalItems.value = pageCache.totalItems
         state.currentPage.value = page
         state.itemsPerPage.value = perPage
         return
@@ -327,11 +342,20 @@ export const createProductsModule = (state, posApi, companyStore) => {
         state.currentPage.value = page
         state.itemsPerPage.value = perPage
         
-        // Cache the results
-        cache.set(cacheKey, {
+        // Cache the results per category
+        const categoryCache = cache.get(categoryCacheKey) || {
+          pages: {},
+          lastFetch: Date.now()
+        }
+        
+        // Store this page's data
+        categoryCache.pages[cacheKey] = {
           products: processedProducts,
           totalItems: response.itemTotalCount || 0
-        })
+        }
+        
+        // Update the category cache
+        cache.set(categoryCacheKey, categoryCache)
         cache.lastFetch = Date.now()
         
         logger.info(`[Products] Loaded ${processedProducts.length} products with section information`)
