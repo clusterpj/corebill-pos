@@ -478,14 +478,20 @@ export const createProductsModule = (state, posApi, companyStore) => {
     }
   }
 
-  const preloadAllProducts = async () => {
+  const preloadAllProducts = async (onProgress) => {
     logger.startGroup('POS Store: Preloading All Products')
     try {
       // Get all categories
       const categories = state.categories.value
+      const totalCategories = categories.length
+      let completedCategories = 0
       
       // Preload products for each category
       for (const category of categories) {
+        if (onProgress) {
+          const progress = Math.round((completedCategories / totalCategories) * 100)
+          onProgress(progress)
+        }
         const categoryId = category.item_category_id
         logger.debug(`Preloading products for category ${categoryId}`)
         
@@ -555,6 +561,12 @@ export const createProductsModule = (state, posApi, companyStore) => {
           
           page++
         }
+        
+        completedCategories++
+      }
+      
+      if (onProgress) {
+        onProgress(100)
       }
       
       logger.info('Successfully preloaded all products')

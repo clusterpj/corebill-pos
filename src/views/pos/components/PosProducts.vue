@@ -141,8 +141,16 @@ const clearingCache = ref(false)
 
 const clearCache = async () => {
   clearingCache.value = true
+  isPreloading.value = true
+  preloadProgress.value = 0
+  
   try {
-    const success = await posStore.clearCache()
+    // Create a progress callback
+    const onProgress = (progress) => {
+      preloadProgress.value = progress
+    }
+    
+    const success = await posStore.clearCache(onProgress)
     if (success) {
       window.toastr?.success('Product cache cleared and preloaded successfully')
       // Reset pagination and force refresh
@@ -158,6 +166,8 @@ const clearCache = async () => {
     window.toastr?.error(`Failed to clear and preload cache: ${error.message}`)
   } finally {
     clearingCache.value = false
+    isPreloading.value = false
+    preloadProgress.value = 0
   }
 }
 import { usePosStore } from '../../../stores/pos-store'
@@ -361,6 +371,17 @@ const handleQuickAdd = async (searchTerm) => {
   flex: 1;
   overflow-y: auto;
   min-height: 200px;
+}
+
+.products-preloading-state {
+  position: sticky;
+  top: 140px;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: 16px;
+  background: white;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .products-loading-state {
