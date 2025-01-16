@@ -346,6 +346,15 @@ const handlePaymentComplete = async (result) => {
   
   if (result) {
     try {
+      // Clear the cart FIRST before any other operations
+      try {
+        await cartStore.clearCart()
+        logger.debug('Cart cleared successfully after payment')
+      } catch (clearError) {
+        logger.error('Failed to clear cart after payment:', clearError)
+        throw new Error('Payment succeeded but failed to clear cart')
+      }
+
       // Get invoice details from the result
       const invoice = result?.invoice?.invoice || result?.invoice
       
@@ -361,15 +370,6 @@ const handlePaymentComplete = async (result) => {
       console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', invoicePdfUrl)
       currentPdfUrl.value = invoicePdfUrl
       showPdfViewer.value = true
-
-      // Clear the cart after successful payment
-      try {
-        await cartStore.clearCart()
-        logger.debug('Cart cleared successfully after payment')
-      } catch (clearError) {
-        logger.error('Failed to clear cart after payment:', clearError)
-        throw new Error('Payment succeeded but failed to clear cart')
-      }
 
       // Close payment dialog and emit completion event
       closeDialog()
