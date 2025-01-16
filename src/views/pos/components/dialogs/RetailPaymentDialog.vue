@@ -378,8 +378,8 @@ const handlePaymentComplete = async (result) => {
         invoice
       })
       
-      // Validate hash format
-      if (!/^[a-f0-9]{32}$/i.test(invoice.unique_hash)) {
+      // Validate hash format - allow alphanumeric with dots and dashes
+      if (!/^[a-zA-Z0-9.-]+$/.test(invoice.unique_hash)) {
         console.error('📄 [Invoice PDF] Invalid hash format:', invoice.unique_hash)
         throw new Error('Invalid invoice hash format')
       }
