@@ -16,55 +16,98 @@ const cache = {
       if (storedCache) {
         const parsed = JSON.parse(storedCache)
         if (parsed.products) {
-          this.products = new Map(Object.entries(parsed.products))
+          // Convert stored products back to Map and parse the data
+          this.products = new Map(Object.entries(parsed.products).map(([key, value]) => {
+            return [key, {
+              data: value.data,
+              timestamp: value.timestamp
+            }]
+          }))
         }
         if (parsed.sections) {
-          this.sections = new Map(Object.entries(parsed.sections))
+          // Convert stored sections back to Map and parse the data
+          this.sections = new Map(Object.entries(parsed.sections).map(([key, value]) => {
+            return [key, {
+              data: value.data,
+              timestamp: value.timestamp
+            }]
+          }))
         }
         this.lastFetch = parsed.lastFetch
-        logger.debug('[Cache] Loaded from localStorage')
+        logger.debug('[Cache] Loaded from localStorage', {
+          productsSize: this.products.size,
+          sectionsSize: this.sections.size,
+          lastFetch: this.lastFetch
+        })
       }
     } catch (error) {
       logger.error('[Cache] Failed to load from localStorage', error)
+      // Clear potentially corrupted cache
+      this.clear()
+      localStorage.removeItem(this.STORAGE_KEY)
     }
   },
   
   // Save cache to localStorage
   persist() {
     try {
+      // Convert Maps to plain objects while preserving the structure
       const cacheData = {
         products: Object.fromEntries(this.products),
         sections: Object.fromEntries(this.sections),
         lastFetch: this.lastFetch
       }
+      
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cacheData))
-      logger.debug('[Cache] Persisted to localStorage')
+      logger.debug('[Cache] Persisted to localStorage', {
+        productsSize: this.products.size,
+        sectionsSize: this.sections.size,
+        lastFetch: this.lastFetch
+      })
     } catch (error) {
       logger.error('[Cache] Failed to persist to localStorage', error)
+      // Clear potentially corrupted cache
+      this.clear()
+      localStorage.removeItem(this.STORAGE_KEY)
     }
   },
   
   get(key, type = 'products') {
     const cacheMap = this[type]
     const entry = cacheMap.get(key)
-    if (entry && Date.now() - entry.timestamp < this.CACHE_TTL) {
-      return entry.data
-    }
-    // Remove expired entry
+    
     if (entry) {
+      // Check if cache is still valid
+      if (Date.now() - entry.timestamp < this.CACHE_TTL) {
+        logger.debug(`[Cache] Cache hit for ${type} key: ${key}`)
+        return entry.data
+      }
+      
+      // Remove expired entry
+      logger.debug(`[Cache] Cache expired for ${type} key: ${key}`)
       cacheMap.delete(key)
       this.persist()
+    } else {
+      logger.debug(`[Cache] Cache miss for ${type} key: ${key}`)
     }
+    
     return null
   },
   
   set(key, data, type = 'products') {
     const cacheMap = this[type]
-    cacheMap.set(key, {
+    const entry = {
       data,
       timestamp: Date.now()
-    })
+    }
+    
+    cacheMap.set(key, entry)
     this.persist()
+    
+    logger.debug(`[Cache] Set cache for ${type} key: ${key}`, {
+      data: data ? '[...]' : null,
+      timestamp: entry.timestamp
+    })
   },
   
   clear(type) {
