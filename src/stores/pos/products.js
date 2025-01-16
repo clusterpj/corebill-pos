@@ -5,7 +5,7 @@ import { sectionApi } from '../../services/api/section-api'
 const cache = {
   products: new Map(),
   sections: new Map(),
-  CACHE_TTL: 1000 * 60 * 5, // 5 minutes
+  CACHE_TTL: Infinity, // Cache forever
   lastFetch: null,
   STORAGE_KEY: 'pos-products-cache',
   

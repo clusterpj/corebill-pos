@@ -145,7 +145,8 @@ const clearCache = async () => {
     const success = await posStore.clearCache()
     if (success) {
       window.toastr?.success('Product cache cleared successfully')
-      // Force refresh products with cache busting
+      // Reset pagination and force refresh
+      currentPage.value = 1
       await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
     }
   } catch (error) {
