@@ -77,10 +77,14 @@ const cache = {
     const entry = cacheMap.get(key)
     
     if (entry) {
+      // For category caches, we want them to persist longer
+      const isCategoryCache = key.startsWith('category_')
+      const cacheDuration = isCategoryCache ? this.CACHE_TTL * 6 : this.CACHE_TTL // 30 minutes for categories
+      
       // Check if cache is still valid
-      if (Date.now() - entry.timestamp < this.CACHE_TTL) {
+      if (Date.now() - (entry.timestamp || entry.lastFetch) < cacheDuration) {
         logger.debug(`[Cache] Cache hit for ${type} key: ${key}`)
-        return entry.data
+        return entry.data || entry // Return either the data or the full entry
       }
       
       // Remove expired entry
@@ -114,7 +118,18 @@ const cache = {
     if (type) {
       this[type].clear()
     } else {
-      this.products.clear()
+      // Clear all products but preserve category structure
+      const categoryList = this.get('category_list')
+      if (categoryList) {
+        categoryList.forEach(categoryKey => {
+          const categoryCache = this.get(categoryKey)
+          if (categoryCache) {
+            // Clear individual pages but keep category metadata
+            categoryCache.pages = {}
+            this.set(categoryKey, categoryCache)
+          }
+        })
+      }
       this.sections.clear()
     }
     this.persist()
@@ -342,21 +357,34 @@ export const createProductsModule = (state, posApi, companyStore) => {
         state.currentPage.value = page
         state.itemsPerPage.value = perPage
         
-        // Cache the results per category
-        const categoryCache = cache.get(categoryCacheKey) || {
-          pages: {},
-          lastFetch: Date.now()
+        // Cache the results per category with proper structure
+        let categoryCache = cache.get(categoryCacheKey)
+  
+        if (!categoryCache) {
+          categoryCache = {
+            pages: {},
+            lastFetch: Date.now(),
+            totalItems: response.itemTotalCount || 0
+          }
         }
-        
+  
         // Store this page's data
         categoryCache.pages[cacheKey] = {
           products: processedProducts,
-          totalItems: response.itemTotalCount || 0
+          timestamp: Date.now()
         }
-        
+  
+        // Update category totals and timestamp
+        categoryCache.totalItems = response.itemTotalCount || 0
+        categoryCache.lastFetch = Date.now()
+  
         // Update the category cache
         cache.set(categoryCacheKey, categoryCache)
-        cache.lastFetch = Date.now()
+  
+        // Also store a reference to this category in the main cache
+        const categoryList = cache.get('category_list') || new Set()
+        categoryList.add(categoryCacheKey)
+        cache.set('category_list', categoryList)
         
         logger.info(`[Products] Loaded ${processedProducts.length} products with section information`)
       } else {
