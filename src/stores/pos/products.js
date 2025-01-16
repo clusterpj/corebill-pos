@@ -478,14 +478,15 @@ export const createProductsModule = (state, posApi, companyStore) => {
     }
   }
 
-  const clearCache = () => {
+  const clearCache = async () => {
     logger.startGroup('POS Store: Clear Products Cache')
     try {
       // Clear both memory and localStorage caches
       cache.clear()
       localStorage.removeItem(cache.STORAGE_KEY)
-      // Reinitialize empty cache
-      cache.init()
+      
+      // Force fetch fresh data
+      await fetchProducts(1, 50)
       
       // Log detailed cache state
       logger.debug('Cache state after clear:', {
