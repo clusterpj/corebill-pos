@@ -10,21 +10,60 @@
         </v-btn>
       </v-toolbar>
 
-      <v-dialog v-model="printerDialog" max-width="500px">
+      <!-- Print Dialog -->
+      <v-dialog v-model="printDialog" max-width="600px">
         <v-card>
-          <v-card-title>Select Printer</v-card-title>
+          <v-card-title>Print Invoice</v-card-title>
           <v-card-text>
-            <v-select
-              v-model="selectedPrinter"
-              :items="availablePrinters"
-              item-title="name"
-              return-object
-              label="Select a printer"
-            ></v-select>
+            <v-row>
+              <v-col cols="12">
+                <v-select
+                  v-model="selectedPrinter"
+                  :items="availablePrinters"
+                  item-title="name"
+                  label="Select Printer"
+                  :loading="loadingPrinters"
+                  :disabled="loadingPrinters"
+                  clearable
+                  hint="Select a network printer"
+                  persistent-hint
+                ></v-select>
+              </v-col>
+              
+              <v-col cols="6">
+                <v-select
+                  v-model="printSettings.orientation"
+                  :items="['Portrait', 'Landscape']"
+                  label="Orientation"
+                ></v-select>
+              </v-col>
+              
+              <v-col cols="6">
+                <v-select
+                  v-model="printSettings.paperSize"
+                  :items="['A4', 'Letter', 'Legal']"
+                  label="Paper Size"
+                ></v-select>
+              </v-col>
+              
+              <v-col cols="12">
+                <v-checkbox
+                  v-model="printSettings.color"
+                  label="Print in color"
+                ></v-checkbox>
+              </v-col>
+            </v-row>
           </v-card-text>
           <v-card-actions>
-            <v-btn color="primary" @click="confirmPrinter">Select</v-btn>
-            <v-btn color="error" @click="printerDialog = false">Cancel</v-btn>
+            <v-btn color="grey" @click="printDialog = false">Cancel</v-btn>
+            <v-btn 
+              color="primary" 
+              @click="printPdf"
+              :loading="printing"
+              :disabled="!selectedPrinter || printing"
+            >
+              Print
+            </v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -47,8 +86,18 @@
           color="grey"
           variant="outlined"
           @click="closeDialog"
+          class="mr-2"
         >
           Close
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          @click="printDialog = true"
+          :loading="loadingPrinters"
+        >
+          <v-icon start>mdi-printer</v-icon>
+          Print
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -184,64 +233,119 @@ watch(() => props.pdfUrl, (newUrl) => {
   }
 }, { immediate: true })
 
-const printerDialog = ref(false)
+const printDialog = ref(false)
+const printing = ref(false)
+const loadingPrinters = ref(false)
 const availablePrinters = ref([])
 const selectedPrinter = ref(null)
+const printSettings = ref({
+  orientation: 'Portrait',
+  paperSize: 'Letter',
+  color: false,
+  copies: 1
+})
 
-// Detect available USB printers
+// Detect network printers
 const detectPrinters = async () => {
+  loadingPrinters.value = true
   try {
-    const devices = await navigator.usb.getDevices()
-    availablePrinters.value = devices
-      .filter(device => device.productName.toLowerCase().includes('printer'))
-      .map(device => ({
-        id: device.deviceId,
-        name: device.productName,
-        device
-      }))
+    // First try to get printers from the system
+    if (navigator.userAgent.includes('Windows')) {
+      // Windows-specific printer detection
+      const printers = await window.electron?.getPrinters()
+      if (printers) {
+        availablePrinters.value = printers.map(p => ({
+          id: p.name,
+          name: p.displayName,
+          isDefault: p.isDefault
+        }))
+        return
+      }
+    }
+
+    // Fallback to network printer discovery
+    const response = await fetch('/api/printers', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
     
-    if (availablePrinters.value.length > 0) {
-      printerDialog.value = true
+    if (response.ok) {
+      const data = await response.json()
+      availablePrinters.value = data.printers.map(p => ({
+        id: p.id,
+        name: p.name,
+        location: p.location
+      }))
     } else {
-      console.warn('No USB printers found')
+      console.error('Failed to fetch printers:', response.statusText)
     }
   } catch (error) {
     console.error('Error detecting printers:', error)
+  } finally {
+    loadingPrinters.value = false
   }
 }
 
-// Send PDF to selected printer
-const printToPrinter = async () => {
+// Print PDF using selected printer
+const printPdf = async () => {
   if (!selectedPrinter.value) return
 
+  printing.value = true
   try {
-    const printer = selectedPrinter.value.device
-    await printer.open()
-    await printer.selectConfiguration(1)
-    await printer.claimInterface(0)
-
     const iframe = document.querySelector('iframe')
-    if (iframe) {
-      const pdfBlob = await fetch(iframe.src).then(res => res.blob())
-      const arrayBuffer = await pdfBlob.arrayBuffer()
-      
-      await printer.transferOut(1, arrayBuffer)
-      console.log('PDF sent to printer successfully')
+    if (!iframe || !iframe.contentWindow) {
+      throw new Error('PDF iframe not found')
     }
+
+    // Get PDF content
+    const pdfWindow = iframe.contentWindow
+    const pdfDoc = pdfWindow.document.querySelector('embed') || 
+                   pdfWindow.document.querySelector('object')
+    
+    if (!pdfDoc) {
+      throw new Error('PDF content not loaded')
+    }
+
+    // Prepare print options
+    const printOptions = {
+      printerName: selectedPrinter.value.name,
+      printBackground: true,
+      color: printSettings.value.color,
+      landscape: printSettings.value.orientation === 'Landscape',
+      copies: printSettings.value.copies,
+      pageSize: printSettings.value.paperSize
+    }
+
+    // Use Electron printing if available
+    if (window.electron) {
+      await window.electron.printPDF(pdfDoc.src, printOptions)
+    } else {
+      // Fallback to browser printing
+      pdfWindow.print()
+    }
+
+    console.log('PDF printed successfully')
+    printDialog.value = false
   } catch (error) {
-    console.error('Error printing:', error)
+    console.error('Error printing PDF:', error)
+    emit('error', {
+      type: 'print-error',
+      message: error.message,
+      printer: selectedPrinter.value
+    })
   } finally {
-    if (selectedPrinter.value?.device?.opened) {
-      await selectedPrinter.value.device.close()
-    }
+    printing.value = false
   }
 }
 
-const confirmPrinter = async () => {
-  printerDialog.value = false
-  await printToPrinter()
-  closeDialog()
-}
+// Detect printers when dialog opens
+watch(printDialog, (newVal) => {
+  if (newVal) {
+    detectPrinters()
+  }
+})
 
 const closeDialog = () => {
   dialog.value = false
