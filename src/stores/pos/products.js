@@ -84,10 +84,20 @@ const cache = {
 }
 
 export const createProductsModule = (state, posApi, companyStore) => {
-  // Initialize cache
-  cache.init()
-  
-  // Remove the duplicate cache definition here and keep using the one at the top of the file
+  // Initialize cache with error handling
+  try {
+    cache.init()
+    logger.debug('[Products] Cache initialized', {
+      productsSize: cache.products.size,
+      sectionsSize: cache.sections.size,
+      lastFetch: cache.lastFetch
+    })
+  } catch (error) {
+    logger.error('[Products] Cache initialization failed', error)
+    // Clear potentially corrupted cache
+    cache.clear()
+    localStorage.removeItem(cache.STORAGE_KEY)
+  }
   
   const fetchCategories = async () => {
     if (!companyStore.isConfigured) {
@@ -157,6 +167,14 @@ export const createProductsModule = (state, posApi, companyStore) => {
       logger.warn('Company configuration incomplete, skipping products fetch')
       return
     }
+
+    // Debug current cache state
+    logger.debug('[Products] Pre-fetch cache state', {
+      productsSize: cache.products.size,
+      sectionsSize: cache.sections.size,
+      lastFetch: cache.lastFetch,
+      localStorage: localStorage.getItem(cache.STORAGE_KEY)
+    })
 
     // Generate cache key based on current state
     const cacheKey = JSON.stringify({
@@ -349,8 +367,10 @@ export const createProductsModule = (state, posApi, companyStore) => {
     logger.startGroup('POS Store: Clear Products Cache')
     try {
       // Clear both memory and localStorage caches
-      cache.clear('products')
+      cache.clear()
       localStorage.removeItem(cache.STORAGE_KEY)
+      // Reinitialize empty cache
+      cache.init()
       
       // Log detailed cache state
       logger.debug('Cache state after clear:', {
