@@ -165,14 +165,25 @@ const clearCache = async () => {
     // Create a progress callback
     const onProgress = (progress) => {
       preloadProgress.value = progress
+      logger.debug(`Cache clear progress: ${progress}%`)
     }
     
+    logger.info('Starting cache clear and preload process...')
     const success = await posStore.clearCache(onProgress)
+    
     if (success) {
+      logger.info('Cache clear and preload completed successfully')
       window.toastr?.success('Product cache cleared and preloaded successfully')
+      
       // Reset pagination and force refresh
       currentPage.value = 1
       await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
+      
+      // Show final confirmation
+      window.toastr?.info('Products have been refreshed with latest data')
+    } else {
+      logger.warn('Cache clear returned false')
+      window.toastr?.warning('Cache clear completed but may not have fully succeeded')
     }
   } catch (error) {
     logger.error('Failed to clear and preload cache', {
@@ -185,6 +196,7 @@ const clearCache = async () => {
     clearingCache.value = false
     isPreloading.value = false
     preloadProgress.value = 0
+    logger.info('Cache clear process completed')
   }
 }
 import { usePosStore } from '../../../stores/pos-store'

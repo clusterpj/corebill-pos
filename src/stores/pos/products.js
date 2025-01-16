@@ -488,9 +488,13 @@ export const createProductsModule = (state, posApi, companyStore) => {
       
       // Preload products for each category
       for (const category of categories) {
+        logger.debug(`Preloading category ${category.item_category_id} (${category.name})`)
+        
+        // Update progress before starting category
         if (onProgress) {
           const progress = Math.round((completedCategories / totalCategories) * 100)
           onProgress(progress)
+          logger.debug(`Preload progress: ${progress}%`)
         }
         const categoryId = category.item_category_id
         logger.debug(`Preloading products for category ${categoryId}`)
@@ -582,18 +586,28 @@ export const createProductsModule = (state, posApi, companyStore) => {
     }
   }
 
-  const clearCache = async () => {
+  const clearCache = async (onProgress) => {
     logger.startGroup('POS Store: Clear Products Cache')
     try {
       // Clear both memory and localStorage caches
+      logger.debug('Clearing memory cache...')
       cache.clear()
+      logger.debug('Clearing localStorage cache...')
       localStorage.removeItem(cache.STORAGE_KEY)
       
-      // Preload all products after clearing cache
-      await preloadAllProducts()
-      
-      // Log detailed cache state
+      // Log initial cache state
       logger.debug('Cache state after clear:', {
+        productsSize: cache.products.size,
+        sectionsSize: cache.sections.size,
+        localStorage: localStorage.getItem(cache.STORAGE_KEY)
+      })
+      
+      // Preload all products after clearing cache
+      logger.info('Starting product preloading...')
+      await preloadAllProducts(onProgress)
+      
+      // Log final cache state
+      logger.debug('Cache state after preload:', {
         productsSize: cache.products.size,
         sectionsSize: cache.sections.size,
         localStorage: localStorage.getItem(cache.STORAGE_KEY)
