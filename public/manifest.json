@@ -3,10 +3,10 @@
     "usb",
     {
       "usbDevices": [
-        { "vendorId": 0x03f0 }, // HP
-        { "vendorId": 0x04a9 }, // Canon
-        { "vendorId": 0x04b8 }, // Epson
-        { "vendorId": 0x04f9 }  // Brother
+        { "vendorId": 0x03f0 },
+        { "vendorId": 0x04a9 },
+        { "vendorId": 0x04b8 },
+        { "vendorId": 0x04f9 }
       ]
     }
   ]
