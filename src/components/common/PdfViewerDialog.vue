@@ -26,16 +26,7 @@
         ></iframe>
       </v-card-text>
 
-      <v-card-actions class="d-flex justify-space-between pa-4">
-        <v-btn
-          color="primary"
-          variant="outlined"
-          @click="print"
-          :disabled="loading"
-        >
-          <v-icon left>mdi-printer</v-icon>
-          Print
-        </v-btn>
+      <v-card-actions class="d-flex justify-end pa-4">
         <v-btn
           color="grey"
           variant="outlined"
@@ -97,7 +88,18 @@ watch(() => props.pdfUrl, () => {
 const print = () => {
   const iframe = document.querySelector('iframe')
   if (iframe) {
-    iframe.contentWindow.print()
+    try {
+      // Ensure the PDF is fully loaded before printing
+      iframe.onload = () => {
+        iframe.contentWindow.focus() // Focus the iframe
+        iframe.contentWindow.print() // Trigger print
+      }
+      
+      // Force reload if already loaded
+      iframe.src = iframe.src
+    } catch (error) {
+      console.error('Failed to print PDF:', error)
+    }
   }
 }
 
