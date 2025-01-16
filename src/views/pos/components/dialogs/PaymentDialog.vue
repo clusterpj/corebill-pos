@@ -959,12 +959,18 @@ const processPayment = async () => {
         regularResults: result?.regularResults
       });
 
-      // Get the invoice details from multiple possible locations with better error handling
-      const invoice = result?.invoice || 
+      // Get invoice details from multiple possible locations
+      const invoice = result?.invoice?.invoice || 
+                     result?.invoice || 
                      result?.regularResults?.[0]?.payment?.invoice || 
                      invoiceResult?.invoice || 
                      result || 
                      props.invoice;
+
+      // Get hash from nested invoice or directly
+      const invoiceHash = invoice?.unique_hash || 
+                         invoice?.invoice?.unique_hash || 
+                         result?.invoice?.unique_hash
 
       console.log('📄 [Invoice PDF] Invoice data sources:', {
         resultInvoice: result?.invoice,
@@ -974,27 +980,29 @@ const processPayment = async () => {
         propsInvoice: props.invoice
       });
       
-      if (!invoice?.unique_hash) {
+      if (!invoiceHash) {
         console.error('📄 [Invoice PDF] Missing invoice hash:', {
           result,
+          invoice,
           invoiceResult,
           propsInvoice: props.invoice,
-          regularResults: result?.regularResults
+          regularResults: result?.regularResults,
+          nestedInvoice: result?.invoice?.invoice
         });
         window.toastr?.['error']('Could not generate invoice PDF: Missing hash');
         return;
       }
 
       // Validate hash format - allow alphanumeric with dots and dashes
-      if (!/^[a-zA-Z0-9.-]+$/.test(invoice.unique_hash)) {
-        console.error('📄 [Invoice PDF] Invalid hash format:', invoice.unique_hash);
+      if (!/^[a-zA-Z0-9.-]+$/.test(invoiceHash)) {
+        console.error('📄 [Invoice PDF] Invalid hash format:', invoiceHash);
         window.toastr?.['error']('Invalid invoice hash format');
         return;
       }
 
       // Construct PDF URL with hash validation
       const baseUrl = import.meta.env.VITE_API_URL.replace('/api/v1', '');
-      const invoicePdfUrl = `${baseUrl}/invoices/pdf/${invoice.unique_hash}`;
+      const invoicePdfUrl = `${baseUrl}/invoices/pdf/${invoiceHash}`;
 
       console.log('📄 [Invoice PDF] Using invoice details:', {
         invoiceId: invoice.id,

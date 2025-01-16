@@ -355,15 +355,24 @@ const handlePaymentComplete = async (result) => {
         throw new Error('Payment succeeded but failed to clear cart')
       }
 
-      // Get invoice details from the result with better error handling
-      const invoice = result?.invoice || result?.regularResults?.[0]?.payment?.invoice || result
+      // Get invoice details from multiple possible locations
+      const invoice = result?.invoice?.invoice || 
+                     result?.invoice || 
+                     result?.regularResults?.[0]?.payment?.invoice || 
+                     result
       
-      if (!invoice?.unique_hash) {
+      // Get hash from nested invoice or directly
+      const invoiceHash = invoice?.unique_hash || 
+                         invoice?.invoice?.unique_hash || 
+                         result?.invoice?.unique_hash
+      
+      if (!invoiceHash) {
         console.error('📄 [Invoice PDF] Missing invoice hash:', {
           result,
           invoice,
           regularResults: result?.regularResults,
-          payment: result?.regularResults?.[0]?.payment
+          payment: result?.regularResults?.[0]?.payment,
+          nestedInvoice: result?.invoice?.invoice
         })
         throw new Error('Could not generate invoice PDF: Missing invoice hash')
       }
