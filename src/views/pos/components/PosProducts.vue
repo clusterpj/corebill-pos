@@ -89,8 +89,23 @@
 
       <v-container fluid class="products-content pa-0" style="max-width: none;">
         <div class="products-scroll-container">
+          <!-- Preloading State -->
+          <div v-if="isPreloading" class="products-preloading-state">
+            <v-progress-linear
+              v-model="preloadProgress"
+              color="primary"
+              height="25"
+              striped
+              rounded
+            >
+              <template v-slot:default="{ value }">
+                <strong>Preloading products... {{ Math.ceil(value) }}%</strong>
+              </template>
+            </v-progress-linear>
+          </div>
+
           <!-- Loading State -->
-          <div v-if="posStore.loading.products" class="products-loading-state">
+          <div v-if="posStore.loading.products && !isPreloading" class="products-loading-state">
             <v-progress-circular
               indeterminate
               color="primary"
@@ -138,6 +153,8 @@
 import { ref, onMounted, watch, computed } from 'vue'
 const showGridSettings = ref(false)
 const clearingCache = ref(false)
+const isPreloading = ref(false)
+const preloadProgress = ref(0)
 
 const clearCache = async () => {
   clearingCache.value = true
