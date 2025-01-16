@@ -93,6 +93,7 @@ const handleIframeLoad = () => {
   // Add a small delay to ensure the PDF is actually loaded
   setTimeout(() => {
     loading.value = false
+    detectPrinters()
   }, 500)
 }
 
@@ -152,12 +153,6 @@ const printToPrinter = async () => {
       await selectedPrinter.value.device.close()
     }
   }
-}
-
-// Automatically print when PDF loads
-const handleIframeLoad = () => {
-  loading.value = false
-  detectPrinters()
 }
 
 const confirmPrinter = async () => {
