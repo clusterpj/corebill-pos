@@ -362,6 +362,15 @@ const handlePaymentComplete = async (result) => {
       currentPdfUrl.value = invoicePdfUrl
       showPdfViewer.value = true
 
+      // Clear the cart after successful payment
+      try {
+        await cartStore.clearCart()
+        logger.debug('Cart cleared successfully after payment')
+      } catch (clearError) {
+        logger.error('Failed to clear cart after payment:', clearError)
+        throw new Error('Payment succeeded but failed to clear cart')
+      }
+
       // Close payment dialog and emit completion event
       closeDialog()
       emit('payment-complete', result)
