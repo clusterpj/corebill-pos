@@ -106,10 +106,22 @@ export class WindowManager {
       const { availLeft: left, availTop: top, availWidth: width, availHeight: height } = secondaryScreen
 
       // Open customer display window with minimal features
+      const features = [
+        `left=${left}`,
+        `top=${top}`,
+        `width=${width}`,
+        `height=${height}`,
+        'menubar=no',
+        'toolbar=no',
+        'location=no',
+        'status=no',
+        'fullscreen=yes' // Try to request fullscreen at window creation
+      ].join(',')
+
       const customerWindow = window.open(
         '/customer-display',
         'customerDisplay',
-        `left=${left},top=${top},width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no`
+        features
       )
 
       if (!customerWindow) {
@@ -151,19 +163,42 @@ export class WindowManager {
           // Wait a brief moment for styles to apply
           await new Promise(resolve => setTimeout(resolve, 100))
 
-          // Enter fullscreen mode
+          // Check if we have fullscreen permission
+          let hasFullscreenPermission = false
           try {
-            if (customerWindow.document.documentElement.requestFullscreen) {
-              await customerWindow.document.documentElement.requestFullscreen()
-            } else if (customerWindow.document.documentElement.webkitRequestFullscreen) {
-              await customerWindow.document.documentElement.webkitRequestFullscreen()
-            } else if (customerWindow.document.documentElement.mozRequestFullScreen) {
-              await customerWindow.document.documentElement.mozRequestFullScreen()
-            } else if (customerWindow.document.documentElement.msRequestFullscreen) {
-              await customerWindow.document.documentElement.msRequestFullscreen()
+            if (document.fullscreenEnabled) {
+              hasFullscreenPermission = true
             }
-          } catch (fullscreenError) {
-            this.logger.warn('Fullscreen request failed, continuing in windowed mode:', fullscreenError)
+          } catch (e) {
+            this.logger.warn('Fullscreen permission check failed:', e)
+          }
+
+          // Only attempt fullscreen if we have permission
+          if (hasFullscreenPermission) {
+            try {
+              // First try standard fullscreen API
+              if (customerWindow.document.documentElement.requestFullscreen) {
+                await customerWindow.document.documentElement.requestFullscreen()
+              } 
+              // Fallback to vendor-specific APIs
+              else if (customerWindow.document.documentElement.webkitRequestFullscreen) {
+                await customerWindow.document.documentElement.webkitRequestFullscreen()
+              } else if (customerWindow.document.documentElement.mozRequestFullScreen) {
+                await customerWindow.document.documentElement.mozRequestFullScreen()
+              } else if (customerWindow.document.documentElement.msRequestFullscreen) {
+                await customerWindow.document.documentElement.msRequestFullscreen()
+              }
+            } catch (fullscreenError) {
+              this.logger.warn('Fullscreen request failed, continuing in windowed mode:', fullscreenError)
+              // Ensure window is properly sized even if fullscreen failed
+              customerWindow.resizeTo(width, height)
+              customerWindow.moveTo(left, top)
+            }
+          } else {
+            this.logger.warn('Fullscreen not enabled, using windowed mode')
+            // Ensure window is properly sized
+            customerWindow.resizeTo(width, height)
+            customerWindow.moveTo(left, top)
           }
 
           // Ensure full dimensions after fullscreen
