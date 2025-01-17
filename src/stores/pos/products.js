@@ -120,17 +120,22 @@ const cache = {
     } else {
       // Clear all products but preserve category structure
       const categoryList = this.get('category_list') || []
-      // Convert to array if it's a Set
-      const categories = Array.isArray(categoryList) ? categoryList : [...categoryList]
       
-      categories.forEach(categoryKey => {
-        const categoryCache = this.get(categoryKey)
-        if (categoryCache) {
-          // Clear individual pages but keep category metadata
-          categoryCache.pages = {}
-          this.set(categoryKey, categoryCache)
-        }
-      })
+      // Ensure we have a valid array
+      const categories = Array.isArray(categoryList) 
+        ? categoryList 
+        : (categoryList instanceof Set ? [...categoryList] : [])
+      
+      if (categories.length > 0) {
+        categories.forEach(categoryKey => {
+          const categoryCache = this.get(categoryKey)
+          if (categoryCache) {
+            // Clear individual pages but keep category metadata
+            categoryCache.pages = {}
+            this.set(categoryKey, categoryCache)
+          }
+        })
+      }
       
       this.sections.clear()
     }
@@ -397,7 +402,6 @@ export const createProductsModule = (state, posApi, companyStore) => {
 
         // Update category list reference - ensure it's always an array
         const categoryList = cache.get('category_list') || []
-<<<<<<< HEAD
       
         // Ensure we have a valid array
         const categories = Array.isArray(categoryList) 
@@ -407,11 +411,6 @@ export const createProductsModule = (state, posApi, companyStore) => {
         if (!categories.includes(categoryCacheKey)) {
           categories.push(categoryCacheKey)
           cache.set('category_list', categories)
-=======
-        if (!categoryList.includes(categoryCacheKey)) {
-          categoryList.push(categoryCacheKey)
-          cache.set('category_list', categoryList)
->>>>>>> parent of e0b6b98 (fix: handle category list type conversion in cache clearing logic)
         }
 
         // Debug log the cache state

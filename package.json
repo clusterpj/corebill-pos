@@ -23,8 +23,7 @@
     "vue-echarts": "^7.0.3",
     "vue-router": "^4.4.5",
     "vuetify": "^3.0.0",
-    "webfontloader": "^1.6.28",
-    "xstate": "^5.19.2"
+    "webfontloader": "^1.6.28"
   },
   "devDependencies": {
     "@mdi/font": "^7.4.47",
