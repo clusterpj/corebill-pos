@@ -193,7 +193,7 @@ const stopAutoRefresh = () => {
   logger.info('Auto-refresh stopped')
 }
 
-onMounted(() => {
+onMounted(async () => {
   logger.info('CustomerDisplay mounted, initializing cart sync...')
   
   // Initialize from storage first
@@ -207,6 +207,16 @@ onMounted(() => {
 
   // Start auto-refresh
   startAutoRefresh()
+
+  // Attempt to enter fullscreen mode
+  try {
+    if (document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen()
+      logger.info('✅ Entered fullscreen mode successfully')
+    }
+  } catch (error) {
+    logger.warn('⚠️ Failed to enter fullscreen mode:', error)
+  }
 
   logger.info('CustomerDisplay initialized:', {
     store: currentStore.value,
@@ -228,7 +238,8 @@ onUnmounted(() => {
 
 <style scoped>
 :deep(html),
-:deep(body) {
+:deep(body),
+:deep(#app) {
   overflow: hidden !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -237,6 +248,32 @@ onUnmounted(() => {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
+  background: transparent !important;
+}
+
+:deep(.v-application__wrap) {
+  min-height: 100vh !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  background: transparent !important;
+}
+
+:deep(.v-container) {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+}
+
+:deep(.v-row) {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100vh !important;
+}
+
+:deep(.v-col) {
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 :deep(.v-application__wrap) {
