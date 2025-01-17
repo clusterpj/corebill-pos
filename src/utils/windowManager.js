@@ -133,18 +133,29 @@ export class WindowManager {
         try {
           // Check if window is still open
           if (customerWindow.closed) {
+            this.logger.error('❌ Window closed unexpectedly before setup')
             throw new Error('Customer display window closed unexpectedly')
           }
 
+          this.logger.info('🖥️ Window loaded successfully, starting setup...')
+          this.logger.debug('📏 Target dimensions:', { left, top, width, height })
+
           // Move and resize to exact screen dimensions
           try {
+            this.logger.info('🖼️ Attempting to position window...')
             customerWindow.moveTo(left, top)
             customerWindow.resizeTo(width, height)
+            this.logger.info('✅ Window positioned successfully')
           } catch (moveError) {
-            this.logger.warn('Window move/resize failed, continuing with current dimensions:', moveError)
+            this.logger.warn('⚠️ Window move/resize failed:', moveError)
+            this.logger.debug('📐 Current window dimensions:', {
+              width: customerWindow.innerWidth,
+              height: customerWindow.innerHeight
+            })
           }
 
           // Add CSS to remove any potential borders/padding
+          this.logger.info('🎨 Applying borderless styles...')
           const style = document.createElement('style')
           style.textContent = `
             html, body {
@@ -159,6 +170,8 @@ export class WindowManager {
             }
           `
           customerWindow.document.head.appendChild(style)
+          this.logger.info('✅ Styles applied successfully')
+          this.logger.debug('🖌️ Applied styles:', style.textContent)
 
           // Wait a brief moment for styles to apply
           await new Promise(resolve => setTimeout(resolve, 100))
@@ -166,11 +179,15 @@ export class WindowManager {
           // Check if we have fullscreen permission on the customer window
           let hasFullscreenPermission = false
           try {
+            this.logger.info('🔒 Checking fullscreen permissions...')
             if (customerWindow.document.fullscreenEnabled) {
               hasFullscreenPermission = true
+              this.logger.info('✅ Fullscreen permission granted')
+            } else {
+              this.logger.warn('⚠️ Fullscreen not enabled in document')
             }
           } catch (e) {
-            this.logger.warn('Fullscreen permission check failed:', e)
+            this.logger.error('❌ Fullscreen permission check failed:', e)
           }
 
           // Only attempt fullscreen if we have permission
@@ -185,23 +202,48 @@ export class WindowManager {
             `
             customerWindow.document.head.appendChild(fullscreenStyle)
             try {
+              this.logger.info('🖼️ Attempting to enter fullscreen mode...')
+              
               // First try standard fullscreen API
               if (customerWindow.document.documentElement.requestFullscreen) {
+                this.logger.info('🛠️ Using standard fullscreen API')
                 await customerWindow.document.documentElement.requestFullscreen()
+                this.logger.info('✅ Standard fullscreen successful')
               } 
               // Fallback to vendor-specific APIs
               else if (customerWindow.document.documentElement.webkitRequestFullscreen) {
+                this.logger.info('🛠️ Using webkit fullscreen API')
                 await customerWindow.document.documentElement.webkitRequestFullscreen()
+                this.logger.info('✅ Webkit fullscreen successful')
               } else if (customerWindow.document.documentElement.mozRequestFullScreen) {
+                this.logger.info('🛠️ Using moz fullscreen API')
                 await customerWindow.document.documentElement.mozRequestFullScreen()
+                this.logger.info('✅ Moz fullscreen successful')
               } else if (customerWindow.document.documentElement.msRequestFullscreen) {
+                this.logger.info('🛠️ Using ms fullscreen API')
                 await customerWindow.document.documentElement.msRequestFullscreen()
+                this.logger.info('✅ MS fullscreen successful')
+              } else {
+                this.logger.warn('⚠️ No fullscreen API available')
               }
               
               // Ensure fullscreen dimensions
+              this.logger.info('📏 Verifying fullscreen dimensions...')
               await new Promise(resolve => setTimeout(resolve, 100))
+              
+              this.logger.debug('📐 Before adjustment:', {
+                width: customerWindow.innerWidth,
+                height: customerWindow.innerHeight
+              })
+              
               customerWindow.resizeTo(width, height)
               customerWindow.moveTo(left, top)
+              
+              this.logger.debug('📐 After adjustment:', {
+                width: customerWindow.innerWidth,
+                height: customerWindow.innerHeight
+              })
+              this.logger.info('✅ Dimensions verified')
             } catch (fullscreenError) {
               this.logger.warn('Fullscreen request failed, continuing in windowed mode:', fullscreenError)
               // Ensure window is properly sized even if fullscreen failed
