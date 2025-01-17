@@ -145,12 +145,34 @@ onMounted(async () => {
   
   // Open customer display on secondary screen
   try {
+    logger.info('🖥️ Attempting to open customer display window...')
     const customerWindow = await WindowManager.openCustomerDisplay()
+    
     if (!customerWindow) {
-      logger.warn('Failed to open customer display on secondary screen')
+      logger.warn('⚠️ Failed to open customer display window - returned null')
+      return
     }
+    
+    logger.info('✅ Customer display window opened successfully')
+    
+    // Add event listeners to track window state
+    customerWindow.addEventListener('load', () => {
+      logger.info('🖥️ Customer display window loaded')
+    })
+    
+    customerWindow.addEventListener('error', (err) => {
+      logger.error('❌ Customer display window error:', err)
+    })
+    
+    customerWindow.addEventListener('close', () => {
+      logger.warn('⚠️ Customer display window closed')
+    })
+    
   } catch (error) {
-    logger.error('Error opening customer display:', error)
+    logger.error('❌ Error opening customer display:', {
+      error: error.message,
+      stack: error.stack
+    })
   }
 })
 </script>
