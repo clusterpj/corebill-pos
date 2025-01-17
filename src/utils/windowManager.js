@@ -118,11 +118,22 @@ export class WindowManager {
         'fullscreen=yes' // Try to request fullscreen at window creation
       ].join(',')
 
+      logger.info('🖥️ Opening customer display window with features:', features)
       const customerWindow = window.open(
         '/customer-display',
         'customerDisplay',
         features
       )
+      
+      if (!customerWindow) {
+        logger.error('❌ Window.open() returned null - check popup blocker settings')
+        throw new Error('Window.open() returned null - popup may be blocked')
+      }
+      
+      logger.info('✅ Window opened successfully:', {
+        closed: customerWindow.closed,
+        location: customerWindow.location.href
+      })
 
       if (!customerWindow) {
         throw new Error('Failed to open customer display window')
