@@ -119,17 +119,19 @@ const cache = {
       this[type].clear()
     } else {
       // Clear all products but preserve category structure
-      const categoryList = this.get('category_list')
-      if (categoryList) {
-        categoryList.forEach(categoryKey => {
-          const categoryCache = this.get(categoryKey)
-          if (categoryCache) {
-            // Clear individual pages but keep category metadata
-            categoryCache.pages = {}
-            this.set(categoryKey, categoryCache)
-          }
-        })
-      }
+      const categoryList = this.get('category_list') || []
+      // Convert to array if it's a Set
+      const categories = Array.isArray(categoryList) ? categoryList : [...categoryList]
+      
+      categories.forEach(categoryKey => {
+        const categoryCache = this.get(categoryKey)
+        if (categoryCache) {
+          // Clear individual pages but keep category metadata
+          categoryCache.pages = {}
+          this.set(categoryKey, categoryCache)
+        }
+      })
+      
       this.sections.clear()
     }
     this.persist()
@@ -394,9 +396,11 @@ export const createProductsModule = (state, posApi, companyStore) => {
         cache.set(categoryCacheKey, categoryCache)
 
         // Update category list reference
-        const categoryList = cache.get('category_list') || new Set()
-        categoryList.add(categoryCacheKey)
-        cache.set('category_list', categoryList)
+        const categoryList = cache.get('category_list') || []
+        if (!categoryList.includes(categoryCacheKey)) {
+          categoryList.push(categoryCacheKey)
+          cache.set('category_list', categoryList)
+        }
 
         // Debug log the cache state
         logger.debug('[Products] Updated category cache', {
