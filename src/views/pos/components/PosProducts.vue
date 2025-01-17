@@ -105,7 +105,7 @@
           <!-- Products Grid with Pagination -->
           <div v-else-if="posStore.products.length > 0" class="products-grid-container">
             <product-grid
-              :products="posStore.products"
+              :products="uniqueProducts"
               :grid-settings="gridSettings"
               @select="quickAdd"
               class="products-grid"
@@ -140,6 +140,7 @@
 
 <script setup>
 import { ref, onMounted, watch, computed } from 'vue'
+import { uniqBy } from 'lodash'
 const showGridSettings = ref(false)
 const clearingCache = ref(false)
 const isPreloading = ref(false)
@@ -199,6 +200,11 @@ import GridSettings from './products/GridSettings.vue'
 
 const posStore = usePosStore()
 const cartStore = useCartStore()
+
+// Ensure unique products by ID
+const uniqueProducts = computed(() => {
+  return uniqBy(posStore.products, 'id')
+})
 
 // Grid Settings with localStorage persistence
 const gridSettings = ref(
