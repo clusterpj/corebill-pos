@@ -575,7 +575,10 @@ export const createProductsModule = (state, posApi, companyStore) => {
               ? categoryList 
               : (categoryList instanceof Set ? [...categoryList] : [])
             
-            if (!categories.includes(categoryCacheKey)) {
+            // Convert to array if needed and add category if not present
+            if (!Array.isArray(categories)) {
+              cache.set('category_list', [])
+            } else if (!categories.includes(categoryCacheKey)) {
               categories.push(categoryCacheKey)
               cache.set('category_list', categories)
             }
