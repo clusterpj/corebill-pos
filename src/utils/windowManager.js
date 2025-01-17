@@ -144,11 +144,37 @@ export class WindowManager {
       ].join(',')
 
       logger.info('🖥️ Opening customer display window with features:', features)
-      const customerWindow = window.open(
-        '/customer-display',
-        'customerDisplay',
-        features
-      )
+      
+      // Check if popups are blocked
+      let customerWindow = null
+      try {
+        customerWindow = window.open(
+          '/customer-display',
+          'customerDisplay',
+          features
+        )
+        
+        if (!customerWindow || customerWindow.closed) {
+          throw new Error('Popup blocked or window failed to open')
+        }
+      } catch (err) {
+        logger.error('❌ Popup blocked or failed to open:', err)
+        // Show user-friendly message
+        alert('Please allow popups for this site to open the customer display')
+        // Try again with reduced features
+        customerWindow = window.open(
+          '/customer-display',
+          'customerDisplay',
+          'width=800,height=600'
+        )
+        if (!customerWindow) {
+          throw new Error('Popup blocked even after fallback attempt')
+        }
+      }
+
+      // Add permission state tracking
+      let hasFullscreenPermission = false
+      let hasPopupPermission = true
       
       if (!customerWindow) {
         logger.error('❌ Window.open() returned null - check popup blocker settings')
@@ -229,19 +255,35 @@ export class WindowManager {
           // Wait a brief moment for styles to apply
           await new Promise(resolve => setTimeout(resolve, 100))
 
-          // Check if we have fullscreen permission on the customer window
-          let hasFullscreenPermission = false
+          // Enhanced permission handling
           try {
             this.logger.info('🔒 Checking fullscreen permissions...')
+            
+            // Check if fullscreen is available
             if (customerWindow.document.fullscreenEnabled) {
-              hasFullscreenPermission = true
-              this.logger.info('✅ Fullscreen permission granted')
+              // Request permission
+              const permission = await customerWindow.document.requestFullscreen()
+              if (permission) {
+                hasFullscreenPermission = true
+                this.logger.info('✅ Fullscreen permission granted')
+              } else {
+                this.logger.warn('⚠️ Fullscreen permission denied')
+              }
             } else {
               this.logger.warn('⚠️ Fullscreen not enabled in document')
             }
           } catch (e) {
             this.logger.error('❌ Fullscreen permission check failed:', e)
+            // Fallback to windowed mode
+            customerWindow.resizeTo(width, height)
+            customerWindow.moveTo(left, top)
           }
+
+          // Add permission state logging
+          this.logger.debug('Permission states:', {
+            hasFullscreenPermission,
+            hasPopupPermission
+          })
 
           // Only attempt fullscreen if we have permission
           if (hasFullscreenPermission) {
@@ -325,11 +367,30 @@ export class WindowManager {
           // Focus the window
           customerWindow.focus()
 
-          // Save settings
+          // Save settings with permission states
           this.settings.position = { left, top }
           this.settings.size = { width, height }
           this.settings.screen = secondaryScreen
+          this.settings.permissions = {
+            fullscreen: hasFullscreenPermission,
+            popup: hasPopupPermission,
+            lastChecked: new Date().toISOString()
+          }
           this.saveSettings()
+
+          // Add periodic permission checks
+          const permissionCheckInterval = setInterval(() => {
+            if (customerWindow.closed) {
+              clearInterval(permissionCheckInterval)
+              return
+            }
+            
+            // Check if we still have fullscreen
+            if (hasFullscreenPermission && !customerWindow.document.fullscreenElement) {
+              logger.warn('⚠️ Lost fullscreen permission')
+              hasFullscreenPermission = false
+            }
+          }, 5000)
 
           // Handle window closing
           customerWindow.addEventListener('beforeunload', () => {
