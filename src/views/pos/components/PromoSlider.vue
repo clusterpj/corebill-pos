@@ -39,41 +39,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { usePromoStore } from '@/stores/promo'
 
-// Sample promos data - replace with actual data from your backend
-const promos = ref([
-  {
-    title: 'Fresh Produce Special',
-    description: 'All organic fruits and vegetables',
-    discount: '15% OFF',
-    image: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80'
-  },
-  {
-    title: 'Weekly Meal Deal',
-    description: 'Buy any main dish and get a free beverage',
-    discount: 'FREE DRINK',
-    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80'
-  },
-  {
-    title: 'Family Pack Savings',
-    description: 'Perfect for family gatherings',
-    discount: 'Save 20%',
-    image: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&q=80'
-  },
-  {
-    title: 'Daily Fresh Bread',
-    description: 'Freshly baked every morning',
-    discount: '2 for $5',
-    image: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&q=80'
-  },
-  {
-    title: 'Happy Hour Special',
-    description: 'All smoothies and fresh juices',
-    discount: '25% OFF',
-    image: 'https://images.unsplash.com/photo-1505252585461-04db1eb84625?auto=format&fit=crop&q=80'
-  }
-])
+const promoStore = usePromoStore()
+const promos = promoStore.promos
 </script>
 
 <style scoped>
