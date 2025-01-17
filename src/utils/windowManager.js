@@ -163,10 +163,10 @@ export class WindowManager {
           // Wait a brief moment for styles to apply
           await new Promise(resolve => setTimeout(resolve, 100))
 
-          // Check if we have fullscreen permission
+          // Check if we have fullscreen permission on the customer window
           let hasFullscreenPermission = false
           try {
-            if (document.fullscreenEnabled) {
+            if (customerWindow.document.fullscreenEnabled) {
               hasFullscreenPermission = true
             }
           } catch (e) {
@@ -175,6 +175,15 @@ export class WindowManager {
 
           // Only attempt fullscreen if we have permission
           if (hasFullscreenPermission) {
+            // Add fullscreen styles
+            const fullscreenStyle = document.createElement('style')
+            fullscreenStyle.textContent = `
+              :-webkit-full-screen, :-moz-full-screen, :-ms-fullscreen, :fullscreen {
+                width: 100% !important;
+                height: 100% !important;
+              }
+            `
+            customerWindow.document.head.appendChild(fullscreenStyle)
             try {
               // First try standard fullscreen API
               if (customerWindow.document.documentElement.requestFullscreen) {
@@ -188,6 +197,11 @@ export class WindowManager {
               } else if (customerWindow.document.documentElement.msRequestFullscreen) {
                 await customerWindow.document.documentElement.msRequestFullscreen()
               }
+              
+              // Ensure fullscreen dimensions
+              await new Promise(resolve => setTimeout(resolve, 100))
+              customerWindow.resizeTo(width, height)
+              customerWindow.moveTo(left, top)
             } catch (fullscreenError) {
               this.logger.warn('Fullscreen request failed, continuing in windowed mode:', fullscreenError)
               // Ensure window is properly sized even if fullscreen failed
