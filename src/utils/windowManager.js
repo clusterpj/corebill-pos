@@ -53,25 +53,39 @@ export class WindowManager {
     try {
       // Check if we have access to screen details
       if (typeof window.getScreenDetails === 'function') {
-        // Try to get screen details directly
-        try {
-          const screenDetails = await window.getScreenDetails()
-          const screens = screenDetails.screens
-          
-          // Try to find screen 2 (index 1)
-          if (screens.length > 1) {
-            return screens[1]
-          }
-          
-          // Fallback to any non-primary screen
-          return screens.find(s => s.availLeft !== 0 || s.availTop !== 0) || screens[0]
-        } catch (error) {
-          this.logger.warn('Failed to get screen details, using fallback:', error)
-          return this.getFallbackScreen()
+        const screenDetails = await window.getScreenDetails()
+        const screens = screenDetails.screens
+        
+        // Log all detected screens
+        this.logger.debug('Detected screens:', screens.map((s, i) => ({
+          index: i,
+          left: s.availLeft,
+          top: s.availTop,
+          width: s.availWidth,
+          height: s.availHeight,
+          isPrimary: s.isPrimary
+        })))
+
+        // Try to find the first non-primary screen
+        const secondaryScreen = screens.find(s => !s.isPrimary)
+        
+        if (secondaryScreen) {
+          this.logger.info('Found secondary screen:', {
+            left: secondaryScreen.availLeft,
+            top: secondaryScreen.availTop,
+            width: secondaryScreen.availWidth,
+            height: secondaryScreen.availHeight
+          })
+          return secondaryScreen
         }
+
+        // If no secondary screen found, use first screen
+        this.logger.warn('No secondary screen found, using primary screen')
+        return screens[0]
       }
       
       // If no screen details API, use fallback
+      this.logger.info('Using fallback screen detection')
       return this.getFallbackScreen()
     } catch (error) {
       this.logger.error('Error getting secondary screen:', error)
@@ -81,18 +95,25 @@ export class WindowManager {
 
   static getFallbackScreen() {
     // Fallback for older browsers or when permissions fail
-    // Try to detect if we have multiple screens using window.screen properties
     const isMultiScreen = window.screen.availLeft !== 0 || 
                          window.screen.availTop !== 0 ||
                          window.screen.availWidth > window.innerWidth ||
                          window.screen.availHeight > window.innerHeight
 
-    return {
+    const screenInfo = {
       availLeft: isMultiScreen ? window.screen.availLeft : 0,
       availTop: isMultiScreen ? window.screen.availTop : 0,
       availWidth: window.screen.availWidth,
-      availHeight: window.screen.availHeight
+      availHeight: window.screen.availHeight,
+      isPrimary: !isMultiScreen
     }
+
+    this.logger.debug('Fallback screen detection:', {
+      isMultiScreen,
+      screenInfo
+    })
+
+    return screenInfo
   }
 
   static async openCustomerDisplay() {
