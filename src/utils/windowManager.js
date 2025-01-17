@@ -1,5 +1,5 @@
 import { logger } from './logger'
-
+import './windowManager.d.ts'
 
 export class WindowManager {
   static screenChangeHandler = null
