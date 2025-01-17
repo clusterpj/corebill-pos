@@ -80,9 +80,11 @@ export default defineConfig({
   build: {
     sourcemap: true,
     rollupOptions: {
+      external: ['xstate'],
       output: {
         manualChunks: {
-          'vuetify': ['vuetify']
+          'vuetify': ['vuetify'],
+          'xstate': ['xstate']
         },
         // Remove the assets/ prefix since the base output already includes it
         assetFileNames: '[name].[hash][extname]'
