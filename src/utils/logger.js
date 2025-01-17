@@ -8,8 +8,16 @@ const LOG_LEVELS = {
 
 class Logger {
   constructor() {
-    this.isDebug = import.meta.env.DEV
+    // Always enable logging in development
+    this.isDebug = true
     this.groupStack = []
+    
+    // Add initial log to confirm logging is working
+    console.log('✅ Logger initialized - logging is enabled')
+    console.debug('Debug level logging enabled')
+    console.info('Info level logging enabled')
+    console.warn('Warning level logging enabled')
+    console.error('Error level logging enabled')
   }
 
   formatMessage(level, message, data) {
