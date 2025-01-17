@@ -83,8 +83,7 @@ export default defineConfig({
       external: ['xstate'],
       output: {
         manualChunks: {
-          'vuetify': ['vuetify'],
-          'xstate': ['xstate']
+          'vuetify': ['vuetify']
         },
         // Remove the assets/ prefix since the base output already includes it
         assetFileNames: '[name].[hash][extname]'
