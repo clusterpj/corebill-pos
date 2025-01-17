@@ -73,10 +73,22 @@
           color="error"
           variant="tonal"
           prepend-icon="mdi-logout"
-          class="action-btn"
+          class="action-btn mb-6"
           @click="confirmLogout"
         >
           Logout
+        </v-btn>
+
+        <v-btn
+          block
+          color="warning"
+          variant="tonal"
+          prepend-icon="mdi-cached"
+          class="action-btn"
+          @click="clearCache"
+          :loading="clearingCache"
+        >
+          Clear Cache
         </v-btn>
       </div>
 
@@ -337,6 +349,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { usePromoStore } from '../stores/promo'
+import { usePosStore } from '../stores/pos-store'
 import { useDisplay } from 'vuetify'
 import { useAuthStore } from '../stores/auth'
 import { useCompanyStore } from '../stores/company'
@@ -367,6 +380,7 @@ const currentPromo = ref({
 })
 
 const promoStore = usePromoStore()
+const posStore = usePosStore()
 const promos = computed(() => promoStore.promos)
 
 const openPromoDialog = (promo, index = null) => {
@@ -396,6 +410,54 @@ const savePromo = () => {
 
 const deletePromo = (index) => {
   promoStore.deletePromo(index)
+}
+
+// Cache clearing functionality
+const clearingCache = ref(false)
+const isPreloading = ref(false)
+const preloadProgress = ref(0)
+
+const clearCache = async () => {
+  clearingCache.value = true
+  isPreloading.value = true
+  preloadProgress.value = 0
+  
+  try {
+    // Create a progress callback
+    const onProgress = (progress) => {
+      preloadProgress.value = progress
+      logger.debug(`Cache clear progress: ${progress}%`)
+    }
+    
+    logger.info('Starting cache clear and preload process...')
+    const success = await posStore.clearCache(onProgress)
+    
+    if (success) {
+      logger.info('Cache clear and preload completed successfully')
+      window.toastr?.success('Product cache cleared and preloaded successfully')
+      
+      // Reset pagination and force refresh
+      await posStore.fetchProducts(1, 50)
+      
+      // Show final confirmation
+      window.toastr?.info('Products have been refreshed with latest data')
+    } else {
+      logger.warn('Cache clear returned false')
+      window.toastr?.warning('Cache clear completed but may not have fully succeeded')
+    }
+  } catch (error) {
+    logger.error('Failed to clear and preload cache', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    })
+    window.toastr?.error(`Failed to clear and preload cache: ${error.message}`)
+  } finally {
+    clearingCache.value = false
+    isPreloading.value = false
+    preloadProgress.value = 0
+    logger.info('Cache clear process completed')
+  }
 }
 
 // Computed property for drawer behavior

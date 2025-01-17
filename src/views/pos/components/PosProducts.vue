@@ -36,17 +36,6 @@
                 Grid Settings
               </v-btn>
               
-              <v-btn
-                prepend-icon="mdi-cached"
-                variant="outlined"
-                color="warning"
-                size="small"
-                class="clear-cache-btn"
-                @click="clearCache"
-                :loading="clearingCache"
-              >
-                Clear Cache
-              </v-btn>
 
               <v-dialog
                 v-model="showGridSettings"
