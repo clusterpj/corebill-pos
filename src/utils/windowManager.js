@@ -97,8 +97,8 @@ export class WindowManager {
         throw new Error('Failed to open customer display window')
       }
 
-      // Setup window after short delay to ensure it's ready
-      setTimeout(async () => {
+      // Wait for window to load
+      customerWindow.addEventListener('load', async () => {
         try {
           // Move and resize to exact screen dimensions
           customerWindow.moveTo(left, top)
@@ -120,10 +120,18 @@ export class WindowManager {
           `
           customerWindow.document.head.appendChild(style)
 
+          // Wait a brief moment for styles to apply
+          await new Promise(resolve => setTimeout(resolve, 100))
+
           // Enter fullscreen mode
           if (customerWindow.document.documentElement.requestFullscreen) {
             await customerWindow.document.documentElement.requestFullscreen()
           }
+
+          // Ensure full dimensions after fullscreen
+          await new Promise(resolve => setTimeout(resolve, 100))
+          customerWindow.resizeTo(width, height)
+          customerWindow.moveTo(left, top)
 
           // Force full dimensions
           customerWindow.document.body.style.overflow = 'hidden'
@@ -146,6 +154,12 @@ export class WindowManager {
             if (customerWindow.document.fullscreenElement) {
               customerWindow.document.exitFullscreen()
             }
+          })
+
+          // Add resize handler to maintain fullscreen
+          customerWindow.addEventListener('resize', () => {
+            customerWindow.resizeTo(width, height)
+            customerWindow.moveTo(left, top)
           })
 
           this.logger.info('Customer display opened successfully on secondary screen')
