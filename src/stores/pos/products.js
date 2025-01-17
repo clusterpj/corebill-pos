@@ -400,14 +400,14 @@ export const createProductsModule = (state, posApi, companyStore) => {
         // Update the category cache
         cache.set(categoryCacheKey, categoryCache)
 
-        // Update category list reference
+        // Update category list reference - ensure it's always an array
         const categoryList = cache.get('category_list') || []
-        
+      
         // Ensure we have a valid array
         const categories = Array.isArray(categoryList) 
           ? categoryList 
           : (categoryList instanceof Set ? [...categoryList] : [])
-        
+      
         if (!categories.includes(categoryCacheKey)) {
           categories.push(categoryCacheKey)
           cache.set('category_list', categories)
@@ -567,10 +567,18 @@ export const createProductsModule = (state, posApi, companyStore) => {
             // Update the category cache
             cache.set(categoryCacheKey, categoryCache)
             
-            // Update category list reference
-            const categoryList = cache.get('category_list') || new Set()
-            categoryList.add(categoryCacheKey)
-            cache.set('category_list', categoryList)
+            // Update category list reference - ensure it's always an array
+            const categoryList = cache.get('category_list') || []
+            
+            // Ensure we have a valid array
+            const categories = Array.isArray(categoryList) 
+              ? categoryList 
+              : (categoryList instanceof Set ? [...categoryList] : [])
+            
+            if (!categories.includes(categoryCacheKey)) {
+              categories.push(categoryCacheKey)
+              cache.set('category_list', categories)
+            }
             
             logger.debug(`Preloaded page ${page}/${totalPages} for category ${categoryId}`, {
               products: products.length,
