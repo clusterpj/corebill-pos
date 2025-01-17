@@ -49,29 +49,27 @@ export class WindowManager {
 
   static async getSecondaryScreen() {
     try {
-      // Check if we have permission to access screen details
+      // Check if we have access to screen details
       if (typeof window.getScreenDetails === 'function') {
-        // Request permission if needed
-        if (window.isSecureContext && 'permissions' in navigator) {
-          const permissionStatus = await navigator.permissions.query({ name: 'window-placement' })
-          if (permissionStatus.state !== 'granted') {
-            this.logger.warn('Window placement permission not granted, using fallback')
-            return this.getFallbackScreen()
+        // Try to get screen details directly
+        try {
+          const screenDetails = await window.getScreenDetails()
+          const screens = screenDetails.screens
+          
+          // Try to find screen 2 (index 1)
+          if (screens.length > 1) {
+            return screens[1]
           }
+          
+          // Fallback to any non-primary screen
+          return screens.find(s => s.availLeft !== 0 || s.availTop !== 0) || screens[0]
+        } catch (error) {
+          this.logger.warn('Failed to get screen details, using fallback:', error)
+          return this.getFallbackScreen()
         }
-
-        const screenDetails = await window.getScreenDetails()
-        const screens = screenDetails.screens
-        
-        // Try to find screen 2 (index 1)
-        if (screens.length > 1) {
-          return screens[1]
-        }
-        
-        // Fallback to any non-primary screen
-        return screens.find(s => s.availLeft !== 0 || s.availTop !== 0) || screens[0]
       }
       
+      // If no screen details API, use fallback
       return this.getFallbackScreen()
     } catch (error) {
       this.logger.error('Error getting secondary screen:', error)
@@ -81,9 +79,15 @@ export class WindowManager {
 
   static getFallbackScreen() {
     // Fallback for older browsers or when permissions fail
+    // Try to detect if we have multiple screens using window.screen properties
+    const isMultiScreen = window.screen.availLeft !== 0 || 
+                         window.screen.availTop !== 0 ||
+                         window.screen.availWidth > window.innerWidth ||
+                         window.screen.availHeight > window.innerHeight
+
     return {
-      availLeft: window.screen.availLeft > window.screen.width ? window.screen.width : 0,
-      availTop: 0,
+      availLeft: isMultiScreen ? window.screen.availLeft : 0,
+      availTop: isMultiScreen ? window.screen.availTop : 0,
       availWidth: window.screen.availWidth,
       availHeight: window.screen.availHeight
     }
