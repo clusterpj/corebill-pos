@@ -1,6 +1,8 @@
+import { logger } from './logger'
+
 export class WindowManager {
   static screenChangeHandler = null
-  static logger = console
+  static logger = logger
   
   static async detectScreenChanges() {
     if (typeof window.getScreenDetails === 'function') {
