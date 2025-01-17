@@ -128,7 +128,7 @@ export class WindowManager {
 
       const { availLeft: left, availTop: top, availWidth: width, availHeight: height } = secondaryScreen
 
-      // Open customer display window with minimal features
+      // Open customer display window with borderless fullscreen features
       const features = [
         `left=${left}`,
         `top=${top}`,
@@ -138,7 +138,9 @@ export class WindowManager {
         'toolbar=no',
         'location=no',
         'status=no',
-        'fullscreen=yes' // Try to request fullscreen at window creation
+        'resizable=no',
+        'scrollbars=no',
+        'fullscreen=yes'
       ].join(',')
 
       logger.info('🖥️ Opening customer display window with features:', features)
@@ -174,17 +176,34 @@ export class WindowManager {
           this.logger.info('🖥️ Window loaded successfully, starting setup...')
           this.logger.debug('📏 Target dimensions:', { left, top, width, height })
 
-          // Move and resize to exact screen dimensions
+          // Ensure correct positioning and sizing
           try {
-            this.logger.info('🖼️ Attempting to position window...')
+            this.logger.info('🖼️ Positioning and sizing window...')
+            
+            // First move to position
+            customerWindow.moveTo(left, top)
+            
+            // Then resize to exact dimensions
+            customerWindow.resizeTo(width, height)
+            
+            // Force update dimensions
+            await new Promise(resolve => setTimeout(resolve, 100))
             customerWindow.moveTo(left, top)
             customerWindow.resizeTo(width, height)
-            this.logger.info('✅ Window positioned successfully')
+            
+            this.logger.info('✅ Window positioned and sized successfully', {
+              actualLeft: customerWindow.screenX,
+              actualTop: customerWindow.screenY,
+              actualWidth: customerWindow.innerWidth,
+              actualHeight: customerWindow.innerHeight
+            })
           } catch (moveError) {
             this.logger.warn('⚠️ Window move/resize failed:', moveError)
             this.logger.debug('📐 Current window dimensions:', {
               width: customerWindow.innerWidth,
-              height: customerWindow.innerHeight
+              height: customerWindow.innerHeight,
+              screenX: customerWindow.screenX,
+              screenY: customerWindow.screenY
             })
           }
 
