@@ -264,7 +264,8 @@ const handleSearch = async (query) => {
         query,
         count: cachedResults.length
       })
-      posStore.addProducts(cachedResults)
+      // Use the store's available method to update products
+      posStore.products = [...posStore.products, ...cachedResults]
     }
   } catch (err) {
     logger.error('Search failed', err)
@@ -279,9 +280,11 @@ const handleSearch = async (query) => {
         query,
         count: cachedResults.length
       })
-      posStore.setProducts(cachedResults)
+      // Use the store's products array directly
+      posStore.products = cachedResults
     } else {
-      posStore.setProducts([])
+      // Clear products by setting empty array
+      posStore.products = []
     }
   } finally {
     logger.endGroup()
