@@ -340,40 +340,48 @@ const quickAdd = (product) => {
 const handleQuickAdd = async (searchTerm) => {
   logger.startGroup('POS Products: Quick Add by Search')
   try {
-    // First try to find by SKU
-    const productBySku = posStore.products.find(p => 
-      p.sku?.toLowerCase() === searchTerm.toLowerCase()
-    )
-    
-    if (productBySku) {
-      quickAdd(productBySku)
-      return
-    }
-    
-    // If no SKU match, try name match
-    const productByName = posStore.products.find(p => 
+    // First try to find in local cache
+    const cachedProduct = posStore.products.find(p => 
+      p.sku?.toLowerCase() === searchTerm.toLowerCase() ||
       p.name.toLowerCase().includes(searchTerm.toLowerCase())
     )
     
-    if (productByName) {
-      quickAdd(productByName)
-    } else {
-      // If product not in current list, try to fetch it directly by SKU
-      const response = await posApi.getItems({
-        sku: searchTerm,
-        is_pos: 1,
-        id: companyStore.selectedStore,
-        limit: 1
+    if (cachedProduct) {
+      logger.debug('Found product in cache', { 
+        product: cachedProduct.name,
+        sku: cachedProduct.sku
       })
+      quickAdd(cachedProduct)
+      return
+    }
+    
+    // If not in cache, search database
+    logger.debug('Product not in cache, searching database', { searchTerm })
+    const response = await posApi.getItems({
+      search: searchTerm,
+      is_pos: 1,
+      id: companyStore.selectedStore,
+      limit: 5 // Increase limit for better search results
+    })
+    
+    if (response.items?.data?.length > 0) {
+      // Add found products to cache
+      posStore.addProducts(response.items.data)
       
-      if (response.items?.data?.[0]) {
-        quickAdd(response.items.data[0])
-      } else {
-        logger.warn('No matching product found for quick add', { searchTerm })
-      }
+      // Use first matching product
+      const product = response.items.data[0]
+      logger.debug('Found product in database', {
+        product: product.name,
+        sku: product.sku
+      })
+      quickAdd(product)
+    } else {
+      logger.warn('No matching product found in database', { searchTerm })
+      window.toastr?.warning(`No product found for "${searchTerm}"`)
     }
   } catch (err) {
     logger.error('Quick add failed', err)
+    window.toastr?.error(`Failed to search for product: ${err.message}`)
   } finally {
     logger.endGroup()
   }
