@@ -48,7 +48,10 @@
                 :menu-props="{ maxHeight: '300' }"
               >
                 <template v-slot:item="{ props, item }">
-                  <v-list-item v-bind="props">
+                  <v-list-item 
+                    v-bind="props"
+                    :title="null"
+                  >
                     <template v-slot:prepend>
                       <v-icon icon="mdi-store" color="primary" class="mr-2" />
                     </template>
@@ -82,7 +85,10 @@
                 :menu-props="{ maxHeight: '300' }"
               >
                 <template v-slot:item="{ props, item }">
-                  <v-list-item v-bind="props">
+                  <v-list-item 
+                    v-bind="props"
+                    :title="null"
+                  >
                     <template v-slot:prepend>
                       <v-icon icon="mdi-register" color="primary" class="mr-2" />
                     </template>
