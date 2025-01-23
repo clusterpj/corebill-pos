@@ -112,7 +112,10 @@
                     </v-list-item>
                   </template>
                   <template v-slot:item="{ props, item }">
-                    <v-list-item v-bind="props">
+                    <v-list-item 
+                      v-bind="props"
+                      :title="null"
+                    >
                       <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
                       <v-list-item-subtitle>
                         {{ item.raw.phone || 'No phone' }}
