@@ -192,6 +192,7 @@ const clearCache = async () => {
 import { usePosStore } from '../../../stores/pos-store'
 import { useCartStore } from '../../../stores/cart-store'
 import { logger } from '../../../utils/logger'
+import { apiClient } from '../../../services/api/client'
 
 import ProductSearch from './products/ProductSearch.vue'
 import CategoryTabs from './products/CategoryTabs.vue'
@@ -386,11 +387,13 @@ const handleQuickAdd = async (searchTerm) => {
     
     // If not in cache, search database by SKU first
     logger.debug('Product not in cache, searching database by SKU', { searchTerm })
-    const skuResponse = await posApi.getItems({
-      sku: searchTerm,
-      is_pos: 1,
-      id: companyStore.selectedStore,
-      limit: 1
+    const skuResponse = await apiClient.get('/items', {
+      params: {
+        sku: searchTerm,
+        is_pos: 1,
+        id: posStore.selectedStore,
+        limit: 1
+      }
     })
     
     if (skuResponse.items?.data?.length > 0) {
@@ -407,11 +410,13 @@ const handleQuickAdd = async (searchTerm) => {
 
     // If no SKU match, search by name
     logger.debug('No SKU match, searching database by name', { searchTerm })
-    const nameResponse = await posApi.getItems({
-      search: searchTerm,
-      is_pos: 1,
-      id: companyStore.selectedStore,
-      limit: 1
+    const nameResponse = await apiClient.get('/items', {
+      params: {
+        search: searchTerm,
+        is_pos: 1,
+        id: posStore.selectedStore,
+        limit: 1
+      }
     })
     
     if (nameResponse.items?.data?.length > 0) {
