@@ -415,7 +415,7 @@ const loadInvoiceToCart = async (invoice) => {
       invoice_number: transformedInvoice.invoice_number
     })
     emit('page-change', 1)
-    emit('order-loaded') // Emit the new event
+    emit('order-loaded', transformedInvoice) // Emit the new event with invoice data
   } catch (error) {
     console.error('OrderInvoicesTable - Failed to load invoice to cart:', {
       error,
