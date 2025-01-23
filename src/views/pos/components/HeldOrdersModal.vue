@@ -55,6 +55,7 @@
               <HeldOrdersModalComponent
                 :model-value="modelValue"
                 @update:model-value="$emit('update:modelValue', $event)"
+                @order-loaded="$emit('update:modelValue', false)"
                 class="elevation-1 rounded-lg"
               />
             </v-col>

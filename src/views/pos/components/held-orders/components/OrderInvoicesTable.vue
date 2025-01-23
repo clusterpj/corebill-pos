@@ -327,7 +327,7 @@ watch(() => props.invoices, (newInvoices, oldInvoices) => {
   })
 }, { deep: true })
 
-const emit = defineEmits(['invoice-paid', 'page-change'])
+const emit = defineEmits(['invoice-paid', 'page-change', 'order-loaded'])
 
 // Payment Dialog
 const showPaymentDialog = ref(false)
@@ -409,6 +409,7 @@ const loadInvoiceToCart = async (invoice) => {
       invoice_number: transformedInvoice.invoice_number
     })
     emit('page-change', 1)
+    emit('order-loaded') // Emit the new event
   } catch (error) {
     console.error('OrderInvoicesTable - Failed to load invoice to cart:', error)
     window.toastr?.error('Failed to load invoice to cart')
