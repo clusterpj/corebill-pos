@@ -371,21 +371,7 @@ const handleQuickAdd = async (searchTerm) => {
       return
     }
 
-    // If not found by SKU, try name match in cache
-    const cachedByName = posStore.products.find(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    
-    if (cachedByName) {
-      logger.debug('Found product in cache by name', {
-        product: cachedByName.name,
-        sku: cachedByName.sku
-      })
-      quickAdd(cachedByName)
-      return
-    }
-    
-    // If not in cache, search database by SKU first
+    // If not in cache, search database by SKU
     logger.debug('Product not in cache, searching database by SKU', { searchTerm })
     const skuResponse = await apiClient.get('/items', {
       params: {
@@ -408,30 +394,9 @@ const handleQuickAdd = async (searchTerm) => {
       return
     }
 
-    // If no SKU match, search by name
-    logger.debug('No SKU match, searching database by name', { searchTerm })
-    const nameResponse = await apiClient.get('/items', {
-      params: {
-        search: searchTerm,
-        is_pos: 1,
-        id: posStore.selectedStore,
-        limit: 1
-      }
-    })
-    
-    if (nameResponse.items?.data?.length > 0) {
-      const product = nameResponse.items.data[0]
-      logger.debug('Found product in database by name', {
-        product: product.name,
-        sku: product.sku
-      })
-      // Add to cache and quick add
-      posStore.products = [...posStore.products, product]
-      quickAdd(product)
-    } else {
-      logger.warn('No matching product found in database', { searchTerm })
-      window.toastr?.warning(`No product found for "${searchTerm}"`)
-    }
+    // If no SKU match found, show error
+    logger.warn('No matching product found for SKU', { searchTerm })
+    window.toastr?.warning(`No product found with SKU "${searchTerm}"`)
   } catch (err) {
     logger.error('Quick add failed', {
       error: err,
