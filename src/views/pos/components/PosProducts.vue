@@ -373,17 +373,15 @@ const handleQuickAdd = async (searchTerm) => {
 
     // If not in cache, search database by SKU
     logger.debug('Product not in cache, searching database by SKU', { searchTerm })
-    const skuResponse = await apiClient.get('/items', {
+    const skuResponse = await apiClient.get('/v1/items', {
       params: {
         sku: searchTerm,
-        is_pos: 1,
-        id: posStore.selectedStore,
         limit: 1
       }
     })
     
-    if (skuResponse.items?.data?.length > 0) {
-      const product = skuResponse.items.data[0]
+    if (skuResponse.data?.items?.data?.length > 0) {
+      const product = skuResponse.data.items.data[0]
       logger.debug('Found product in database by SKU', {
         product: product.name,
         sku: product.sku
