@@ -145,6 +145,12 @@
           Invoice Details
         </v-toolbar-title>
         <v-spacer></v-spacer>
+        <v-btn
+          icon="mdi-printer"
+          variant="text"
+          @click="printInvoice"
+          title="Print Invoice"
+        />
         <v-btn icon="mdi-close" variant="text" @click="showDetailsDialog = false" />
       </v-toolbar>
 
@@ -494,6 +500,106 @@ const confirmPayment = () => {
   
   showConfirmDialog.value = false
   showPaymentDialog.value = true
+}
+
+const printInvoice = () => {
+  if (!selectedInvoiceDetails.value) {
+    window.toastr?.error('No invoice selected to print')
+    return
+  }
+
+  try {
+    // Create a new window for printing
+    const printWindow = window.open('', 'PRINT', 'height=600,width=800')
+    
+    // Basic print styles
+    const styles = `
+      <style>
+        body { font-family: Arial, sans-serif; }
+        .print-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .print-header { text-align: center; margin-bottom: 20px; }
+        .print-title { font-size: 24px; font-weight: bold; }
+        .print-section { margin-bottom: 20px; }
+        .print-section-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; }
+        .print-table th { background-color: #f5f5f5; }
+        .print-totals { text-align: right; margin-top: 20px; }
+        .print-notes { margin-top: 20px; padding: 10px; border: 1px solid #ddd; }
+      </style>
+    `
+
+    // Build the print content
+    const invoice = selectedInvoiceDetails.value
+    const content = `
+      ${styles}
+      <div class="print-container">
+        <div class="print-header">
+          <div class="print-title">Invoice Details</div>
+          <div>Invoice #: ${invoice.invoice_number}</div>
+          <div>Date: ${formatDate(invoice.created_at)}</div>
+        </div>
+
+        <div class="print-section">
+          <div class="print-section-title">Customer Information</div>
+          <div>Name: ${invoice.contact?.name || 'N/A'}</div>
+          <div>Phone: ${invoice.contact?.phone || 'N/A'}</div>
+          <div>Email: ${invoice.contact?.email || 'N/A'}</div>
+        </div>
+
+        <div class="print-section">
+          <div class="print-section-title">Order Items</div>
+          <table class="print-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoice.items.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.quantity}</td>
+                  <td>${PriceUtils.format(normalizePriceFromBackend(item.price))}</td>
+                  <td>${PriceUtils.format(normalizePriceFromBackend(item.total))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="print-totals">
+          <div><strong>Subtotal:</strong> ${PriceUtils.format(normalizePriceFromBackend(invoice.sub_total))}</div>
+          <div><strong>Tax:</strong> ${PriceUtils.format(normalizePriceFromBackend(invoice.tax))}</div>
+          <div><strong>Total:</strong> ${PriceUtils.format(normalizePriceFromBackend(invoice.total))}</div>
+        </div>
+
+        ${invoice.notes ? `
+          <div class="print-section">
+            <div class="print-section-title">Notes</div>
+            <div class="print-notes">${invoice.notes}</div>
+          </div>
+        ` : ''}
+      </div>
+    `
+
+    // Write content to print window
+    printWindow.document.write('<html><head><title>Invoice Details</title></head><body>')
+    printWindow.document.write(content)
+    printWindow.document.write('</body></html>')
+    printWindow.document.close()
+    
+    // Trigger print
+    printWindow.focus()
+    printWindow.print()
+    printWindow.close()
+  } catch (error) {
+    console.error('Failed to print invoice:', error)
+    window.toastr?.error('Failed to print invoice')
+  }
 }
 
 const handlePaymentComplete = async (result) => {
