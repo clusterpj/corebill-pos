@@ -245,31 +245,44 @@ const totalPages = computed(() => Math.ceil(posStore.totalItems / itemsPerPage.v
 const handleSearch = async (query) => {
   logger.startGroup('POS Products: Search')
   try {
-    // First try to find in local cache
+    // Always search database first for fresh results
+    logger.debug('Initiating database search', { query })
+    posStore.searchQuery = query
+    currentPage.value = 1
+    
+    // Force fresh fetch from database
+    await posStore.fetchProducts(currentPage.value, itemsPerPage.value, true)
+    
+    // Then check local cache for additional matches
     const cachedResults = posStore.products.filter(p => 
       p.name.toLowerCase().includes(query.toLowerCase()) ||
       p.sku?.toLowerCase().includes(query.toLowerCase())
     )
     
     if (cachedResults.length > 0) {
-      // If we have cached results, use them
-      logger.debug('Found cached results', { 
+      logger.debug('Found additional cached results', {
         query,
-        count: cachedResults.length 
+        count: cachedResults.length
       })
-      posStore.setProducts(cachedResults)
-      currentPage.value = 1
-    } else {
-      // If no cached results, search database
-      logger.debug('No cached results, searching database', { query })
-      posStore.searchQuery = query
-      currentPage.value = 1
-      await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
+      posStore.addProducts(cachedResults)
     }
   } catch (err) {
     logger.error('Search failed', err)
-    // Fallback to empty results on error
-    posStore.setProducts([])
+    // Fallback to cached results if database search fails
+    const cachedResults = posStore.products.filter(p => 
+      p.name.toLowerCase().includes(query.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(query.toLowerCase())
+    )
+    
+    if (cachedResults.length > 0) {
+      logger.debug('Using cached results as fallback', {
+        query,
+        count: cachedResults.length
+      })
+      posStore.setProducts(cachedResults)
+    } else {
+      posStore.setProducts([])
+    }
   } finally {
     logger.endGroup()
   }
