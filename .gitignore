@@ -1,8 +1,20 @@
-echo "node_modules/
-dist/
+# Dependencies
+node_modules/
+
+# Environment Files (Critical for Security)
+.env.development
+.env.development.example
+.env.production
+
+# Build Outputs
+.husky/_
+.vscode/
+docs/
+
+# Cache and Runtime Files
+pnpm-lock.yaml
+
+# Test Results and Metrics
+price_component_search_results.txt
+.aider*
 .env
-.DS_Store
-.next/
-build/
-*.log" > .gitignore
-node_modules
