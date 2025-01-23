@@ -354,16 +354,18 @@ const quickAdd = (product) => {
   cartStore.addItem(fullProduct, 1)
 }
 
+// Create a simple in-memory SKU cache
+const skuCache = new Map()
+
 const handleQuickAdd = async (searchTerm) => {
   logger.startGroup('POS Products: Quick Add by Search')
   try {
-    // First try to find in local cache by exact SKU match
-    const cachedProduct = posStore.products.find(p => 
-      p.sku?.toLowerCase() === searchTerm.toLowerCase()
-    )
+    const normalizedSKU = searchTerm.toLowerCase().trim()
     
-    if (cachedProduct) {
-      logger.debug('Found product in cache by SKU', { 
+    // Check in-memory cache first
+    if (skuCache.has(normalizedSKU)) {
+      const cachedProduct = skuCache.get(normalizedSKU)
+      logger.debug('Found product in SKU cache', { 
         product: cachedProduct.name,
         sku: cachedProduct.sku
       })
@@ -371,25 +373,59 @@ const handleQuickAdd = async (searchTerm) => {
       return
     }
 
-    // If not in cache, search database by SKU
-    logger.debug('Product not in cache, searching database by SKU', { searchTerm })
-    const skuResponse = await apiClient.get('/v1/items', {
-      params: {
-        sku: searchTerm,
-        limit: 1
-      }
-    })
+    // Check local store cache
+    const cachedProduct = posStore.products.find(p => 
+      p.sku?.toLowerCase() === normalizedSKU
+    )
     
-    if (skuResponse.data?.items?.data?.length > 0) {
-      const product = skuResponse.data.items.data[0]
-      logger.debug('Found product in database by SKU', {
-        product: product.name,
-        sku: product.sku
+    if (cachedProduct) {
+      // Add to in-memory cache
+      skuCache.set(normalizedSKU, cachedProduct)
+      logger.debug('Found product in store cache by SKU', { 
+        product: cachedProduct.name,
+        sku: cachedProduct.sku
       })
-      // Add to cache and quick add
-      posStore.products = [...posStore.products, product]
-      quickAdd(product)
+      quickAdd(cachedProduct)
       return
+    }
+
+    // If not in cache, search database by SKU with timeout
+    logger.debug('Product not in cache, searching database by SKU', { searchTerm })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 2000) // 2 second timeout
+    
+    try {
+      const skuResponse = await apiClient.get('/v1/items', {
+        params: {
+          sku: searchTerm,
+          limit: 1
+        },
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+
+      if (skuResponse.data?.items?.data?.length > 0) {
+        const product = skuResponse.data.items.data[0]
+        // Add to both caches
+        skuCache.set(normalizedSKU, product)
+        posStore.products = [...posStore.products, product]
+        
+        logger.debug('Found product in database by SKU', {
+          product: product.name,
+          sku: product.sku
+        })
+        quickAdd(product)
+        return
+      }
+    } catch (err) {
+      clearTimeout(timeoutId)
+      if (err.name === 'AbortError') {
+        logger.warn('SKU search timed out', { searchTerm })
+        window.toastr?.warning('SKU search took too long, please try again')
+        return
+      }
+      throw err
     }
 
     // If no SKU match found, show error
