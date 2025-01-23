@@ -371,37 +371,43 @@ const handlePdfViewerClosed = () => {
 }
 
 const loadInvoiceToCart = async (invoice) => {
-  // Transform invoice data to match expected format
-  const transformedInvoice = {
-    ...invoice,
-    total: normalizePriceFromBackend(invoice.total),
-    hold_items: invoice.items?.map(item => ({
-      item_id: item.item_id || item.id, // Handle both formats
-      name: item.name,
-      description: item.description,
-      price: normalizePriceFromBackend(item.price),
-      total: normalizePriceFromBackend(item.total),
-      quantity: item.quantity,
-      unit_name: item.unit_name
-    })),
-    type: invoice.type || 'DINE_IN', // Default to DINE_IN if not specified
+  if (!invoice) {
+    console.error('OrderInvoicesTable - No invoice provided to load to cart')
+    window.toastr?.error('No invoice data provided')
+    return
   }
 
-  console.log('OrderInvoicesTable - Loading invoice to cart:', {
-    id: transformedInvoice.id,
-    invoice_number: transformedInvoice.invoice_number,
-    total: transformedInvoice.total,
-    formatted_total: PriceUtils.format(transformedInvoice.total),
-    items: transformedInvoice.hold_items?.map(item => ({
-      id: item.item_id,
-      name: item.name,
-      price: item.price,
-      formatted_price: PriceUtils.format(item.price),
-      quantity: item.quantity
-    }))
-  })
-
   try {
+    // Transform invoice data to match expected format
+    const transformedInvoice = {
+      ...invoice,
+      total: normalizePriceFromBackend(invoice.total || 0),
+      hold_items: (invoice.items || []).map(item => ({
+        item_id: item.item_id || item.id, // Handle both formats
+        name: item.name || 'Unnamed Item',
+        description: item.description || '',
+        price: normalizePriceFromBackend(item.price || 0),
+        total: normalizePriceFromBackend(item.total || 0),
+        quantity: item.quantity || 1,
+        unit_name: item.unit_name || 'item'
+      })),
+      type: invoice.type || 'DINE_IN', // Default to DINE_IN if not specified
+    }
+
+    console.log('OrderInvoicesTable - Loading invoice to cart:', {
+      id: transformedInvoice.id,
+      invoice_number: transformedInvoice.invoice_number,
+      total: transformedInvoice.total,
+      formatted_total: PriceUtils.format(transformedInvoice.total),
+      items: transformedInvoice.hold_items?.map(item => ({
+        id: item.item_id,
+        name: item.name,
+        price: item.price,
+        formatted_price: PriceUtils.format(item.price),
+        quantity: item.quantity
+      }))
+    })
+
     await cartStore.loadInvoice(transformedInvoice)
     window.toastr?.success('Invoice loaded to cart successfully')
     console.log('OrderInvoicesTable - Invoice loaded to cart successfully:', {
@@ -411,8 +417,12 @@ const loadInvoiceToCart = async (invoice) => {
     emit('page-change', 1)
     emit('order-loaded') // Emit the new event
   } catch (error) {
-    console.error('OrderInvoicesTable - Failed to load invoice to cart:', error)
-    window.toastr?.error('Failed to load invoice to cart')
+    console.error('OrderInvoicesTable - Failed to load invoice to cart:', {
+      error,
+      message: error.message,
+      stack: error.stack
+    })
+    window.toastr?.error('Failed to load invoice to cart: ' + (error.message || 'Unknown error'))
   }
 }
 
