@@ -52,7 +52,6 @@
                     <template v-slot:prepend>
                       <v-icon icon="mdi-store" color="primary" class="mr-2" />
                     </template>
-                    <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
                     <v-list-item-subtitle v-if="item.raw.description">
                       {{ item.raw.description }}
                     </v-list-item-subtitle>
@@ -86,7 +85,6 @@
                     <template v-slot:prepend>
                       <v-icon icon="mdi-register" color="primary" class="mr-2" />
                     </template>
-                    <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
                     <v-list-item-subtitle>
                       {{ item.raw.store_name }}
                     </v-list-item-subtitle>
