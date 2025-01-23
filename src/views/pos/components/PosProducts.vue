@@ -245,11 +245,31 @@ const totalPages = computed(() => Math.ceil(posStore.totalItems / itemsPerPage.v
 const handleSearch = async (query) => {
   logger.startGroup('POS Products: Search')
   try {
-    posStore.searchQuery = query
-    currentPage.value = 1
-    await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
+    // First try to find in local cache
+    const cachedResults = posStore.products.filter(p => 
+      p.name.toLowerCase().includes(query.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(query.toLowerCase())
+    )
+    
+    if (cachedResults.length > 0) {
+      // If we have cached results, use them
+      logger.debug('Found cached results', { 
+        query,
+        count: cachedResults.length 
+      })
+      posStore.setProducts(cachedResults)
+      currentPage.value = 1
+    } else {
+      // If no cached results, search database
+      logger.debug('No cached results, searching database', { query })
+      posStore.searchQuery = query
+      currentPage.value = 1
+      await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
+    }
   } catch (err) {
     logger.error('Search failed', err)
+    // Fallback to empty results on error
+    posStore.setProducts([])
   } finally {
     logger.endGroup()
   }
