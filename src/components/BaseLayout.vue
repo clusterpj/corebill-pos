@@ -1,15 +1,16 @@
 <!-- src/components/BaseLayout.vue -->
 <template>
-  <v-app>
-    <v-fade-transition>
-      <v-btn
-        v-show="!drawerBehavior.permanent"
-        size="large"
-        variant="elevated"
-        color="primary"
-        @click="toggleDrawer"
-        class="menu-toggle"
-      >
+  <v-app :class="{ 'customer-display': isCustomerDisplay }">
+    <template v-if="!isCustomerDisplay">
+      <v-fade-transition>
+        <v-btn
+          v-show="!drawerBehavior.permanent"
+          size="large"
+          variant="elevated"
+          color="primary"
+          @click="toggleDrawer"
+          class="menu-toggle"
+        >
         <v-icon
           size="24"
           color="white"
@@ -72,10 +73,22 @@
           color="error"
           variant="tonal"
           prepend-icon="mdi-logout"
-          class="action-btn"
+          class="action-btn mb-6"
           @click="confirmLogout"
         >
           Logout
+        </v-btn>
+
+        <v-btn
+          block
+          color="warning"
+          variant="tonal"
+          prepend-icon="mdi-cached"
+          class="action-btn"
+          @click="clearCache"
+          :loading="clearingCache"
+        >
+          Clear Cache
         </v-btn>
       </div>
 
@@ -94,6 +107,51 @@
           />
         </div>
       </v-list>
+
+      <v-divider class="my-4"></v-divider>
+
+      <!-- Promo Management Section -->
+      <div class="px-4 pb-4">
+        <div class="text-h6 mb-4 font-weight-medium">Promo Management</div>
+        <v-btn
+          block
+          color="primary"
+          variant="tonal"
+          prepend-icon="mdi-plus"
+          class="mb-4"
+          @click="openPromoDialog(null)"
+        >
+          Add Promo
+        </v-btn>
+        
+        <v-list density="compact" class="promo-list">
+          <v-list-item
+            v-for="(promo, index) in promos"
+            :key="index"
+            :title="promo.title"
+            :subtitle="promo.description"
+            @click="openPromoDialog(promo, index)"
+          >
+            <template v-slot:prepend>
+              <v-avatar rounded="lg" size="40">
+                <v-img :src="promo.image" />
+              </v-avatar>
+            </template>
+            
+            <template v-slot:append>
+              <v-btn
+                icon
+                variant="text"
+                size="small"
+                color="error"
+                @click.stop="deletePromo(index)"
+              >
+                <v-icon>mdi-delete</v-icon>
+              </v-btn>
+            </template>
+          </v-list-item>
+        </v-list>
+      </div>
 
       <v-divider class="my-4"></v-divider>
 
@@ -152,6 +210,7 @@
       </div>
 
     </v-navigation-drawer>
+    </template>
 
     <!-- Logout Confirmation Dialog -->
     <v-dialog v-model="showLogoutDialog" max-width="400">
@@ -181,6 +240,68 @@
             Logout
           </v-btn>
         </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Promo Management Dialog -->
+    <v-dialog v-model="showPromoDialog" max-width="600">
+      <v-card>
+        <v-card-title class="text-h5 pa-4">
+          {{ editingPromoIndex !== null ? 'Edit' : 'Add' }} Promo
+        </v-card-title>
+        
+        <v-card-text class="pa-4">
+          <v-form @submit.prevent="savePromo">
+            <v-text-field
+              v-model="currentPromo.title"
+              label="Title"
+              required
+              variant="outlined"
+              class="mb-4"
+            />
+            
+            <v-textarea
+              v-model="currentPromo.description"
+              label="Description"
+              variant="outlined"
+              rows="2"
+              class="mb-4"
+            />
+            
+            <v-text-field
+              v-model="currentPromo.discount"
+              label="Discount Text"
+              variant="outlined"
+              class="mb-4"
+            />
+            
+            <v-text-field
+              v-model="currentPromo.image"
+              label="Image URL"
+              required
+              variant="outlined"
+              class="mb-4"
+            />
+            
+            <v-img
+              v-if="currentPromo.image"
+              :src="currentPromo.image"
+              max-height="200"
+              cover
+              class="mb-4 rounded-lg"
+            />
+            
+            <v-btn
+              type="submit"
+              block
+              color="primary"
+              size="large"
+              class="mt-4"
+            >
+              Save Promo
+            </v-btn>
+          </v-form>
+        </v-card-text>
       </v-card>
     </v-dialog>
 
@@ -227,21 +348,117 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { usePromoStore } from '../stores/promo'
+import { usePosStore } from '../stores/pos-store'
 import { useDisplay } from 'vuetify'
 import { useAuthStore } from '../stores/auth'
 import { useCompanyStore } from '../stores/company'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { logger } from '../utils/logger'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const companyStore = useCompanyStore()
 const drawer = ref(false)
 const { mobile, mdAndUp } = useDisplay()
 
+const isCustomerDisplay = computed(() => {
+  return route.path === '/customer-display'
+})
+
 // Dialog controls
 const showLogoutDialog = ref(false)
 const showCorebillDialog = ref(false)
+const showPromoDialog = ref(false)
+const editingPromoIndex = ref(null)
+const currentPromo = ref({
+  title: '',
+  description: '',
+  discount: '',
+  image: ''
+})
+
+const promoStore = usePromoStore()
+const posStore = usePosStore()
+const promos = computed(() => promoStore.promos)
+
+const openPromoDialog = (promo, index = null) => {
+  if (promo) {
+    currentPromo.value = { ...promo }
+    editingPromoIndex.value = index
+  } else {
+    currentPromo.value = {
+      title: '',
+      description: '',
+      discount: '',
+      image: ''
+    }
+    editingPromoIndex.value = null
+  }
+  showPromoDialog.value = true
+}
+
+const savePromo = () => {
+  if (editingPromoIndex.value !== null) {
+    promoStore.updatePromo(editingPromoIndex.value, currentPromo.value)
+  } else {
+    promoStore.addPromo(currentPromo.value)
+  }
+  showPromoDialog.value = false
+}
+
+const deletePromo = (index) => {
+  promoStore.deletePromo(index)
+}
+
+// Cache clearing functionality
+const clearingCache = ref(false)
+const isPreloading = ref(false)
+const preloadProgress = ref(0)
+
+const clearCache = async () => {
+  clearingCache.value = true
+  isPreloading.value = true
+  preloadProgress.value = 0
+  
+  try {
+    // Create a progress callback
+    const onProgress = (progress) => {
+      preloadProgress.value = progress
+      logger.debug(`Cache clear progress: ${progress}%`)
+    }
+    
+    logger.info('Starting cache clear and preload process...')
+    const success = await posStore.clearCache(onProgress)
+    
+    if (success) {
+      logger.info('Cache clear and preload completed successfully')
+      window.toastr?.success('Product cache cleared and preloaded successfully')
+      
+      // Reset pagination and force refresh
+      await posStore.fetchProducts(1, 50)
+      
+      // Show final confirmation
+      window.toastr?.info('Products have been refreshed with latest data')
+    } else {
+      logger.warn('Cache clear returned false')
+      window.toastr?.warning('Cache clear completed but may not have fully succeeded')
+    }
+  } catch (error) {
+    logger.error('Failed to clear and preload cache', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    })
+    window.toastr?.error(`Failed to clear and preload cache: ${error.message}`)
+  } finally {
+    clearingCache.value = false
+    isPreloading.value = false
+    preloadProgress.value = 0
+    logger.info('Cache clear process completed')
+  }
+}
 
 // Computed property for drawer behavior
 const drawerBehavior = computed(() => ({
@@ -424,6 +641,11 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.customer-display :deep(.v-toolbar),
+.customer-display :deep(.v-navigation-drawer),
+.customer-display :deep(.v-btn.menu-toggle) {
+  display: none !important;
+}
 /* Transition styles */
 .fade-enter-active,
 .fade-leave-active {

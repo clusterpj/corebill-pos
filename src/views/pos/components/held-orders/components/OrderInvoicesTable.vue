@@ -86,7 +86,7 @@
     <div v-if="showPagination" class="pagination-container">
       <v-pagination
         :model-value="page"
-        @update:model-value="$emit('update:page', $event)"
+        @update:model-value="$emit('page-change', $event)"
         :length="totalPages"
         :total-visible="5"
       ></v-pagination>
@@ -131,6 +131,11 @@
     }"
     @payment-complete="handlePaymentComplete"
   />
+  <PdfViewerDialog
+      v-model="showPdfViewer"
+      :pdfUrl="currentPdfUrl"
+      @closed="handlePdfViewerClosed"
+  />
 
   <!-- Invoice Details Dialog -->
   <v-dialog v-model="showDetailsDialog" max-width="700">
@@ -140,6 +145,12 @@
           Invoice Details
         </v-toolbar-title>
         <v-spacer></v-spacer>
+        <v-btn
+          icon="mdi-printer"
+          variant="text"
+          @click="printInvoice"
+          title="Print Invoice"
+        />
         <v-btn icon="mdi-close" variant="text" @click="showDetailsDialog = false" />
       </v-toolbar>
 
@@ -251,6 +262,7 @@
 
 <script setup>
 import PaymentDialog from '../../../components/dialogs/PaymentInvoiceDialog.vue'
+import PdfViewerDialog from '@/components/common/PdfViewerDialog.vue'
 import { PriceUtils } from '@/utils/price'
 import { ref, computed, watch } from 'vue'
 import { useCartStore } from '@/stores/cart-store'
@@ -321,7 +333,7 @@ watch(() => props.invoices, (newInvoices, oldInvoices) => {
   })
 }, { deep: true })
 
-const emit = defineEmits(['update:page', 'invoice-paid', 'refresh', 'order-loaded', 'load'])
+const emit = defineEmits(['invoice-paid', 'page-change', 'order-loaded'])
 
 // Payment Dialog
 const showPaymentDialog = ref(false)
@@ -329,6 +341,8 @@ const showConfirmDialog = ref(false)
 const selectedInvoice = ref(null)
 const showDetailsDialog = ref(false)
 const selectedInvoiceDetails = ref(null)
+const showPdfViewer = ref(false)
+const currentPdfUrl = ref('')
 
 // Computed
 const showPaginationComputed = computed(() => props.totalPages > 1)
@@ -357,48 +371,64 @@ const normalizePriceFromBackend = (price) => {
   return numericPrice;
 }
 
+const handlePdfViewerClosed = () => {
+  showPdfViewer.value = false
+  currentPdfUrl.value = ''
+}
+
 const loadInvoiceToCart = async (invoice) => {
-  // Transform invoice data to match expected format
-  const transformedInvoice = {
-    ...invoice,
-    total: normalizePriceFromBackend(invoice.total),
-    hold_items: invoice.items?.map(item => ({
-      item_id: item.item_id || item.id, // Handle both formats
-      name: item.name,
-      description: item.description,
-      price: normalizePriceFromBackend(item.price),
-      total: normalizePriceFromBackend(item.total),
-      quantity: item.quantity,
-      unit_name: item.unit_name
-    })),
-    type: invoice.type || 'DINE_IN', // Default to DINE_IN if not specified
+  if (!invoice) {
+    console.error('OrderInvoicesTable - No invoice provided to load to cart')
+    window.toastr?.error('No invoice data provided')
+    return
   }
 
-  console.log('OrderInvoicesTable - Loading invoice to cart:', {
-    id: transformedInvoice.id,
-    invoice_number: transformedInvoice.invoice_number,
-    total: transformedInvoice.total,
-    formatted_total: PriceUtils.format(transformedInvoice.total),
-    items: transformedInvoice.hold_items?.map(item => ({
-      id: item.item_id,
-      name: item.name,
-      price: item.price,
-      formatted_price: PriceUtils.format(item.price),
-      quantity: item.quantity
-    }))
-  })
-
   try {
+    // Transform invoice data to match expected format
+    const transformedInvoice = {
+      ...invoice,
+      total: normalizePriceFromBackend(invoice.total || 0),
+      hold_items: (invoice.items || []).map(item => ({
+        item_id: item.item_id || item.id, // Handle both formats
+        name: item.name || 'Unnamed Item',
+        description: item.description || '',
+        price: normalizePriceFromBackend(item.price || 0),
+        total: normalizePriceFromBackend(item.total || 0),
+        quantity: item.quantity || 1,
+        unit_name: item.unit_name || 'item'
+      })),
+      type: invoice.type || 'DINE_IN', // Default to DINE_IN if not specified
+    }
+
+    console.log('OrderInvoicesTable - Loading invoice to cart:', {
+      id: transformedInvoice.id,
+      invoice_number: transformedInvoice.invoice_number,
+      total: transformedInvoice.total,
+      formatted_total: PriceUtils.format(transformedInvoice.total),
+      items: transformedInvoice.hold_items?.map(item => ({
+        id: item.item_id,
+        name: item.name,
+        price: item.price,
+        formatted_price: PriceUtils.format(item.price),
+        quantity: item.quantity
+      }))
+    })
+
     await cartStore.loadInvoice(transformedInvoice)
     window.toastr?.success('Invoice loaded to cart successfully')
     console.log('OrderInvoicesTable - Invoice loaded to cart successfully:', {
       invoice_id: transformedInvoice.id,
       invoice_number: transformedInvoice.invoice_number
     })
-    emit('order-loaded', transformedInvoice)
+    emit('page-change', 1)
+    emit('order-loaded', transformedInvoice) // Emit the new event with invoice data
   } catch (error) {
-    console.error('OrderInvoicesTable - Failed to load invoice to cart:', error)
-    window.toastr?.error('Failed to load invoice to cart')
+    console.error('OrderInvoicesTable - Failed to load invoice to cart:', {
+      error,
+      message: error.message,
+      stack: error.stack
+    })
+    window.toastr?.error('Failed to load invoice to cart: ' + (error.message || 'Unknown error'))
   }
 }
 
@@ -472,16 +502,138 @@ const confirmPayment = () => {
   showPaymentDialog.value = true
 }
 
-const handlePaymentComplete = (result) => {
-  console.log('OrderInvoicesTable - Payment completed:', {
-    result,
-    invoice_id: selectedInvoice.value?.id,
-    invoice_number: selectedInvoice.value?.invoice_number
-  })
-  
-  showPaymentDialog.value = false
-  selectedInvoice.value = null
-  emit('invoice-paid', result)
+const printInvoice = () => {
+  if (!selectedInvoiceDetails.value) {
+    window.toastr?.error('No invoice selected to print')
+    return
+  }
+
+  try {
+    // Create a new window for printing
+    const printWindow = window.open('', 'PRINT', 'height=600,width=800')
+    
+    // Basic print styles
+    const styles = `
+      <style>
+        body { font-family: Arial, sans-serif; }
+        .print-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .print-header { text-align: center; margin-bottom: 20px; }
+        .print-title { font-size: 24px; font-weight: bold; }
+        .print-section { margin-bottom: 20px; }
+        .print-section-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .print-table th, .print-table td { border: 1px solid #ddd; padding: 8px; }
+        .print-table th { background-color: #f5f5f5; }
+        .print-totals { text-align: right; margin-top: 20px; }
+        .print-notes { margin-top: 20px; padding: 10px; border: 1px solid #ddd; }
+      </style>
+    `
+
+    // Build the print content
+    const invoice = selectedInvoiceDetails.value
+    const content = `
+      ${styles}
+      <div class="print-container">
+        <div class="print-header">
+          <div class="print-title">Invoice Details</div>
+          <div>Invoice #: ${invoice.invoice_number}</div>
+          <div>Date: ${formatDate(invoice.created_at)}</div>
+        </div>
+
+        <div class="print-section">
+          <div class="print-section-title">Customer Information</div>
+          <div>Name: ${invoice.contact?.name || 'N/A'}</div>
+          <div>Phone: ${invoice.contact?.phone || 'N/A'}</div>
+          <div>Email: ${invoice.contact?.email || 'N/A'}</div>
+        </div>
+
+        <div class="print-section">
+          <div class="print-section-title">Order Items</div>
+          <table class="print-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invoice.items.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.quantity}</td>
+                  <td>${PriceUtils.format(normalizePriceFromBackend(item.price))}</td>
+                  <td>${PriceUtils.format(normalizePriceFromBackend(item.total))}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="print-totals">
+          <div><strong>Subtotal:</strong> ${PriceUtils.format(normalizePriceFromBackend(invoice.sub_total))}</div>
+          <div><strong>Tax:</strong> ${PriceUtils.format(normalizePriceFromBackend(invoice.tax))}</div>
+          <div><strong>Total:</strong> ${PriceUtils.format(normalizePriceFromBackend(invoice.total))}</div>
+        </div>
+
+        ${invoice.notes ? `
+          <div class="print-section">
+            <div class="print-section-title">Notes</div>
+            <div class="print-notes">${invoice.notes}</div>
+          </div>
+        ` : ''}
+      </div>
+    `
+
+    // Write content to print window
+    printWindow.document.write('<html><head><title>Invoice Details</title></head><body>')
+    printWindow.document.write(content)
+    printWindow.document.write('</body></html>')
+    printWindow.document.close()
+    
+    // Trigger print
+    printWindow.focus()
+    printWindow.print()
+    printWindow.close()
+  } catch (error) {
+    console.error('Failed to print invoice:', error)
+    window.toastr?.error('Failed to print invoice')
+  }
+}
+
+const handlePaymentComplete = async (result) => {
+  try {
+    console.log('OrderInvoicesTable - Payment completed:', {
+      result,
+      invoice_id: selectedInvoice.value?.id,
+      invoice_number: selectedInvoice.value?.invoice_number
+    })
+
+    // Get payment PDF URL from result
+    if (result?.invoicePdfUrl) {
+      console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', result.invoicePdfUrl)
+      currentPdfUrl.value = result.invoicePdfUrl
+      showPdfViewer.value = true
+    } else {
+      console.warn('📄 [Invoice PDF] No payment PDF URL provided in result:', result)
+    }
+
+    // Close payment dialog and clean up
+    showPaymentDialog.value = false
+    selectedInvoice.value = null
+
+    // Emit success
+    emit('invoice-paid', result)
+  } catch (error) {
+    console.error('📄 [Invoice PDF] Failed to display invoice:', error)
+    window.toastr?.['error'](error.message || 'Failed to display invoice PDF')
+    
+    // Still emit success since payment was successful
+    showPaymentDialog.value = false
+    selectedInvoice.value = null
+    emit('invoice-paid', result)
+  }
 }
 </script>
 

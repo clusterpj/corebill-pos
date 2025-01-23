@@ -127,7 +127,7 @@
                     variant="outlined"
                     density="comfortable"
                     :error-messages="validationErrors.notes"
-                    @input="clearError('notes')"
+                    @input="updateNotes"
                     prepend-inner-icon="mdi-note-text"
                     placeholder="Enter any special instructions"
                     rows="4"
@@ -164,33 +164,118 @@
       v-model="showPaymentDialog"
       :invoice="currentInvoice"
       @payment-complete="handlePaymentComplete"
+      v-if="showPaymentDialog"
     />
+
+    <!-- Loading Overlay -->
+    <v-overlay
+      :model-value="processing"
+      class="align-center justify-center"
+      persistent
+    >
+      <v-progress-circular
+        size="64"
+        color="primary"
+        indeterminate
+      />
+    </v-overlay>
   </v-dialog>
 </template>
 
 <script setup>
-import { ref, computed, watch, reactive } from 'vue'
+import { ref, computed, watch, reactive, nextTick, onMounted } from 'vue'
 import { useCartStore } from '../../../../stores/cart-store'
 import { useCompanyStore } from '../../../../stores/company'
 import { logger } from '../../../../utils/logger'
 import { OrderType } from '../../../../types/order'
 import { usePosStore } from '../../../../stores/pos-store'
+import { parseOrderNotes } from '../../../../stores/cart/helpers'
 import PaymentDialog from '../dialogs/PaymentDialog.vue'
+import { createMachine, interpret } from 'xstate'
 
-// Props
-defineProps({
-  disabled: {
-    type: Boolean,
-    default: false
+// Safe analytics wrapper
+const analytics = {
+  track: (eventName, properties = {}) => {
+    if (window.analytics) {
+      window.analytics.track(eventName, properties)
+    } else {
+      console.log(`[Analytics] ${eventName}:`, properties)
+    }
   }
+}
+
+// Simple in-memory cache implementation
+const cache = {
+  _data: new Map(),
+  
+  get(key) {
+    return this._data.get(key)
+  },
+  
+  set(key, value) {
+    this._data.set(key, value)
+  },
+  
+  delete(key) {
+    this._data.delete(key)
+  },
+  
+  clear() {
+    this._data.clear()
+  }
+}
+
+// Define state machine
+const stateMachine = interpret(createMachine({
+  id: 'togoOrder',
+  initial: 'idle',
+  states: {
+    idle: {
+      on: {
+        START_PROCESS: 'processing'
+      }
+    },
+    processing: {
+      on: {
+        VALIDATION_FAILED: 'error',
+        HOLD_CREATED: 'holdCreated',
+        HOLD_FAILED: 'error'
+      }
+    },
+    holdCreated: {
+      on: {
+        PAYMENT_READY: 'paymentReady',
+        PAYMENT_FAILED: 'error'
+      }
+    },
+    paymentReady: {
+      on: {
+        PAYMENT_COMPLETE: 'complete',
+        PAYMENT_FAILED: 'error'
+      }
+    },
+    complete: {
+      type: 'final'
+    },
+    error: {
+      on: {
+        RETRY: 'idle'
+      }
+    }
+  }
+}))
+
+// Start the state machine
+stateMachine.start()
+
+const props = defineProps({
+  disabled: { type: Boolean, default: false }
 })
 
-// Store access
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
 const posStore = usePosStore()
 
-// Local state
 const dialog = ref(false)
 const loading = ref(false)
 const processing = ref(false)
@@ -198,11 +283,9 @@ const error = ref(null)
 const currentInvoice = ref(null)
 const showPaymentDialog = ref(false)
 
-// Form state
 const customerInfo = reactive({
   name: '',
   phone: '',
-  instructions: '',
   email: '',
   notes: ''
 })
@@ -214,37 +297,84 @@ const validationErrors = reactive({
   notes: ''
 })
 
-// Computed properties
 const selectedStore = computed(() => companyStore.selectedStore)
 const selectedCashier = computed(() => companyStore.selectedCashier)
 
-const canProcessOrder = computed(() => {
-  return !cartStore.isEmpty && 
-         !!selectedStore.value && 
-         !!selectedCashier.value && 
-         customerInfo.name.trim() && 
-         customerInfo.phone.trim()
+const updateNotes = (event) => {
+ logger.debug('Notes update triggered:', { event, type: typeof event })
+ 
+ const value = event?.target?.value || event
+ logger.debug('Extracted value:', { value, type: typeof value })
+
+ if (value === cartStore.notes) {
+   logger.debug('Value unchanged, skipping update')
+   return
+ }
+ 
+ logger.debug('Updating customerInfo:', { 
+   oldValue: customerInfo.notes,
+   newValue: value 
+ })
+ customerInfo.notes = value
+
+ const notesObj = {
+   customerNotes: value,
+   timestamp: new Date().toISOString(),
+   orderType: OrderType.TO_GO,
+   orderInfo: {
+     customer: {
+       name: customerInfo.name.trim(),
+       phone: customerInfo.phone.replace(/\D/g, ''),
+       email: customerInfo.email.trim(),
+       notes: value,
+       instructions: value
+     }
+   }
+ }
+ logger.debug('Created notes object:', notesObj)
+
+ nextTick(() => {
+   logger.debug('Updating cart store notes')
+   const stringified = JSON.stringify(notesObj)
+   logger.debug('Stringified notes:', stringified)
+   cartStore.setNotes(stringified)
+ })
+}
+
+onMounted(() => {
+ logger.debug('Component mounted')
+ if (cartStore.notes) {
+   try {
+     logger.debug('Parsing initial cart notes:', cartStore.notes)
+     const notes = parseOrderNotes(cartStore.notes)
+     if (notes) {
+       logger.debug('Setting initial notes:', notes)
+       customerInfo.notes = notes
+     }
+   } catch (error) {
+     logger.error('Failed to parse cart notes:', error)
+   }
+ }
 })
 
 // Methods
 const validateForm = () => {
-  let isValid = true
   clearAllErrors()
+  let isValid = true
 
   if (!customerInfo.name.trim()) {
-    validationErrors.name = 'Customer name is required'
+    validationErrors.name = 'Name is required'
     isValid = false
   }
 
   if (!customerInfo.phone.trim()) {
     validationErrors.phone = 'Phone number is required'
     isValid = false
-  } else {
-    const phoneDigits = customerInfo.phone.replace(/\D/g, '')
-    if (phoneDigits.length < 10) {
-      validationErrors.phone = 'Please enter a valid phone number'
-      isValid = false
-    }
+  }
+
+  if (customerInfo.email && !customerInfo.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+    validationErrors.email = 'Invalid email format'
+    isValid = false
   }
 
   return isValid
@@ -261,27 +391,40 @@ const clearAllErrors = () => {
 }
 
 const processOrder = async () => {
-  if (!validateForm()) return
+  // State machine transition: IDLE -> PROCESSING
+  stateMachine.send({ type: 'START_PROCESS' })
+  console.log('🚦 Starting TO-GO order process...')
+  
+  if (!validateForm()) {
+    console.error('❌ Form validation failed')
+    stateMachine.send({ type: 'VALIDATION_FAILED' })
+    return
+  }
 
+  // Show loading state
   processing.value = true
   error.value = null
 
   try {
-    // Format phone number
+    console.log('📞 Formatting phone number...')
     const formattedPhone = customerInfo.phone.replace(/\D/g, '')
+    console.log('✅ Phone formatted:', formattedPhone)
 
-    // Get base invoice data
+    console.log('📝 Preparing base invoice data...')
     const baseInvoiceData = cartStore.prepareHoldInvoiceData(
       selectedStore.value,
       selectedCashier.value,
       `TO_GO_${customerInfo.name}`
     )
+    console.log('📄 Base invoice data:', baseInvoiceData)
 
-    // Create hold invoice data without tip fields
+    console.log('📦 Creating hold invoice data...')
+    // Create unique description with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
     const holdInvoiceData = {
       ...baseInvoiceData,
       type: OrderType.TO_GO,
-      description: `TO_GO_${customerInfo.name}`,
+      description: `TO_GO_${customerInfo.name}_${timestamp}`,
       cash_register_id: companyStore.selectedCashier?.id || companyStore.company?.id || 1,
       hold_items: cartStore.items.map(item => ({
         item_id: item.id,
@@ -293,30 +436,42 @@ const processOrder = async () => {
         tax: item.tax || 0
       }))
     }
+    console.log('📄 Hold invoice data:', holdInvoiceData)
 
-    // Remove tip-related fields that aren't supported for hold invoices
+    console.log('✂️ Removing unsupported tip fields...')
     delete holdInvoiceData.tip
     delete holdInvoiceData.tip_type
     delete holdInvoiceData.tip_val
+    console.log('✅ Tip fields removed')
 
-    // Validate items exist
+    console.log('🛒 Validating cart items...')
     if (!holdInvoiceData.hold_items?.length) {
+      console.error('❌ No items found in cart')
       throw new Error('No items found in cart')
     }
-    holdInvoiceData.notes = JSON.stringify({
+    console.log(`✅ Cart contains ${holdInvoiceData.hold_items.length} items`)
+
+    console.log('📝 Formatting order notes...')
+    const notesObj = {
+      customerNotes: customerInfo.notes,
+      timestamp: new Date().toISOString(),
       orderType: OrderType.TO_GO,
       orderInfo: {
         customer: {
           name: customerInfo.name.trim(),
           phone: formattedPhone,
-          instructions: customerInfo.instructions.trim(),
           email: customerInfo.email.trim(),
-          notes: customerInfo.notes.trim()
+          notes: customerInfo.notes,
+          instructions: customerInfo.notes // Keep for backward compatibility
         }
       }
-    })
+    }
+    console.log('📄 Notes object:', notesObj)
+    
+    holdInvoiceData.notes = JSON.stringify(notesObj)
+    console.log('✅ Notes added to invoice data')
 
-    console.log('ToGoModal: About to create hold order with data:', {
+    logger.debug('Processing TO-GO order with data:', {
       type: holdInvoiceData.type,
       description: holdInvoiceData.description,
       total: holdInvoiceData.total,
@@ -324,39 +479,59 @@ const processOrder = async () => {
       notes: holdInvoiceData.notes
     })
 
-    // Create hold order
-    const result = await posStore.holdOrder(holdInvoiceData)
-    
-    console.log('ToGoModal: Hold order API response:', result)
-    logger.debug('Hold order response:', result)
-
-    if (!result?.success) {
-      throw new Error(result?.message || 'Failed to create hold order')
+    console.log('📤 Creating hold order...')
+    let holdResult
+    try {
+      holdResult = await posStore.holdOrder(holdInvoiceData)
+      console.log('📥 Hold order response:', holdResult)
+      
+      // State machine transition: PROCESSING -> HOLD_CREATED
+      stateMachine.send({ type: 'HOLD_CREATED' })
+      
+      // Cache the hold invoice data
+      cache.set(`holdInvoice_${holdResult.id}`, holdInvoiceData)
+    } catch (error) {
+      console.error('❌ Hold order creation failed:', error)
+      stateMachine.send({ type: 'HOLD_FAILED' })
+      throw error
     }
 
-    // Fetch the latest hold invoices to get our new one
+    if (!holdResult?.success) {
+      console.error('❌ Hold order creation failed:', result?.message || 'No error message')
+      throw new Error(result?.message || 'Failed to create hold order')
+    }
+    console.log('✅ Hold order created successfully')
+
+    console.log('🔍 Fetching hold invoices...')
     await posStore.fetchHoldInvoices()
     
-    // Find our newly created hold invoice
+    console.log('🔎 Searching for new hold invoice...')
+    // Find the invoice by timestamp since description is now unique
     const holdInvoice = posStore.holdInvoices.find(inv => 
-      inv.description === holdInvoiceData.description &&
+      inv.description.includes(timestamp) &&
       inv.type === OrderType.TO_GO
     )
 
     if (!holdInvoice) {
-      logger.error('Could not find newly created hold invoice')
+      console.error('❌ Could not find newly created hold invoice')
       throw new Error('Failed to retrieve created hold invoice')
     }
+    console.log('✅ Found hold invoice:', holdInvoice)
 
-    // Validate essential fields
+    console.log('🔍 Validating hold invoice fields...')
     if (!holdInvoice.total || !holdInvoice.hold_items?.length) {
-      logger.error('Missing required hold invoice fields:', holdInvoice)
+      console.error('❌ Missing required hold invoice fields:', {
+        total: holdInvoice.total,
+        items: holdInvoice.hold_items?.length
+      })
       throw new Error('Invalid hold invoice data: missing total or items')
     }
+    console.log('✅ Hold invoice validation passed')
 
-    // Store the hold invoice ID
+    console.log('📌 Storing hold invoice ID...')
     const holdInvoiceId = holdInvoice.id
     cartStore.setHoldInvoiceId(holdInvoiceId)
+    console.log('✅ Hold invoice ID stored:', holdInvoiceId)
 
     logger.info('TO-GO hold order created successfully:', {
       holdInvoiceId: holdInvoiceId,
@@ -365,70 +540,164 @@ const processOrder = async () => {
       items: holdInvoice.hold_items?.length
     })
 
-    // Show payment dialog with the hold order data
-    console.log('ToGoModal: Setting up payment dialog with invoice:', {
-      holdInvoiceId,
-      description: holdInvoice.description,
-      total: holdInvoice.total,
-      items: holdInvoice.hold_items?.length
-    })
-
+    console.log('📄 Setting current invoice...')
     currentInvoice.value = {
       invoice: holdInvoice,
       invoicePrefix: 'TO-GO',
       nextInvoiceNumber: holdInvoiceId,
       description: holdInvoice.description
     }
+    console.log('✅ Current invoice set:', currentInvoice.value)
 
-    console.log('ToGoModal: Current invoice value set:', currentInvoice.value)
-
-    // Double check the invoice data is valid
+    console.log('🔍 Validating invoice data...')
     if (!currentInvoice.value.invoice?.total) {
-      logger.error('Invalid invoice data for payment:', currentInvoice.value)
+      console.error('❌ Invalid invoice data - missing total')
       throw new Error('Invalid invoice data for payment')
     }
+    console.log('✅ Invoice data validation passed')
+
+    console.log('💳 Opening payment dialog...')
+    
+    // Add animation delay for better UX
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
     showPaymentDialog.value = true
-    dialog.value = false
+    console.log('✅ Payment flow ready')
+    
+    // State machine transition: HOLD_CREATED -> PAYMENT_READY
+    stateMachine.send({ type: 'PAYMENT_READY' })
+    
+    // Track analytics event
+    analytics.track('PaymentDialogOpened', {
+      orderId: currentInvoice.value?.id,
+      totalAmount: currentInvoice.value?.total
+    })
+
+    logger.debug('Dialogs state:', {
+      togoDialog: dialog.value,
+      paymentDialog: showPaymentDialog.value,
+      currentInvoice: currentInvoice.value
+    })
+
   } catch (err) {
+    console.error('❌ TO-GO order processing failed:', err)
     error.value = err.message || 'Failed to process order'
     logger.error('Failed to process TO-GO order:', err)
   } finally {
+    console.log('🏁 Processing complete')
     processing.value = false
   }
 }
 
 const handlePaymentComplete = async (result) => {
-  if (result?.success) {
-    // Clear the cart and reset state
-    cartStore.clearCart()
-    currentInvoice.value = null
-    showPaymentDialog.value = false
-    window.toastr?.['success']('TO-GO order processed successfully')
+  try {
+    logger.startGroup('TO-GO: Handling payment completion')
+    logger.info('Payment completed with result:', result)
+    
+    // Validate payment result
+    if (!result?.success) {
+      throw new Error('Payment was not successful')
+    }
 
-    // Refresh hold orders list
-    await posStore.fetchHoldInvoices()
-  } else {
-    window.toastr?.['error']('Failed to process payment')
+    // Ensure we have an invoice ID
+    const invoiceId = result.invoiceId
+    if (!invoiceId) {
+      throw new Error('No invoice ID in payment result')
+    }
+
+    // Try to persist order history
+    try {
+      logger.debug('Attempting to persist order history...')
+      await posStore.persistOrderHistory({
+        invoiceId,
+        type: OrderType.TO_GO,
+        customerInfo,
+        total: result.paymentResult?.total || cartStore.total
+      })
+      logger.debug('Order history persisted successfully')
+    } catch (historyError) {
+      logger.error('Failed to persist order history:', historyError)
+      // Don't throw error here - payment was successful, just history failed
+      window.toastr?.warning('Payment successful but failed to save order history')
+    }
+
+    // Close dialogs
+    showPaymentDialog.value = false
+    dialog.value = false
+
+    // Clear form
+    Object.keys(customerInfo).forEach(key => {
+      customerInfo[key] = ''
+    })
+
+    // Clear cart - ensure this happens even if other operations fail
+    try {
+      await cartStore.clearCart()
+      logger.debug('Cart cleared successfully')
+    } catch (clearError) {
+      logger.error('Failed to clear cart:', clearError)
+      throw new Error('Payment succeeded but failed to clear cart')
+    }
+
+    // Show success message
+    window.toastr?.success('Order completed successfully')
+    
+    // Track analytics
+    analytics.track('OrderCompleted', {
+      invoiceId,
+      total: result.paymentResult?.total || cartStore.total,
+      paymentMethods: result.paymentResult?.regularResults?.length || 0
+    })
+  } catch (error) {
+    logger.error('Failed to handle payment completion:', error)
+    window.toastr?.error('Failed to complete order: ' + (error.message || 'Unknown error'))
+  } finally {
+    logger.endGroup()
   }
 }
 
 const closeModal = () => {
-  if (!processing.value) {
-    dialog.value = false
-    clearAllErrors()
-    customerInfo.name = ''
-    customerInfo.phone = ''
-    customerInfo.instructions = ''
-    customerInfo.email = ''
-    customerInfo.notes = ''
+  dialog.value = false
+  error.value = null
+  
+  // Clear form
+  Object.keys(customerInfo).forEach(key => {
+    customerInfo[key] = ''
+  })
+  
+  // Clear cart when modal closes
+  if (!showPaymentDialog.value) {
+    cartStore.clearCart()
   }
 }
 
-// Watch for dialog open to validate prerequisites
+// Watch for payment dialog close
+watch(showPaymentDialog, (newValue) => {
+  if (!newValue) {
+    // Clear cart when payment dialog closes
+    cartStore.clearCart()
+  }
+})
+
+// Watch for dialog open to validate prerequisites and initialize notes
 watch(dialog, (newValue) => {
-  if (newValue && (!selectedStore.value || !selectedCashier.value)) {
-    error.value = 'Please select both store and cashier first'
-    dialog.value = false
+  if (newValue) {
+    if (!selectedStore.value || !selectedCashier.value) {
+      error.value = 'Please select both store and cashier first'
+      dialog.value = false
+      return
+    }
+    
+    // Initialize notes from cart store when dialog opens
+    try {
+      const notes = parseOrderNotes(cartStore.notes)
+      if (notes) {
+        customerInfo.notes = notes
+        logger.debug('Initialized notes from cart store:', { notes })
+      }
+    } catch (error) {
+      logger.error('Failed to parse cart notes:', error)
+    }
   }
 })
 </script>

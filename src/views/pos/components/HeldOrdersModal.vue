@@ -55,6 +55,7 @@
               <HeldOrdersModalComponent
                 :model-value="modelValue"
                 @update:model-value="$emit('update:modelValue', $event)"
+                @order-loaded="handleOrderLoaded"
                 class="elevation-1 rounded-lg"
               />
             </v-col>
@@ -89,5 +90,13 @@ const props = defineProps({
   }
 })
 
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue'])
+
+const handleOrderLoaded = (invoice) => {
+  console.log('HeldOrdersModal - Order loaded to cart:', {
+    invoice_id: invoice?.id,
+    invoice_number: invoice?.invoice_number
+  })
+  emit('update:modelValue', false)
+}
 </script>

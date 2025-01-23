@@ -59,86 +59,9 @@
           </v-alert>
 
           <!-- Payment Content -->
-          <v-container v-else class="payment-container pa-4">
-            <v-row class="fill-height">
-              <v-col cols="12" lg="8" offset-lg="2" md="10" offset-md="1" class="d-flex align-center">
-                <v-card variant="outlined" class="invoice-summary-card mb-4 flex-grow-1">
-                  <v-card-title class="text-center py-6 bg-primary text-white text-h5">
-                    <v-icon icon="mdi-receipt" size="x-large" class="mr-3"></v-icon>
-                    Order Preview
-                  </v-card-title>
-
-                  <v-card-text class="pa-6">
-                    <!-- Store Info -->
-                    <div class="text-center mb-6">
-                      <div class="text-h5 mb-2">{{ companyStore.currentStore?.name }}</div>
-                      <div class="text-subtitle-1">{{ companyStore.currentStore?.address }}</div>
-                    </div>
-
-                    <v-divider class="mb-6"></v-divider>
-
-                    <!-- Items List -->
-                    <div class="items-list mb-6">
-                      <div v-for="(item, index) in items" :key="index" class="item-row mb-3">
-                        <div class="d-flex justify-space-between align-center">
-                          <div class="item-details">
-                            <div class="text-h6">{{ item.name }}</div>
-                            <div class="text-subtitle-2">
-                              {{ item.quantity }} x {{ formatCurrency(item.price) }}
-                            </div>
-                          </div>
-                          <div class="text-h6">
-                            {{ formatCurrency(item.quantity * item.price) }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <v-divider class="mb-6"></v-divider>
-
-                    <!-- Totals -->
-                    <div class="totals-section">
-                      <div class="d-flex justify-space-between mb-3">
-                        <span class="text-h6">Subtotal:</span>
-                        <strong class="text-h6">{{ formatCurrency(cartStore.subtotal) }}</strong>
-                      </div>
-                      <div class="d-flex justify-space-between mb-3">
-                        <span class="text-h6">Tax:</span>
-                        <strong class="text-h6">{{ formatCurrency(cartStore.taxAmount) }}</strong>
-                      </div>
-                      <div v-if="cartStore.discountAmount > 0" class="d-flex justify-space-between mb-3">
-                        <span class="text-h6">Discount:</span>
-                        <strong class="text-h6 text-error">-{{ formatCurrency(cartStore.discountAmount) }}</strong>
-                      </div>
-                      <v-divider class="my-4"></v-divider>
-                      <div class="d-flex justify-space-between">
-                        <span class="text-h4">Total:</span>
-                        <strong class="text-h4">{{ formatCurrency(cartStore.total) }}</strong>
-                      </div>
-                    </div>
-                  </v-card-text>
-
-                  <v-card-actions class="pa-6">
-                    <v-btn
-                      block
-                      color="primary"
-                      size="x-large"
-                      height="64"
-                      @click="processPayment"
-                      :loading="processing"
-                      :disabled="!canPay"
-                      class="text-h6"
-                      rounded="pill"
-                      elevation="3"
-                    >
-                      <v-icon start icon="mdi-cash-register" size="large" class="mr-3"></v-icon>
-                      Pay Now {{ formatCurrency(cartStore.total) }}
-                    </v-btn>
-                  </v-card-actions>
-                </v-card>
-              </v-col>
-            </v-row>
-          </v-container>
+          <div v-else>
+            {{ processPayment() }}
+          </div>
         </div>
       </v-card>
     </v-dialog>
@@ -148,6 +71,11 @@
       v-model="showPaymentDialog"
       :invoice="currentInvoice"
       @payment-complete="handlePaymentComplete"
+    />
+    <PdfViewerDialog
+      v-model="showPdfViewer"
+      :pdfUrl="currentPdfUrl"
+      @closed="handlePdfViewerClosed"
     />
   </div>
 </template>
@@ -163,6 +91,7 @@ import { logger } from '@/utils/logger'
 import { PriceUtils } from '@/utils/price'
 import { OrderType, PaidStatus } from '@/types/order'
 import PaymentDialog from './PaymentDialog.vue'
+import PdfViewerDialog from '@/components/common/PdfViewerDialog.vue'
 
 const formatApiDate = (date) => {
   const d = new Date(date)
@@ -220,6 +149,9 @@ const dialog = computed({
 const hasItems = computed(() => items.value.length > 0)
 const canPay = computed(() => hasItems.value && !processing.value)
 
+const showPdfViewer = ref(false)
+const currentPdfUrl = ref('')
+
 // Computed properties for invoice details
 const invoiceNumber = computed(() => {
   return currentInvoice.value?.invoice?.invoice_number || 
@@ -227,6 +159,11 @@ const invoiceNumber = computed(() => {
          ''
 })
 const invoiceTotal = computed(() => currentInvoice.value?.total || 0)
+
+const handlePdfViewerClosed = () => {
+  showPdfViewer.value = false
+  currentPdfUrl.value = ''
+}
 
 // Get current user ID
 const getCurrentUserId = computed(() => {
@@ -382,7 +319,10 @@ const createInvoice = async () => {
 }
 
 const processPayment = async () => {
-  if (!canPay.value) return
+  if (!canPay.value) {
+    closeDialog()
+    return
+  }
   
   processing.value = true
   error.value = null
@@ -395,6 +335,7 @@ const processPayment = async () => {
   } catch (err) {
     error.value = err.message || 'Failed to process payment'
     logger.error('Payment processing error:', err)
+    closeDialog()
   } finally {
     processing.value = false
   }
@@ -404,9 +345,72 @@ const handlePaymentComplete = async (result) => {
   logger.info('Payment completion handler called with result:', result)
   
   if (result) {
-    // Close dialog and emit completion event
-    closeDialog()
-    emit('payment-complete', result)
+    try {
+      // Clear the cart FIRST before any other operations
+      try {
+        await cartStore.clearCart()
+        logger.debug('Cart cleared successfully after payment')
+      } catch (clearError) {
+        logger.error('Failed to clear cart after payment:', clearError)
+        throw new Error('Payment succeeded but failed to clear cart')
+      }
+
+      // Get invoice details from multiple possible locations
+      const invoice = result?.invoice?.invoice || 
+                     result?.invoice || 
+                     result?.regularResults?.[0]?.payment?.invoice || 
+                     result
+      
+      // Get hash from nested invoice or directly
+      const invoiceHash = invoice?.unique_hash || 
+                         invoice?.invoice?.unique_hash || 
+                         result?.invoice?.unique_hash
+      
+      if (!invoiceHash) {
+        console.error('📄 [Invoice PDF] Missing invoice hash:', {
+          result,
+          invoice,
+          regularResults: result?.regularResults,
+          payment: result?.regularResults?.[0]?.payment,
+          nestedInvoice: result?.invoice?.invoice
+        })
+        throw new Error('Could not generate invoice PDF: Missing invoice hash')
+      }
+
+      // Validate hash format - allow alphanumeric with dots and dashes
+      if (!/^[a-zA-Z0-9.-]+$/.test(invoice.unique_hash)) {
+        console.error('📄 [Invoice PDF] Invalid hash format:', invoice.unique_hash)
+        throw new Error('Invalid invoice hash format')
+      }
+
+      // Construct PDF URL with hash validation
+      const baseUrl = import.meta.env.VITE_API_URL.replace('/api/v1', '')
+      const invoicePdfUrl = `${baseUrl}/invoices/pdf/${invoice.unique_hash}`
+
+      console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', {
+        url: invoicePdfUrl,
+        hash: invoice.unique_hash,
+        baseUrl,
+        invoice,
+        payment: result?.regularResults?.[0]?.payment
+      })
+      
+      // Validate hash format - allow alphanumeric with dots and dashes
+      if (!/^[a-zA-Z0-9.-]+$/.test(invoice.unique_hash)) {
+        console.error('📄 [Invoice PDF] Invalid hash format:', invoice.unique_hash)
+        throw new Error('Invalid invoice hash format')
+      }
+
+      currentPdfUrl.value = invoicePdfUrl
+      showPdfViewer.value = true
+
+      // Close payment dialog and emit completion event
+      closeDialog()
+      emit('payment-complete', result)
+    } catch (error) {
+      console.error('📄 [Invoice PDF] Failed to display invoice:', error)
+      window.toastr?.['error'](error.message || 'Failed to display invoice PDF')
+    }
   }
 }
 
@@ -418,6 +422,8 @@ const closeDialog = () => {
     emit('update:modelValue', false)
   }
 }
+
+
 </script>
 
 <style scoped>

@@ -1,358 +1,392 @@
 <!-- src/views/pos/components/dialogs/PaymentDialog.vue -->
 <template>
-  <v-dialog 
-    v-model="dialog" 
-    fullscreen
-    transition="dialog-bottom-transition"
-    :scrim="false"
-    class="payment-dialog"
-  >
-    <v-card class="modal-card">
-      <v-toolbar 
-        color="primary"
-        :elevation="1"
-      >
-        <v-toolbar-title class="text-h6 font-weight-medium">
-          <v-icon icon="mdi-cash-register" size="large" class="mr-2"></v-icon>
-          Process Payment
-        </v-toolbar-title>
-        <v-spacer></v-spacer>
-        <v-btn
-          icon
-          @click="closeDialog"
+  <div class="payment-dialog-wrapper">
+    <v-dialog 
+      v-model="dialog" 
+      fullscreen
+      transition="dialog-bottom-transition"
+      :scrim="false"
+      class="payment-dialog"
+    >
+      <v-card class="modal-card">
+        <v-toolbar 
+          color="primary"
+          :elevation="1"
+          class="payment-toolbar"
         >
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
-      </v-toolbar>
+          <v-toolbar-title class="text-h6 font-weight-medium text-on-primary">
+            <v-icon icon="mdi-cash-register" size="large" class="mr-2" color="on-primary"></v-icon>
+            Process Payment
+          </v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-btn
+            icon
+            @click="closeDialog"
+            color="on-primary"
+          >
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-toolbar>
 
-      <div class="payment-content">
-        <!-- Loading State -->
-        <div v-if="loading" class="loading-state">
-          <v-progress-circular
-            indeterminate
-            color="primary"
-            size="64"
-          ></v-progress-circular>
-          <div class="text-h6 mt-4">Loading Payment Methods...</div>
-        </div>
+        <div class="payment-content">
+          <!-- Loading State -->
+          <div v-if="loading" class="loading-state">
+            <v-progress-circular
+              indeterminate
+              color="primary"
+              size="64"
+            ></v-progress-circular>
+            <div class="text-h6 mt-4">Loading Payment Methods...</div>
+          </div>
 
-        <template v-else>
-          <v-container class="payment-container">
-            <v-row>
-              <v-col cols="12" md="4">
-                <!-- Invoice Summary Card -->
-                <v-card
-                  variant="elevated"
-                  class="invoice-summary-card mb-4"
-                  elevation="2"
-                >
-                  <v-card-item>
-                    <template v-slot:prepend>
-                      <v-icon
-                        icon="mdi-receipt"
-                        size="large"
-                        color="primary"
-                        class="mr-4"
-                      ></v-icon>
-                    </template>
-                    <v-card-title class="text-h6 pb-2">
-                      Invoice Summary
-                    </v-card-title>
-                  </v-card-item>
-                  <v-divider></v-divider>
-                  <v-card-text class="py-4">
-                    <div class="d-flex justify-space-between mb-2">
-                      <span>Invoice Number:</span>
-                      <strong>{{ invoiceNumber }}</strong>
-                    </div>
-                    <div class="d-flex justify-space-between mb-2">
-                      <span>Subtotal:</span>
-                      <strong>{{ formatCurrency(invoiceTotal) }}</strong>
-                    </div>
-                    <div class="d-flex justify-space-between mb-2" v-if="tipAmount > 0">
-                      <span>Tip:</span>
-                      <strong>{{ formatCurrency(tipAmount) }}</strong>
-                    </div>
-                    <div class="d-flex justify-space-between mb-2">
-                      <span>Total Amount:</span>
-                      <strong>{{ formatCurrency(invoiceTotal + tipAmount) }}</strong>
-                    </div>
-                    <div class="d-flex justify-space-between">
-                      <span>Remaining:</span>
-                      <strong>{{ formatCurrency(remainingAmount) }}</strong>
-                    </div>
-                  </v-card-text>
-                </v-card>
+          <template v-else>
+            <v-container class="payment-container">
+              <v-row>
+                <v-col cols="12" md="4">
+                  <!-- Invoice Summary Card -->
+                  <v-card
+                    variant="elevated"
+                    class="invoice-summary-card mb-4"
+                    elevation="2"
+                  >
+                    <v-card-item>
+                      <template v-slot:prepend>
+                        <v-icon
+                          icon="mdi-receipt"
+                          size="large"
+                          color="primary"
+                          class="mr-4"
+                        ></v-icon>
+                      </template>
+                      <v-card-title class="text-h6 pb-2">
+                        Invoice Summary
+                      </v-card-title>
+                    </v-card-item>
+                    <v-divider></v-divider>
+                    <v-card-text class="py-4">
+                      <div class="d-flex justify-space-between mb-2">
+                        <span>Invoice Number:</span>
+                        <strong>{{ invoiceNumber }}</strong>
+                      </div>
+                      <div class="d-flex justify-space-between mb-2">
+                        <span>Subtotal:</span>
+                        <strong>{{ formatCurrency(invoiceTotal) }}</strong>
+                      </div>
+                      <div class="d-flex justify-space-between mb-2" v-if="tipAmount > 0">
+                        <span>Tip:</span>
+                        <strong>{{ formatCurrency(tipAmount) }}</strong>
+                      </div>
+                      <div class="d-flex justify-space-between mb-2">
+                        <span>Total Amount:</span>
+                        <strong>{{ formatCurrency(invoiceTotal + tipAmount) }}</strong>
+                      </div>
+                    </v-card-text>
+                  </v-card>
 
-                <!-- Tip Button -->
-                <v-btn
-                  block
-                  color="primary"
-                  variant="outlined"
-                  @click="showTipDialog = true"
-                  class="mb-4 tip-button"
-                  height="48"
-                >
-                  {{ tipAmount > 0 ? `Update Tip (${formatCurrency(tipAmount)})` : 'Add Tip' }}
-                </v-btn>
-              </v-col>
+                  <!-- Tip Button -->
+                  <v-btn
+                    block
+                    color="primary"
+                    variant="outlined"
+                    @click="showTipDialog = true"
+                    class="mb-4 tip-button"
+                    height="48"
+                  >
+                    {{ tipAmount > 0 ? `Update Tip (${formatCurrency(tipAmount)})` : 'Add Tip' }}
+                  </v-btn>
+                </v-col>
 
-              <v-col cols="12" md="8">
-                <!-- Payment Methods Selection -->
-                <div class="text-subtitle-1 mb-3 font-weight-medium">Select Payment Method</div>
-                <v-row class="payment-methods-grid">
-                  <v-col v-for="method in paymentMethods" 
-                         :key="method.id" 
-                         cols="6" 
-                         sm="4">
-                    <v-btn
-                      block
-                      :color="isMethodSelected(method.id) ? 'primary' : undefined"
-                      :variant="isMethodSelected(method.id) ? 'flat' : 'outlined'"
-                      class="payment-method-btn"
-                      height="64"
-                      @click="selectPaymentMethod(method.id)"
-                      :disabled="isMethodDisabled(method.id)"
-                    >
-                      <v-icon :icon="getPaymentMethodIcon(method.name)" class="mr-2"></v-icon>
-                      {{ method.name }}
-                    </v-btn>
-                  </v-col>
-                </v-row>
-
-                <!-- Active Payment Methods -->
-                <div v-if="payments.length > 0" class="active-payments-section">
-                  <div v-for="(payment, index) in payments" :key="index" class="payment-section">
-                    <v-card variant="outlined" class="pa-4">
-                      <div class="d-flex align-center mb-4">
-                        <v-icon :icon="getPaymentMethodIcon(getPaymentMethod(payment.method_id)?.name)" class="mr-2"></v-icon>
-                        <span class="text-h6">{{ getPaymentMethod(payment.method_id)?.name }}</span>
-                        <v-spacer></v-spacer>
+                <v-col cols="12" md="8">
+                  <!-- Payment Methods Selection -->
+                  <div class="text-subtitle-1 mb-3 font-weight-medium">Select Payment Method</div>
+                  <template v-if="paymentMethods.length > 0">
+                    <v-row class="payment-methods-grid">
+                      <v-col v-for="method in paymentMethods" 
+                             :key="method.id" 
+                             cols="6" 
+                             sm="4">
                         <v-btn
-                          icon="mdi-close"
-                          variant="text"
-                          density="comfortable"
-                          @click="removePayment(index)"
-                        ></v-btn>
-                      </div>
+                          block
+                          :color="isMethodSelected(method.id) ? 'primary' : undefined"
+                          :variant="isMethodSelected(method.id) ? 'flat' : 'outlined'"
+                          class="payment-method-btn"
+                          height="64"
+                          @click="selectPaymentMethod(method.id)"
+                          :disabled="isMethodDisabled(method.id)"
+                        >
+                          <v-icon :icon="getPaymentMethodIcon(method.name)" class="mr-2"></v-icon>
+                          {{ method.name }}
+                        </v-btn>
+                      </v-col>
+                    </v-row>
+                  </template>
+                  <template v-else>
+                    <v-alert
+                      type="warning"
+                      variant="tonal"
+                      class="mb-4"
+                    >
+                      No payment methods available. Please configure payment methods in settings.
+                    </v-alert>
+                  </template>
 
-                      <!-- Amount Display -->
-                      <div class="amount-display">
-                        <div class="amount-display__label">Amount</div>
-                        <div class="amount-display__value-container"
-                             :class="{ 'is-error': !isValidAmount(payment) }">
-                          <div class="amount-display__amount">
-                            <span class="amount-display__currency">$</span>{{ PriceUtils.toDollars(payment.amount).toFixed(2) }}
-                          </div>
-                        </div>
-                        <transition name="fade">
-                          <div v-if="!isValidAmount(payment)" class="amount-display__error">
-                            <v-icon icon="mdi-alert-circle" size="small" color="error" class="mr-1" />
-                            Full payment amount is required
-                          </div>
-                        </transition>
-                      </div>
-
-                      <!-- Cash Payment Fields -->
-                      <template v-if="isCashOnly(payment.method_id)">
-                        <!-- Denominations Grid -->
-                        <div v-if="getDenominations(payment.method_id)?.length" class="mb-4">
-                          <div class="text-subtitle-2 mb-2">Quick Amount Selection</div>
-                          <v-row>
-                            <v-col v-for="money in getDenominations(payment.method_id)" 
-                                  :key="money.id" 
-                                  cols="4" 
-                                  class="pa-1">
-                              <v-btn block
-                                    variant="outlined"
-                                    class="denomination-btn"
-                                    size="small"
-                                    @click="handleDenominationClick(money, index)">
-                                {{ formatCurrency(PriceUtils.toCents(money.amount)) }}
-                              </v-btn>
-                            </v-col>
-                          </v-row>
+                  <!-- Active Payment Methods -->
+                  <div v-if="payments.length > 0" class="active-payments-section">
+                    <div v-for="(payment, index) in payments" :key="index" class="payment-section">
+                      <v-card variant="outlined" class="pa-4">
+                        <div class="d-flex align-center mb-4">
+                          <v-icon :icon="getPaymentMethodIcon(getPaymentMethod(payment.method_id)?.name)" class="mr-2"></v-icon>
+                          <span class="text-h6">{{ getPaymentMethod(payment.method_id)?.name }}</span>
+                          <v-spacer></v-spacer>
+                          <v-btn
+                            icon="mdi-close"
+                            variant="text"
+                            density="comfortable"
+                            @click="removePayment(index)"
+                          ></v-btn>
                         </div>
 
-                        <!-- Received Amount -->
+                        <!-- Amount Display -->
                         <div class="amount-display">
-                          <div class="amount-display__label">Amount Received</div>
+                          <div class="amount-display__label">Amount</div>
                           <div class="amount-display__value-container"
-                               :class="{ 'is-error': !isValidReceivedAmount(payment) }">
+                               :class="{ 'is-error': !isValidAmount(payment) }">
                             <div class="amount-display__amount">
-                              <span class="amount-display__currency">$</span>
-                              <input
-                                v-model="payment.displayReceived"
-                                type="number"
-                                class="amount-display__input"
-                                step="0.01"
-                                min="0"
-                                @input="calculateChange(index)"
-                              />
+                              <span class="amount-display__currency">$</span>{{ PriceUtils.toDollars(payment.amount).toFixed(2) }}
                             </div>
                           </div>
                           <transition name="fade">
-                            <div v-if="!isValidReceivedAmount(payment)" class="amount-display__error">
+                            <div v-if="!isValidAmount(payment)" class="amount-display__error">
                               <v-icon icon="mdi-alert-circle" size="small" color="error" class="mr-1" />
-                              Received amount must be greater than or equal to payment amount
+                              Full payment amount is required
                             </div>
                           </transition>
                         </div>
 
-                      </template>
+                        <!-- Cash Payment Fields -->
+                        <template v-if="isCashOnly(payment.method_id)">
+                          <!-- Denominations Grid -->
+                          <div v-if="getDenominations(payment.method_id)?.length" class="mb-4">
+                            <div class="text-subtitle-2 mb-2">Quick Amount Selection</div>
+                            <v-row>
+                              <v-col v-for="money in getDenominations(payment.method_id)" 
+                                    :key="money.id" 
+                                    cols="4" 
+                                    class="pa-1">
+                                <v-btn block
+                                      variant="outlined"
+                                      class="denomination-btn"
+                                      size="small"
+                                      @click="handleDenominationClick(money, index)">
+                                  {{ formatCurrency(PriceUtils.toCents(money.amount)) }}
+                                </v-btn>
+                              </v-col>
+                            </v-row>
+                          </div>
 
-                      <!-- Payment Fees -->
-                      <div v-if="hasPaymentFees(payment.method_id)" class="text-caption mb-2">
-                        <div class="d-flex justify-space-between">
-                          <span>Service Fee:</span>
+                          <!-- Received Amount -->
+                          <div class="amount-display">
+                            <div class="amount-display__label">Amount Received</div>
+                            <div class="amount-display__value-container"
+                                 :class="{ 'is-error': !isValidReceivedAmount(payment) }">
+                              <div class="amount-display__amount">
+                                <span class="amount-display__currency">$</span>
+                                <input
+                                  v-model="payment.displayReceived"
+                                  type="number"
+                                  class="amount-display__input"
+                                  step="0.01"
+                                  min="0"
+                                  @input="calculateChange(index)"
+                                />
+                              </div>
+                            </div>
+                            <transition name="fade">
+                              <div v-if="!isValidReceivedAmount(payment)" class="amount-display__error">
+                                <v-icon icon="mdi-alert-circle" size="small" color="error" class="mr-1" />
+                                Received amount must be greater than or equal to payment amount
+                              </div>
+                            </transition>
+                          </div>
+                        </template>
+
+                        <!-- Payment Fees -->
+                        <div v-if="hasPaymentFees(payment.method_id)" class="text-caption mb-2">
+                          <div class="d-flex justify-space-between">
+                            <span>Service Fee:</span>
+                            <strong>{{ formatCurrency(payment.fees) }}</strong>
+                          </div>
+                          <div class="text-grey">
+                            {{ getFeeDescription(payment.method_id, payment.amount) }}
+                          </div>
+                        </div>
+
+                        <!-- Payment Amount Display -->
+                        <div class="d-flex justify-space-between mb-2">
+                          <span>Payment Amount:</span>
+                          <strong>${{ PriceUtils.toDollars(payment.amount).toFixed(2) }}</strong>
+                        </div>
+                        <div v-if="payment.displayReceived" class="d-flex justify-space-between mb-2">
+                          <span>Amount Received:</span>
+                          <strong>${{ Number(payment.displayReceived).toFixed(2) }}</strong>
+                        </div>
+                        <div v-if="payment.returned > 0" class="d-flex justify-space-between mb-2">
+                          <span>Change:</span>
+                          <strong>${{ PriceUtils.toDollars(payment.returned).toFixed(2) }}</strong>
+                        </div>
+                        <div v-if="payment.fees" class="d-flex justify-space-between">
+                          <span>Fees:</span>
                           <strong>{{ formatCurrency(payment.fees) }}</strong>
                         </div>
-                        <div class="text-grey">
-                          {{ getFeeDescription(payment.method_id, payment.amount) }}
-                        </div>
-                      </div>
 
-                      <!-- Payment Amount Display -->
-                      <div class="d-flex justify-space-between mb-2">
-                        <span>Payment Amount:</span>
-                        <strong>${{ PriceUtils.toDollars(payment.amount).toFixed(2) }}</strong>
-                      </div>
-                      <div v-if="payment.displayReceived" class="d-flex justify-space-between mb-2">
-                        <span>Amount Received:</span>
-                        <strong>${{ Number(payment.displayReceived).toFixed(2) }}</strong>
-                      </div>
-                      <div v-if="payment.returned > 0" class="d-flex justify-space-between mb-2">
-                        <span>Change:</span>
-                        <strong>${{ PriceUtils.toDollars(payment.returned).toFixed(2) }}</strong>
-                      </div>
-                      <div v-if="payment.fees" class="d-flex justify-space-between">
-                        <span>Fees:</span>
-                        <strong>{{ formatCurrency(payment.fees) }}</strong>
-                      </div>
+                        <v-divider v-if="index < payments.length - 1" class="my-4"></v-divider>
+                      </v-card>
+                    </div>
 
-                      <v-divider v-if="index < payments.length - 1" class="my-4"></v-divider>
-                    </v-card>
+                    <!-- Add Payment Method Button -->
+                    <v-btn
+                      v-if="canAddMorePayments"
+                      block
+                      color="primary"
+                      variant="outlined"
+                      @click="addPayment"
+                      class="mt-4"
+                      height="48"
+                    >
+                      <v-icon start>mdi-plus</v-icon>
+                      Add Another Payment Method
+                    </v-btn>
                   </div>
+                </v-col>
+              </v-row>
 
-                  <!-- Add Payment Method Button -->
-                  <v-btn
-                    v-if="canAddMorePayments"
-                    block
-                    color="primary"
-                    variant="outlined"
-                    @click="addPayment"
-                    class="mt-4"
-                    height="48"
-                  >
-                    <v-icon start>mdi-plus</v-icon>
-                    Add Another Payment Method
-                  </v-btn>
-                </div>
-              </v-col>
-            </v-row>
-
-            <!-- Error Message -->
-            <v-alert
-              v-if="error"
-              type="error"
-              variant="tonal"
-              closable
-              class="error-alert"
-              @click:close="error = null"
-            >
-              {{ error }}
-            </v-alert>
-
-            <!-- Process Payment Button -->
-            <div class="process-payment-footer">
-              <v-btn
-                color="primary"
-                size="large"
-                block
-                height="56"
-                @click="processPayment"
-                :loading="processing"
-                :disabled="!isValid || processing"
-                class="process-payment-btn"
+              <!-- Error Message -->
+              <v-alert
+                v-if="error"
+                type="error"
+                variant="tonal"
+                closable
+                class="error-alert"
+                @click:close="error = null"
               >
-                <v-icon start>mdi-cash-register</v-icon>
-                Process Payment
+                {{ error }}
+              </v-alert>
+
+              <!-- Process Payment Button -->
+              <div class="process-payment-footer">
+                <v-btn
+                  color="primary"
+                  size="large"
+                  block
+                  height="56"
+                  @click="processPayment"
+                  :loading="processing"
+                  :disabled="!isValid || processing"
+                  class="process-payment-btn"
+                >
+                  <v-icon start>mdi-cash-register</v-icon>
+                  Process Payment
+                </v-btn>
+              </div>
+            </v-container>
+          </template>
+        </div>
+      </v-card>
+    </v-dialog>
+
+    <!-- Tip Dialog -->
+    <v-dialog v-model="showTipDialog" max-width="400px">
+      <v-card>
+        <v-card-title class="text-h6">
+          Select Tip Amount
+        </v-card-title>
+        <v-card-text>
+          <p class="text-subtitle-2 mb-4">Choose a tip percentage or enter a custom amount.</p>
+          
+          <!-- Preset Tip Percentages -->
+          <v-row class="mb-4">
+            <v-col v-for="percent in tipPercentages" :key="percent" cols="3">
+              <v-btn
+                block
+                :variant="selectedTipPercent === percent ? 'flat' : 'outlined'"
+                :color="selectedTipPercent === percent ? 'primary' : undefined"
+                @click="selectTipPercent(percent)"
+              >
+                {{ percent }}%
               </v-btn>
-            </div>
-          </v-container>
-        </template>
-      </div>
-    </v-card>
-  </v-dialog>
+            </v-col>
+          </v-row>
 
-  <!-- Tip Dialog -->
-  <v-dialog v-model="showTipDialog" max-width="400px">
-    <v-card>
-      <v-card-title class="text-h6">
-        Select Tip Amount
-      </v-card-title>
-      <v-card-text>
-        <p class="text-subtitle-2 mb-4">Choose a tip percentage or enter a custom amount.</p>
-        
-        <!-- Preset Tip Percentages -->
-        <v-row class="mb-4">
-          <v-col v-for="percent in tipPercentages" :key="percent" cols="3">
-            <v-btn
-              block
-              :variant="selectedTipPercent === percent ? 'flat' : 'outlined'"
-              :color="selectedTipPercent === percent ? 'primary' : undefined"
-              @click="selectTipPercent(percent)"
-            >
-              {{ percent }}%
-            </v-btn>
-          </v-col>
-        </v-row>
+          <!-- Custom Tip Input -->
+          <v-row>
+            <v-col cols="12">
+              <v-text-field
+                v-model="customTipPercent"
+                label="Custom %"
+                type="number"
+                min="0"
+                max="100"
+                append-inner-text="%"
+                @input="handleCustomTipInput"
+              ></v-text-field>
+            </v-col>
+          </v-row>
 
-        <!-- Custom Tip Input -->
-        <v-row>
-          <v-col cols="12">
-            <v-text-field
-              v-model="customTipPercent"
-              label="Custom %"
-              type="number"
-              min="0"
-              max="100"
-              append-inner-text="%"
-              @input="handleCustomTipInput"
-            ></v-text-field>
-          </v-col>
-        </v-row>
+          <!-- Tip Amount Display -->
+          <v-row v-if="calculatedTip > 0">
+            <v-col cols="12">
+              <div class="d-flex justify-space-between">
+                <span>Tip Amount:</span>
+                <strong>{{ formatCurrency(calculatedTip) }}</strong>
+              </div>
+            </v-col>
+          </v-row>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="grey" variant="text" @click="cancelTip">
+            Cancel
+          </v-btn>
+          <v-btn color="primary" @click="confirmTip">
+            Confirm Tip
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
-        <!-- Tip Amount Display -->
-        <v-row v-if="calculatedTip > 0">
-          <v-col cols="12">
-            <div class="d-flex justify-space-between">
-              <span>Tip Amount:</span>
-              <strong>{{ formatCurrency(calculatedTip) }}</strong>
-            </div>
-          </v-col>
-        </v-row>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn color="grey" variant="text" @click="cancelTip">
-          Cancel
-        </v-btn>
-        <v-btn color="primary" @click="confirmTip">
-          Confirm Tip
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+    <!-- Add PDF Viewer Dialog -->
+    <PdfViewerDialog
+      v-model="showPdfViewer"
+      :pdf-url="currentPdfUrl"
+      title="Invoice"
+      @closed="handlePdfViewerClosed"
+    />
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { usePayment } from '../../composables/usePayment'
+
+// Safe analytics wrapper
+const analytics = {
+  track: (eventName, properties = {}) => {
+    if (window.analytics) {
+      window.analytics.track(eventName, properties)
+    } else {
+      console.log(`[Analytics] ${eventName}:`, properties)
+    }
+  }
+}
+
+// Cache for formatted currency values to improve performance
+const currencyCache = new Map()
 import { useTableManagement } from '../../composables/useTableManagement'
 import { convertHeldOrderToInvoice } from '../held-orders/utils/invoiceConverter'
 import { posApi } from '@/services/api/pos-api'
 import { PriceUtils } from '@/utils/price'
+import PdfViewerDialog from '@/components/common/PdfViewerDialog.vue'
+import { paymentOperations } from '@/services/api/pos-operations/payment'
 
 const emit = defineEmits(['update:modelValue', 'paymentComplete'])
 
@@ -377,6 +411,7 @@ const invoiceTotal = computed(() => {
   return total // Already in cents
 })
 
+const payment = usePayment()
 const {
   loading: paymentLoading,
   error: paymentError,
@@ -389,7 +424,22 @@ const {
   calculateFees,
   getPaymentMethod,
   isCashOnly
-} = usePayment()
+} = payment
+
+// Debug payment methods
+watch(paymentMethods, (newMethods) => {
+  console.log('Payment methods updated:', newMethods)
+}, { immediate: true })
+
+watch(paymentLoading, (loading) => {
+  console.log('Payment loading state:', loading)
+})
+
+watch(paymentError, (error) => {
+  if (error) {
+    console.error('Payment error:', error)
+  }
+})
 
 const {
   loading: tableLoading,
@@ -402,6 +452,13 @@ const error = computed(() => paymentError.value || tableError.value)
 
 const processing = ref(false)
 const payments = ref([])
+const showPdfViewer = ref(false)
+const currentPdfUrl = ref('')
+
+// PDF viewer handlers
+const handlePdfViewerClosed = () => {
+  currentPdfUrl.value = ''
+}
 
 // Tip related state
 const showTipDialog = ref(false)
@@ -433,8 +490,29 @@ const calculatedTip = computed(() => {
 
 // Dialog computed property
 const dialog = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', value)
+  get: () => {
+    console.log('🪟 PaymentDialog - Getting dialog value:', props.modelValue)
+    return props.modelValue
+  },
+  set: (value) => {
+    console.log('🪟 PaymentDialog - Setting dialog value:', value)
+    console.log('🪟 PaymentDialog - Current DOM state:', {
+      dialogElement: document.querySelector('.payment-dialog'),
+      dialogVisible: document.querySelector('.payment-dialog')?.style.display,
+      vDialogElement: document.querySelector('.v-dialog'),
+      vDialogVisible: document.querySelector('.v-dialog')?.style.display
+    })
+    
+    // Add haptic feedback
+    if (value && window.navigator?.vibrate) {
+      window.navigator.vibrate(50)
+    }
+    
+    // Track visibility changes
+    analytics.track(value ? 'PaymentDialogOpened' : 'PaymentDialogClosed')
+    
+    emit('update:modelValue', value)
+  }
 })
 
 const remainingAmount = computed(() => {
@@ -490,13 +568,22 @@ const isValid = computed(() => {
 
 // Methods
 const formatCurrency = (amount) => {
+  // Cache formatted values for better performance
+  const cached = currencyCache.get(amount)
+  if (cached) {
+    return cached
+  }
+
   console.log('PaymentDialog - Formatting currency:', {
     inputAmount: amount,
     isDollarAmount: PriceUtils.isInDollars(amount),
     isCentsAmount: amount > 100,
     formattedResult: PriceUtils.format(amount)
   })
-  return PriceUtils.format(amount) // PriceUtils.format already handles cents to dollars conversion
+  
+  const formatted = PriceUtils.format(amount)
+  currencyCache.set(amount, formatted)
+  return formatted
 }
 
 const hasPaymentFees = (methodId) => {
@@ -564,12 +651,10 @@ const selectPaymentMethod = (methodId) => {
 
 const handleDenominationClick = (money, index) => {
   const payment = payments.value[index]
-  const currentReceived = payment.displayReceived ? Number(payment.displayReceived) : 0
-  const amountToAdd = Number(money.amount)
-  const newTotal = currentReceived + amountToAdd
+  const selectedAmount = Number(money.amount)
   
-  // Update display amount (in dollars)
-  payment.displayReceived = newTotal.toFixed(2)
+  // Replace current amount with selected amount (in dollars)
+  payment.displayReceived = selectedAmount.toFixed(2)
   // Update internal amount (in cents)
   payment.received = PriceUtils.toCents(payment.displayReceived)
   
@@ -689,38 +774,73 @@ const confirmTip = () => {
 }
 
 const processPayment = async () => {
-  console.log('PaymentDialog: Starting payment processing', {
-    isValid: isValid.value,
-    processing: processing.value,
-    invoiceTotal: invoiceTotal.value,
-    tipAmount: tipAmount.value,
-    payments: payments.value
-  })
-
   if (!isValid.value || processing.value) {
-    console.log('PaymentDialog: Cannot process - validation failed or already processing')
     return
   }
 
   processing.value = true
   try {
-    console.log('PaymentDialog: Starting invoice creation with props:', {
-      invoice: props.invoice,
-      hasInvoiceData: !!props.invoice?.invoice,
-      invoiceTotal: invoiceTotal.value,
-      tipAmount: tipAmount.value
+    // Validate terminal payments
+    const terminalPayments = payments.value.filter(p => {
+      const method = getPaymentMethod(p.method_id)
+      return method.add_payment_gateway === 1 && method.account_accepted === 'T'
     })
+
+    for (const payment of terminalPayments) {
+      const method = getPaymentMethod(payment.method_id)
+      if (!method.settings_id) {
+        throw new Error(`Terminal settings not configured for ${method.name}`)
+      }
+
+      // Verify terminal status using the imported paymentOperations
+      const settingsResponse = await paymentOperations.getDefaultTerminalSetting(method.settings_id)
+      if (!settingsResponse.success || !settingsResponse.data?.data) {
+        throw new Error('Failed to get terminal settings')
+      }
+
+      // Access the nested data property
+      const terminalSettings = settingsResponse.data.data
+
+      // Debug logging with correct data access
+      console.log('Terminal settings response:', {
+        settingsResponse,
+        terminalSettings,
+        status: terminalSettings.status,
+        terminal_status: terminalSettings.terminal_status,
+        enabled: terminalSettings.enabled
+      })
+
+      // Check terminal status - handle both numeric and string status values
+      const terminalStatus = terminalSettings.status || terminalSettings.terminal_status
+      if (terminalStatus !== 1 && terminalStatus !== 'Online') {
+        throw new Error(`Terminal ${method.name} is not ready for payments. Current status: ${terminalStatus}`)
+      }
+    }
 
     // Use the prepared invoice data
     const holdInvoice = props.invoice.invoice
     if (!holdInvoice) {
+      console.error('No invoice data provided', {
+        propsInvoice: props.invoice,
+        holdInvoice
+      })
       throw new Error('Invoice data not provided')
+    }
+
+    // Ensure we have the required invoice fields
+    if (!holdInvoice.id || !holdInvoice.total) {
+      console.error('Invalid invoice data', {
+        id: holdInvoice.id,
+        total: holdInvoice.total,
+        invoice: holdInvoice
+      })
+      throw new Error('Invalid invoice data')
     }
     
     // Calculate the total with tip (convert from dollars to cents for API)
     const totalWithTip = invoiceTotal.value + tipAmount.value
 
-    console.log('PaymentDialog: Prepared hold invoice data:', {
+    console.log(' [Payment] Prepared hold invoice data:', {
       id: holdInvoice.id,
       total: totalWithTip,
       originalTotal: holdInvoice.total,
@@ -764,11 +884,16 @@ const processPayment = async () => {
     holdInvoice.due_date = dueDate.toISOString().split('T')[0]
 
     // Create invoice with tip included
+    console.log(' [Payment] Converting held order to invoice...')
     const invoiceResult = await convertHeldOrderToInvoice(holdInvoice)
+    console.log(' [Payment] Invoice creation result:', invoiceResult)
     
     if (!invoiceResult.success) {
+      console.error(' [Payment] Failed to create invoice:', invoiceResult)
       throw new Error('Failed to create invoice')
     }
+
+    console.log('Created invoice:', invoiceResult)
 
     // Add to held orders if in create-invoice-only mode
     if (props.createInvoiceOnly) {
@@ -805,6 +930,7 @@ const processPayment = async () => {
       returned: payment.returned, // Already in cents
       fees: payment.fees || 0
     }))
+    console.log(' [Payment] Formatted payments:', formattedPayments)
 
     // Validate total payment amount matches invoice total (in cents)
     const totalPaymentAmount = formattedPayments.reduce((sum, payment) => sum + payment.amount, 0)
@@ -813,7 +939,87 @@ const processPayment = async () => {
     }
 
     // Create payment using the created invoice
+    console.log(' [Payment] Creating payment...')
     const result = await createPayment(invoiceResult.invoice, formattedPayments)
+    console.log(' [Payment] Payment creation result:', result)
+    
+    // Show invoice PDF in modal
+    const invoiceId = result?.regularResults?.[0]?.payment?.invoice_id || 
+                     result?.invoice_id || 
+                     invoiceResult?.invoice?.id || 
+                     invoiceResult?.id || 
+                     props.invoice?.id;
+    
+    if (invoiceId) {
+      console.log('📄 [Invoice PDF] Starting PDF preparation', {
+        paymentResult: result,
+        invoiceResult: invoiceResult,
+        invoiceId,
+        propsInvoice: props.invoice,
+        regularResults: result?.regularResults
+      });
+
+      // Get invoice details from multiple possible locations
+      const invoice = result?.invoice?.invoice || 
+                     result?.invoice || 
+                     result?.regularResults?.[0]?.payment?.invoice || 
+                     invoiceResult?.invoice || 
+                     result || 
+                     props.invoice;
+
+      // Get hash from nested invoice or directly
+      const invoiceHash = invoice?.unique_hash || 
+                         invoice?.invoice?.unique_hash || 
+                         result?.invoice?.unique_hash
+
+      console.log('📄 [Invoice PDF] Invoice data sources:', {
+        resultInvoice: result?.invoice,
+        paymentInvoice: result?.regularResults?.[0]?.payment?.invoice,
+        invoiceResult: invoiceResult?.invoice,
+        result,
+        propsInvoice: props.invoice
+      });
+      
+      if (!invoiceHash) {
+        console.error('📄 [Invoice PDF] Missing invoice hash:', {
+          result,
+          invoice,
+          invoiceResult,
+          propsInvoice: props.invoice,
+          regularResults: result?.regularResults,
+          nestedInvoice: result?.invoice?.invoice
+        });
+        window.toastr?.['error']('Could not generate invoice PDF: Missing hash');
+        return;
+      }
+
+      // Validate hash format - allow alphanumeric with dots and dashes
+      if (!/^[a-zA-Z0-9.-]+$/.test(invoiceHash)) {
+        console.error('📄 [Invoice PDF] Invalid hash format:', invoiceHash);
+        window.toastr?.['error']('Invalid invoice hash format');
+        return;
+      }
+
+      // Construct PDF URL with hash validation
+      const baseUrl = import.meta.env.VITE_API_URL.replace('/api/v1', '');
+      const invoicePdfUrl = `${baseUrl}/invoices/pdf/${invoiceHash}`;
+
+      console.log('📄 [Invoice PDF] Using invoice details:', {
+        invoiceId: invoice.id,
+        invoiceHash: invoice.unique_hash,
+        baseUrl,
+        constructedUrl: invoicePdfUrl,
+        fullInvoice: invoice
+      });
+
+      // Set PDF viewer state
+      console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', invoicePdfUrl)
+      currentPdfUrl.value = invoicePdfUrl
+      showPdfViewer.value = true
+    } else {
+      console.error('💰 [Payment] Missing invoice ID in payment result:', result)
+      window.toastr?.['error']('Could not get invoice PDF')
+    }
     
     // Release tables if this was a dine-in order
     if (invoiceResult.invoice.type === 'DINE_IN' && invoiceResult.invoice.tables_selected?.length) {
@@ -826,44 +1032,83 @@ const processPayment = async () => {
       }
     }
     
-    // Emit success
-    emit('payment-complete', result)
+    // Emit success with invoice ID and close dialog
+    const completeResult = {
+      ...result,
+      invoiceId: result?.regularResults?.[0]?.payment?.invoice_id || 
+                result?.invoice_id || 
+                invoiceResult?.invoice?.id || 
+                invoiceResult?.id || 
+                props.invoice?.id
+    }
     
-    // Close dialog
+    emit('payment-complete', completeResult)
     dialog.value = false
+    
+    console.log(' [Payment] Payment completed with result:', {
+      success: true,
+      invoiceId: completeResult.invoiceId,
+      paymentResult: result
+    })
   } catch (err) {
-    console.error('Payment failed:', err)
+    console.error(' [Payment] Payment failed:', err)
     window.toastr?.['error'](err.message || 'Failed to process payment')
+    
+    // Track payment failure
+    analytics.track('PaymentFailed', {
+      error: err.message,
+      invoiceId: props.invoice?.id,
+      totalAmount: props.invoice?.total
+    })
   } finally {
     processing.value = false
+    
+    // Track payment completion
+    analytics.track('PaymentCompleted', {
+      success: !error.value,
+      invoiceId: props.invoice?.id,
+      totalAmount: props.invoice?.total
+    })
   }
 }
 
 // Initialize
 watch(() => dialog.value, async (newValue) => {
+  console.log('🪟 PaymentDialog - Watch triggered:', { newValue })
   if (newValue) {
     try {
-      // Get company settings
-      await fetchSettings()
-
-      // Reset payments array
+      console.log('🪟 PaymentDialog - Initializing...')
+      
+      // Reset state
       payments.value = []
       processing.value = false
-      
-      // Reset tip state
       tipAmount.value = 0
       selectedTipPercent.value = null
       customTipPercent.value = ''
       
-      // Fetch payment methods
-      await fetchPaymentMethods()
+      // Fetch required data
+      console.log('Fetching company settings...')
+      await fetchSettings()
+      
+      console.log('Fetching payment methods...')
+      const methods = await fetchPaymentMethods()
+      console.log('Fetched payment methods:', methods)
+      
+      if (!methods || methods.length === 0) {
+        console.warn('No payment methods available')
+        window.toastr?.warning('No payment methods available')
+      }
+      
+      console.log('🪟 PaymentDialog - Initialization complete')
     } catch (error) {
-      console.error('Failed to initialize payment dialog:', error)
-      window.toastr?.['error']('Failed to initialize payment')
+      console.error('🪟 PaymentDialog - Initialization failed:', error)
+      window.toastr?.['error']('Failed to initialize payment: ' + (error.message || 'Unknown error'))
       dialog.value = false
     }
+  } else {
+    console.log('🪟 PaymentDialog - Dialog closed')
   }
-})
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -872,11 +1117,25 @@ watch(() => dialog.value, async (newValue) => {
   flex-direction: column;
   height: 100vh;
   background-color: rgb(var(--v-theme-surface));
+  --v-card-border-radius: 24px;
+  --v-card-elevation: 6;
 }
 
-.v-toolbar {
-  position: relative;
-  z-index: 1;
+.payment-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  backdrop-filter: blur(12px);
+  background-color: rgba(var(--v-theme-primary), 0.95) !important;
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.1);
+  
+  .v-toolbar-title {
+    color: rgb(var(--v-theme-on-primary));
+  }
+  
+  .v-btn {
+    color: rgb(var(--v-theme-on-primary));
+  }
 }
 
 .payment-content {
@@ -885,6 +1144,19 @@ watch(() => dialog.value, async (newValue) => {
   display: flex;
   flex-direction: column;
   background-color: rgb(var(--v-theme-background));
+  padding: 24px;
+}
+
+@media (max-width: 960px) {
+  .payment-content {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .payment-content {
+    padding: 12px;
+  }
 }
 
 .loading-state {
@@ -909,6 +1181,13 @@ watch(() => dialog.value, async (newValue) => {
   position: sticky;
   top: 16px;
   z-index: 1;
+  border: 1px solid rgba(var(--v-border-color), 0.1);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  }
 }
 
 .payment-methods-grid {
@@ -917,19 +1196,36 @@ watch(() => dialog.value, async (newValue) => {
 
 .payment-method-btn {
   height: 64px !important;
-  border-radius: 12px;
+  border-radius: 16px;
   text-transform: none;
   letter-spacing: 0.5px;
   font-size: 1rem;
   font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(var(--v-border-color), 0.1);
   
   &:hover {
     transform: translateY(-2px);
-    transition: transform 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: rgba(var(--v-theme-primary), 0.3);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   }
   
   &.v-btn--disabled {
-    opacity: 0.7;
+    opacity: 0.6;
+    filter: grayscale(0.8);
+  }
+  
+  .v-icon {
+    transition: transform 0.2s ease;
+  }
+  
+  &:hover .v-icon {
+    transform: scale(1.1);
   }
 }
 
@@ -962,19 +1258,41 @@ watch(() => dialog.value, async (newValue) => {
   left: 0;
   right: 0;
   padding: 16px;
-  background: rgb(var(--v-theme-surface));
-  border-top: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  background: rgba(var(--v-theme-surface), 0.9);
+  border-top: 1px solid rgba(var(--v-border-color), 0.1);
   margin: 0 -16px -16px;
+  backdrop-filter: blur(12px);
+  z-index: 2;
 }
 
 .process-payment-btn {
   max-width: 600px;
   margin: 0 auto;
-  border-radius: 12px;
+  border-radius: 16px;
   text-transform: none;
   letter-spacing: 0.5px;
   font-size: 1.1rem;
   font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(var(--v-border-color), 0.1);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  
+  .v-icon {
+    transition: transform 0.2s ease;
+  }
+  
+  &:hover .v-icon {
+    transform: scale(1.1);
+  }
 }
 
 .error-alert {

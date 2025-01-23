@@ -1,90 +1,309 @@
 <template>
-  <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">Kitchen Display System</h1>
-    
-    <v-tabs v-model="activeTab" class="mb-4">
-      <v-tab value="active" class="px-4 py-2">
-        Active Orders
-      </v-tab>
-      <v-tab value="history" class="px-4 py-2">
-        Order History
-      </v-tab>
-    </v-tabs>
+  <div class="kitchen-display">
+    <v-container fluid class="pa-4">
+      <!-- Header -->
+      <div class="d-flex align-center justify-space-between mb-6">
+        <h1 class="text-h4 font-weight-bold">Kitchen Display</h1>
+        <div class="d-flex align-center">
+          <v-switch
+            v-model="autoRefresh"
+            label="Auto-refresh"
+            density="compact"
+            color="primary"
+            class="mr-4"
+          />
+          <v-chip
+            :color="kitchenOrders.length > 0 ? 'warning' : 'success'"
+            size="large"
+            class="orders-count"
+          >
+            {{ kitchenOrders.length }} Active Orders
+          </v-chip>
+        </div>
+      </div>
 
-    <v-window v-model="activeTab">
-      <v-window-item value="active">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <kitchen-order-card
-            v-for="order in activeOrders"
-            :key="order.id"
-            :order="order"
-            @complete="markOrderComplete"
+      <!-- Tabs -->
+      <v-tabs
+        v-model="activeTab"
+        color="primary"
+        class="mb-4"
+        grow
+      >
+        <v-tab value="active" class="text-subtitle-1">
+          <v-icon icon="mdi-clock-outline" class="mr-2" />
+          Active Orders
+          <v-chip
+            size="x-small"
+            color="warning"
+            class="ml-2"
+            v-if="kitchenOrders.length"
+          >
+            {{ kitchenOrders.length }}
+          </v-chip>
+        </v-tab>
+        <v-tab value="history" class="text-subtitle-1">
+          <v-icon icon="mdi-history" class="mr-2" />
+          Order History
+          <v-chip
+            size="x-small"
+            color="success"
+            class="ml-2"
+            v-if="completedOrders.length"
+          >
+            {{ completedOrders.length }}
+          </v-chip>
+        </v-tab>
+      </v-tabs>
+
+      <!-- Tab Content -->
+      <v-window v-model="activeTab" class="flex-grow-1 overflow-y-auto">
+        <!-- Loading State -->
+        <div v-if="loading" class="d-flex justify-center py-8">
+          <v-progress-circular
+            indeterminate
+            color="primary"
+            size="64"
           />
         </div>
-        <div v-if="!activeOrders.length" class="text-center py-8">
-          <p class="text-gray-600">No active orders</p>
-        </div>
-      </v-window-item>
 
-      <v-window-item value="history">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <kitchen-order-card
-            v-for="order in completedOrders"
-            :key="order.id"
-            :order="order"
-          />
-        </div>
-        <div v-if="!completedOrders.length" class="text-center py-8">
-          <p class="text-gray-600">No completed orders</p>
-        </div>
-      </v-window-item>
-    </v-window>
+        <template v-else>
+          <!-- Active Orders Tab -->
+          <v-window-item value="active">
+            <div v-if="kitchenOrders.length === 0" class="text-center py-8">
+              <v-icon
+                icon="mdi-coffee-outline"
+                size="64"
+                color="grey-lighten-1"
+                class="mb-4"
+              />
+              <h3 class="text-h6 text-grey-darken-1">No Active Orders</h3>
+              <p class="text-body-1 text-medium-emphasis">
+                All orders have been completed
+              </p>
+            </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <v-progress-circular indeterminate color="primary" size="64" />
-    </div>
+            <v-row v-else>
+              <v-col
+                v-for="order in kitchenOrders"
+                :key="order.id"
+                cols="12"
+                sm="6"
+                lg="4"
+              >
+                <kitchen-order-card
+                  :order="order"
+                  @complete="handleOrderComplete"
+                />
+              </v-col>
+            </v-row>
+          </v-window-item>
+
+          <!-- Order History Tab -->
+          <v-window-item value="history">
+            <div v-if="completedOrders.length === 0" class="text-center py-8">
+              <v-icon
+                icon="mdi-history"
+                size="64"
+                color="grey-lighten-1"
+                class="mb-4"
+              />
+              <h3 class="text-h6 text-grey-darken-1">No Completed Orders</h3>
+              <p class="text-body-1 text-medium-emphasis">
+                Completed orders will appear here
+              </p>
+            </div>
+
+            <v-row v-else>
+              <v-col
+                v-for="order in completedOrders"
+                :key="order.id"
+                cols="12"
+                sm="6"
+                lg="4"
+              >
+                <kitchen-order-card
+                  :order="order"
+                  :completed="true"
+                />
+              </v-col>
+            </v-row>
+          </v-window-item>
+        </template>
+      </v-window>
+    </v-container>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { KitchenService } from '@/services/api/kitchen-service'
 import KitchenOrderCard from './components/KitchenOrderCard.vue'
-import { useKitchenOrders } from './composables/useKitchenOrders'
 
-const activeTab = ref('active')
-const { activeOrders, completedOrders, loading, markOrderComplete } = useKitchenOrders()
+// Constants
+const KITCHEN_SECTION_ID = 1
+const POLL_INTERVAL = 30000
+
+// Local state
+const loading = ref(false)
+const orders = ref([])
+const activeTab = ref('active') // Default to 'active' tab
+const autoRefresh = ref(true)
+const refreshTimer = ref(null)
+
+// Computed properties
+const kitchenOrders = computed(() => {
+  return orders.value
+    .filter(order => {
+      const hasKitchenItems = order.sections?.some(section => 
+        section.section?.name === 'KITCHEN' ||
+        section.name === 'KITCHEN'
+      )
+      const isProcessing = order.status === 'P'
+      return hasKitchenItems && isProcessing
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.invoice_date || a.created_at || a.date)
+      const dateB = new Date(b.invoice_date || b.created_at || b.date)
+      return dateB - dateA // Sort newest first
+    })
+})
+
+const completedOrders = computed(() => {
+  return orders.value
+    .filter(order => {
+      const isCompleted = order.status === 'C'
+      return isCompleted
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.invoice_date || a.created_at || a.date)
+      const dateB = new Date(b.invoice_date || b.created_at || b.date)
+      return dateB - dateA // Sort newest first
+    })
+})
+
+async function fetchOrders() {
+  loading.value = true
+  try {
+    const fetchedOrders = await KitchenService.fetchOrders(KITCHEN_SECTION_ID)
+    console.log('📦 All fetched orders:', fetchedOrders)
+    
+    // Process and normalize orders
+    orders.value = fetchedOrders.map(order => {
+      console.log(`🔄 Processing order ${order.id}:`, order)
+      return {
+        ...order,
+        status: order.status || (order.type === 'C' ? 'C' : 'P'),
+        // Ensure sections is always an array
+        sections: Array.isArray(order.sections) ? order.sections : []
+      }
+    })
+    
+    console.log('💾 Processed orders:', orders.value)
+    console.log('📊 Orders summary:', {
+      total: orders.value.length,
+      active: kitchenOrders.value.length,
+      completed: completedOrders.value.length
+    })
+    console.log('📊 Updated orders:', {
+      total: orders.value.length,
+      active: kitchenOrders.value.length,
+      completed: completedOrders.value.length
+    })
+  } catch (error) {
+    console.error('❌ Error fetching orders:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function handleOrderComplete(orderId) {
+  console.log('🎯 Completing order:', orderId)
+  try {
+    const order = orders.value.find(o => o.id === orderId)
+    if (!order) {
+      console.error('❌ Order not found:', orderId)
+      return
+    }
+    
+    // Determine the correct API type based on the order type
+    const apiType = order.type === 'Invoice' ? 'INVOICE' : 'HOLD'
+    
+    console.log('📤 Updating order status:', {
+      orderId,
+      type: order.type,
+      apiType,
+      originalOrder: order
+    })
+    
+    await KitchenService.updateOrderStatus([orderId], 'completed', apiType)
+    await fetchOrders()
+  } catch (error) {
+    console.error('❌ Error completing order:', error)
+  }
+}
+
+function startPolling() {
+  console.log('🔄 Starting polling')
+  stopPolling()
+  refreshTimer.value = setInterval(fetchOrders, POLL_INTERVAL)
+}
+
+function stopPolling() {
+  if (refreshTimer.value) {
+    clearInterval(refreshTimer.value)
+    refreshTimer.value = null
+  }
+}
+
+watch(autoRefresh, (enabled) => {
+  enabled ? startPolling() : stopPolling()
+})
+
+onMounted(async () => {
+  console.log('🚀 Component mounted')
+  console.log('Initial activeTab value:', activeTab.value)
+  await fetchOrders()
+  if (autoRefresh.value) startPolling()
+  
+  // Log tab state after mount
+  console.log('Tab state after mount:', {
+    activeTab: activeTab.value,
+    kitchenOrders: kitchenOrders.value.length,
+    completedOrders: completedOrders.value.length
+  })
+})
+
+onUnmounted(() => {
+  stopPolling()
+})
 </script>
 
 <style scoped>
-.container {
-  max-width: 1400px;
+.kitchen-display {
+  height: 100vh;
+  background-color: var(--v-background);
+  display: flex;
+  flex-direction: column;
 }
 
-.grid {
-  display: grid;
-  gap: 1rem;
+.v-container {
+  flex: 1;
+  overflow-y: auto;
+  height: calc(100vh - 64px);
 }
 
-@media (min-width: 768px) {
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+.orders-count {
+  font-weight: 600;
 }
 
 :deep(.v-tab) {
-  text-transform: none !important;
-  font-size: 1rem !important;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-:deep(.v-tab--selected) {
-  background-color: rgb(var(--v-theme-primary)) !important;
-  color: white !important;
+@media (max-width: 600px) {
+  .text-h4 {
+    font-size: 1.5rem !important;
+  }
 }
 </style>

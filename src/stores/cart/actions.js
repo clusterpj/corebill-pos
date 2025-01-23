@@ -1,8 +1,7 @@
 import { logger } from '../../utils/logger'
-import { priceHelpers } from './helpers'
+import { PriceUtils } from '../../utils/price'
 import { posApi } from '../../services/api/pos-api'
 import { useCompanyStore } from '../company'
-import { PriceUtils } from '../../utils/price'
 
 export const actions = {
   addItem(state, product, quantity = 1) {
@@ -14,13 +13,16 @@ export const actions = {
           name: product.name,
           price: product.price,
           fromHeldOrder: product.fromHeldOrder,
-          formatted_price: PriceUtils.format(product.price)
+          formatted_price: PriceUtils.format(product.price),
+          section_id: product.section_id,
+          section_type: product.section_type,
+          section_name: product.section_name
         }, 
         quantity 
       })
       
       // Price from held order is already in cents, otherwise normalize it
-      const price = product.fromHeldOrder ? product.price : priceHelpers.normalizePrice(product.price)
+      const price = product.fromHeldOrder ? product.price : PriceUtils.ensureCents(product.price)
       logger.info('Price validation:', { 
         originalPrice: product.price,
         fromHeldOrder: product.fromHeldOrder,
@@ -55,7 +57,10 @@ export const actions = {
           discount_type: 'fixed',
           discount: 0,
           discount_val: 0,
-          item_id: product.id
+          item_id: product.id,
+          section_id: product.section_id,
+          section_type: product.section_type,
+          section_name: product.section_name
         }
         state.items.push(newItem)
         logger.info('Added new item:', {
@@ -65,7 +70,10 @@ export const actions = {
           formatted_price: PriceUtils.format(newItem.price),
           quantity: newItem.quantity,
           total: newItem.total,
-          formatted_total: PriceUtils.format(newItem.total)
+          formatted_total: PriceUtils.format(newItem.total),
+          section_id: newItem.section_id,
+          section_type: newItem.section_type,
+          section_name: newItem.section_name
         })
       }
     } catch (error) {

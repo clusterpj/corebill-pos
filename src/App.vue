@@ -14,14 +14,37 @@
 <script setup>
 import { onBeforeMount, ref } from 'vue'
 import { useAuthStore } from './stores/auth'
+import { useCompanyStore } from './stores/company'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const authStore = useAuthStore()
+const companyStore = useCompanyStore()
 const isReady = ref(false)
 
 onBeforeMount(async () => {
-  // Attempt to restore session before app mount
-  await authStore.restoreSession()
-  isReady.value = true
+  try {
+    // Attempt to restore auth session
+    const sessionRestored = await authStore.restoreSession()
+    
+    if (sessionRestored) {
+      // Initialize company store if we have a valid session
+      await companyStore.initializeStore()
+      
+      // Only redirect if we're on select-cashier and have a valid configuration
+      // AND we're restoring a session (not a fresh login)
+      const isRestoringSession = localStorage.getItem('token') && localStorage.getItem('selectedCashier')
+      if (router.currentRoute.value.path === '/select-cashier' && 
+          companyStore.isConfigured && 
+          isRestoringSession) {
+        router.push('/pos')
+      }
+    }
+  } catch (error) {
+    console.error('Failed to initialize app:', error)
+  } finally {
+    isReady.value = true
+  }
 })
 </script>
 

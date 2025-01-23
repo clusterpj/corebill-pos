@@ -1,5 +1,6 @@
 import { logger } from '../../utils/logger'
 import { OrderType, PaidStatus } from '../../types/order'
+import { PriceUtils } from '../../utils/price' // Import PriceUtils
 
 const STORAGE_KEY = 'core_pos_hold_invoices'
 
@@ -87,14 +88,14 @@ export const createOrdersModule = (state, posApi, posOperations) => {
       due_date: dueDate.toISOString().split('T')[0],
       items: orderData.items.map(item => ({
         ...item,
-        // Prices are already in dollars, convert to cents for API
-        price: Math.round(parseFloat(item.price) * 100),
-        total: Math.round(parseFloat(item.total) * 100),
+        // Use PriceUtils to handle both dollar and cent amounts
+        price: PriceUtils.ensureCents(item.price),
+        total: PriceUtils.ensureCents(item.total),
         unit_name: item.unit_name || 'N/A',
         discount_type: 'fixed',
         discount: '0.00',
         discount_val: 0,
-        sub_total: Math.round(parseFloat(item.total) * 100)
+        sub_total: PriceUtils.ensureCents(item.total)
       }))
     }
   }

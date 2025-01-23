@@ -5,20 +5,39 @@ import { PriceUtils } from '@/utils/price'
 
 export const priceHelpers = {
   toCents: (amount) => {
-    logger.info('priceHelpers.toCents:', { amount })
-    return PriceUtils.toCents(amount)
+    logger.debug('priceHelpers.toCents input:', { 
+      amount,
+      type: typeof amount,
+      isInteger: Number.isInteger(amount)
+    })
+    const cents = PriceUtils.toCents(amount)
+    logger.debug('priceHelpers.toCents output:', { amount, cents })
+    return cents
   },
   
   toDollars: (amount) => {
-    logger.info('priceHelpers.toDollars:', { amount })
-    return Number(PriceUtils.toDollars(amount))
+    logger.debug('priceHelpers.toDollars input:', { 
+      amount,
+      type: typeof amount,
+      isInteger: Number.isInteger(amount)
+    })
+    const dollars = Number(PriceUtils.toDollars(amount))
+    logger.debug('priceHelpers.toDollars output:', { amount, dollars })
+    return dollars
   },
   
   normalizePrice: (price) => {
-    logger.info('priceHelpers.normalizePrice:', { price })
-    return PriceUtils.isInDollars(price) ? 
-      PriceUtils.normalizePrice(price) : 
+    logger.debug('priceHelpers.normalizePrice input:', { 
+      price,
+      type: typeof price,
+      isInteger: Number.isInteger(price)
+    })
+    // Always ensure we're working with cents
+    const cents = PriceUtils.isInDollars(price) ? 
+      PriceUtils.toCents(price) : 
       price
+    logger.debug('priceHelpers.normalizePrice output:', { price, cents })
+    return cents
   }
 }
 
@@ -26,18 +45,26 @@ export const prepareItemsForApi = (items) => {
   const companyStore = useCompanyStore()
   
   return items.map(item => {
-    // Ensure price is in cents
-    const itemPrice = priceHelpers.normalizePrice(item.price)
+    // Handle price conversion
+    let itemPrice = item.price
+    if (PriceUtils.isInDollars(item.price)) {
+      itemPrice = PriceUtils.toCents(item.price)
+    } else if (item.fromHeldOrder && Number.isInteger(item.price) && item.price > 0 && item.price < 10000) {
+      // For held orders with small integer prices, treat as dollars
+      itemPrice = PriceUtils.toCents(item.price)
+    }
+      
     const itemQuantity = parseInt(item.quantity)
     const itemTotal = itemPrice * itemQuantity
     
-    logger.info('Preparing item for API:', {
+    logger.debug('Preparing item for API:', {
       id: item.id,
       name: item.name,
       originalPrice: item.price,
-      normalizedPrice: itemPrice,
+      priceInCents: itemPrice,
       quantity: itemQuantity,
-      total: itemTotal
+      totalInCents: itemTotal,
+      isDollarPrice: PriceUtils.isInDollars(item.price)
     })
     
     return {
@@ -63,8 +90,27 @@ export const prepareItemsForApi = (items) => {
 
 export const parseOrderNotes = (notes) => {
   try {
+    if (!notes) return ''
+    
     const notesObj = JSON.parse(notes)
-    return notesObj.customerNotes || ''
+    
+    // Handle new format
+    if (notesObj.customerNotes) {
+      return notesObj.customerNotes
+    }
+    
+    // Handle old format
+    if (notesObj.orderInfo?.customer?.notes) {
+      return notesObj.orderInfo.customer.notes
+    }
+    
+    // Handle old format with instructions
+    if (notesObj.orderInfo?.customer?.instructions) {
+      return notesObj.orderInfo.customer.instructions
+    }
+    
+    // If notes is a plain string, return it as is
+    return typeof notesObj === 'string' ? notesObj : ''
   } catch (e) {
     // If notes is a plain string, return it as is
     return typeof notes === 'string' ? notes : ''

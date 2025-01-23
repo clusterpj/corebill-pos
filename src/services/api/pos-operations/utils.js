@@ -1,6 +1,6 @@
 import { logger } from '../../../utils/logger'
 import { v4 as uuidv4 } from 'uuid'
-import { PaidStatus, OrderType } from '../../../types/order'
+import { PaidStatus, OrderType } from '@/types/enums'
 
 /**
  * Validates a hold order structure and its data

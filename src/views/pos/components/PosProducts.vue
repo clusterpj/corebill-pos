@@ -30,11 +30,12 @@
                 variant="outlined"
                 color="primary"
                 size="small"
-                class="grid-settings-btn"
+                class="grid-settings-btn me-2"
                 @click="showGridSettings = true"
               >
                 Grid Settings
               </v-btn>
+              
 
               <v-dialog
                 v-model="showGridSettings"
@@ -77,8 +78,23 @@
 
       <v-container fluid class="products-content pa-0" style="max-width: none;">
         <div class="products-scroll-container">
+          <!-- Preloading State -->
+          <div v-if="isPreloading" class="products-preloading-state">
+            <v-progress-linear
+              v-model="preloadProgress"
+              color="primary"
+              height="25"
+              striped
+              rounded
+            >
+              <template v-slot:default="{ value }">
+                <strong>Preloading products... {{ Math.ceil(value) }}%</strong>
+              </template>
+            </v-progress-linear>
+          </div>
+
           <!-- Loading State -->
-          <div v-if="posStore.loading.products" class="products-loading-state">
+          <div v-if="posStore.loading.products && !isPreloading" class="products-loading-state">
             <v-progress-circular
               indeterminate
               color="primary"
@@ -86,14 +102,23 @@
             />
           </div>
 
-          <!-- Products Grid -->
-          <product-grid
-            v-else-if="posStore.products.length > 0"
-            :products="posStore.products"
-            :grid-settings="gridSettings"
-            @select="quickAdd"
-            class="products-grid"
-          />
+          <!-- Products Grid with Pagination -->
+          <div v-else-if="posStore.products.length > 0" class="products-grid-container">
+            <product-grid
+              :products="uniqueProducts"
+              :grid-settings="gridSettings"
+              @select="quickAdd"
+              class="products-grid"
+            />
+            
+            <v-pagination
+              v-model="currentPage"
+              :length="totalPages"
+              :total-visible="7"
+              class="mt-4"
+              @update:model-value="handlePageChange"
+            />
+          </div>
 
           <!-- Empty State -->
           <v-alert
@@ -114,11 +139,60 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
+import { uniqBy } from 'lodash'
 const showGridSettings = ref(false)
+const clearingCache = ref(false)
+const isPreloading = ref(false)
+const preloadProgress = ref(0)
+
+const clearCache = async () => {
+  clearingCache.value = true
+  isPreloading.value = true
+  preloadProgress.value = 0
+  
+  try {
+    // Create a progress callback
+    const onProgress = (progress) => {
+      preloadProgress.value = progress
+      logger.debug(`Cache clear progress: ${progress}%`)
+    }
+    
+    logger.info('Starting cache clear and preload process...')
+    const success = await posStore.clearCache(onProgress)
+    
+    if (success) {
+      logger.info('Cache clear and preload completed successfully')
+      window.toastr?.success('Product cache cleared and preloaded successfully')
+      
+      // Reset pagination and force refresh
+      currentPage.value = 1
+      await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
+      
+      // Show final confirmation
+      window.toastr?.info('Products have been refreshed with latest data')
+    } else {
+      logger.warn('Cache clear returned false')
+      window.toastr?.warning('Cache clear completed but may not have fully succeeded')
+    }
+  } catch (error) {
+    logger.error('Failed to clear and preload cache', {
+      error: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    })
+    window.toastr?.error(`Failed to clear and preload cache: ${error.message}`)
+  } finally {
+    clearingCache.value = false
+    isPreloading.value = false
+    preloadProgress.value = 0
+    logger.info('Cache clear process completed')
+  }
+}
 import { usePosStore } from '../../../stores/pos-store'
 import { useCartStore } from '../../../stores/cart-store'
 import { logger } from '../../../utils/logger'
+import { apiClient } from '../../../services/api/client'
 
 import ProductSearch from './products/ProductSearch.vue'
 import CategoryTabs from './products/CategoryTabs.vue'
@@ -127,6 +201,11 @@ import GridSettings from './products/GridSettings.vue'
 
 const posStore = usePosStore()
 const cartStore = useCartStore()
+
+// Ensure unique products by ID
+const uniqueProducts = computed(() => {
+  return uniqBy(posStore.products, 'id')
+})
 
 // Grid Settings with localStorage persistence
 const gridSettings = ref(
@@ -159,13 +238,66 @@ onMounted(async () => {
   }
 })
 
+// Pagination state
+const currentPage = ref(1)
+const itemsPerPage = ref(50)
+const totalPages = computed(() => Math.ceil(posStore.totalItems / itemsPerPage.value))
+
 const handleSearch = async (query) => {
   logger.startGroup('POS Products: Search')
   try {
+    // Always search database first for fresh results
+    logger.debug('Initiating database search', { query })
     posStore.searchQuery = query
-    await posStore.fetchProducts()
+    currentPage.value = 1
+    
+    // Force fresh fetch from database
+    await posStore.fetchProducts(currentPage.value, itemsPerPage.value, true)
+    
+    // Then check local cache for additional matches
+    const cachedResults = posStore.products.filter(p => 
+      p.name.toLowerCase().includes(query.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(query.toLowerCase())
+    )
+    
+    if (cachedResults.length > 0) {
+      logger.debug('Found additional cached results', {
+        query,
+        count: cachedResults.length
+      })
+      // Use the store's available method to update products
+      posStore.products = [...posStore.products, ...cachedResults]
+    }
   } catch (err) {
     logger.error('Search failed', err)
+    // Fallback to cached results if database search fails
+    const cachedResults = posStore.products.filter(p => 
+      p.name.toLowerCase().includes(query.toLowerCase()) ||
+      p.sku?.toLowerCase().includes(query.toLowerCase())
+    )
+    
+    if (cachedResults.length > 0) {
+      logger.debug('Using cached results as fallback', {
+        query,
+        count: cachedResults.length
+      })
+      // Use the store's products array directly
+      posStore.products = cachedResults
+    } else {
+      // Clear products by setting empty array
+      posStore.products = []
+    }
+  } finally {
+    logger.endGroup()
+  }
+}
+
+const handlePageChange = async (page) => {
+  logger.startGroup('POS Products: Page Change')
+  try {
+    await posStore.fetchProducts(page, itemsPerPage.value)
+  } catch (err) {
+    logger.error('Page change failed', err)
   } finally {
     logger.endGroup()
   }
@@ -174,7 +306,9 @@ const handleSearch = async (query) => {
 const handleCategoryChange = async (categoryId) => {
   logger.startGroup('POS Products: Category Change')
   try {
+    currentPage.value = 1
     await posStore.setCategory(categoryId)
+    await posStore.fetchProducts(currentPage.value, itemsPerPage.value)
   } catch (err) {
     logger.error('Category change failed', err)
   } finally {
@@ -185,47 +319,137 @@ const handleCategoryChange = async (categoryId) => {
 const quickAdd = (product) => {
   if (product.stock <= 0) return
   
-  logger.info('Quick adding product', { product })
-  cartStore.addItem(product, 1)
+  // Log the full product object for debugging
+  logger.debug('[PosProducts] Product selected:', {
+    id: product.id,
+    name: product.name,
+    price: product.price,
+    section: {
+      id: product.section_id,
+      type: product.section_type,
+      name: product.section_name
+    },
+    rawProduct: product // Log the raw product for debugging
+  })
+  
+  // Create a new product object with all necessary fields
+  const fullProduct = {
+    ...product,
+    section_id: product.section_id,
+    section_type: product.section_type || 'other',
+    section_name: product.section_name || 'Default'
+  }
+  
+  logger.info('[PosProducts] Adding product to cart:', { 
+    id: fullProduct.id,
+    name: fullProduct.name,
+    price: fullProduct.price,
+    section: {
+      id: fullProduct.section_id,
+      type: fullProduct.section_type,
+      name: fullProduct.section_name
+    }
+  })
+  
+  cartStore.addItem(fullProduct, 1)
 }
+
+// Create a simple in-memory SKU cache
+const skuCache = new Map()
 
 const handleQuickAdd = async (searchTerm) => {
   logger.startGroup('POS Products: Quick Add by Search')
   try {
-    // First try to find by SKU
-    const productBySku = posStore.products.find(p => 
-      p.sku?.toLowerCase() === searchTerm.toLowerCase()
-    )
+    const normalizedSKU = searchTerm.toLowerCase().trim()
     
-    if (productBySku) {
-      quickAdd(productBySku)
+    // Check in-memory cache first
+    if (skuCache.has(normalizedSKU)) {
+      const cachedProduct = skuCache.get(normalizedSKU)
+      logger.debug('Found product in SKU cache', { 
+        product: cachedProduct.name,
+        sku: cachedProduct.sku
+      })
+      quickAdd(cachedProduct)
       return
     }
-    
-    // If no SKU match, try name match
-    const productByName = posStore.products.find(p => 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase())
+
+    // Check local store cache
+    const cachedProduct = posStore.products.find(p => 
+      p.sku?.toLowerCase() === normalizedSKU
     )
     
-    if (productByName) {
-      quickAdd(productByName)
-    } else {
-      // If product not in current list, try to fetch it directly by SKU
-      const response = await posApi.getItems({
-        sku: searchTerm,
-        is_pos: 1,
-        id: companyStore.selectedStore,
-        limit: 1
+    if (cachedProduct) {
+      // Add to in-memory cache
+      skuCache.set(normalizedSKU, cachedProduct)
+      logger.debug('Found product in store cache by SKU', { 
+        product: cachedProduct.name,
+        sku: cachedProduct.sku
+      })
+      quickAdd(cachedProduct)
+      return
+    }
+
+    // If not in cache, search database by SKU with timeout
+    logger.debug('Product not in cache, searching database by SKU', { searchTerm })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 2000) // 2 second timeout
+    
+    try {
+      const skuResponse = await apiClient.get('/v1/items', {
+        params: {
+          sku: searchTerm,
+          limit: 1
+        },
+        signal: controller.signal
       })
       
-      if (response.items?.data?.[0]) {
-        quickAdd(response.items.data[0])
-      } else {
-        logger.warn('No matching product found for quick add', { searchTerm })
+      clearTimeout(timeoutId)
+
+      if (skuResponse.data?.items?.data?.length > 0) {
+        const product = skuResponse.data.items.data[0]
+        // Add to both caches
+        skuCache.set(normalizedSKU, product)
+        posStore.products = [...posStore.products, product]
+        
+        logger.debug('Found product in database by SKU', {
+          product: product.name,
+          sku: product.sku
+        })
+        quickAdd(product)
+        return
       }
+    } catch (err) {
+      clearTimeout(timeoutId)
+      if (err.name === 'AbortError') {
+        logger.warn('SKU search timed out', { searchTerm })
+        window.toastr?.warning('SKU search took too long, please try again')
+        return
+      }
+      throw err
     }
+
+    // If no SKU match found, show error
+    logger.warn('No matching product found for SKU', { searchTerm })
+    window.toastr?.warning(`No product found with SKU "${searchTerm}"`)
   } catch (err) {
-    logger.error('Quick add failed', err)
+    logger.error('Quick add failed', {
+      error: err,
+      message: err.message,
+      stack: err.stack
+    })
+    window.toastr?.error(`Failed to search for product: ${err.message}`)
+    // Try to add from cache as fallback
+    const cachedFallback = posStore.products.find(p => 
+      p.sku?.toLowerCase() === searchTerm.toLowerCase() ||
+      p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    if (cachedFallback) {
+      logger.debug('Using cached product as fallback', {
+        product: cachedFallback.name,
+        sku: cachedFallback.sku
+      })
+      quickAdd(cachedFallback)
+    }
   } finally {
     logger.endGroup()
   }
@@ -269,6 +493,17 @@ const handleQuickAdd = async (searchTerm) => {
   min-height: 200px;
 }
 
+.products-preloading-state {
+  position: sticky;
+  top: 140px;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: 16px;
+  background: white;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 .products-loading-state {
   position: absolute;
   top: 140px;
@@ -282,15 +517,28 @@ const handleQuickAdd = async (searchTerm) => {
   z-index: 1;
 }
 
-.products-grid {
+.products-grid-container {
   width: 100%;
   min-height: calc(100vh - 204px);
   height: calc(100vh - 204px);
+  display: flex;
+  flex-direction: column;
+}
+
+.products-grid {
+  flex: 1;
   contain: layout size style;
   position: relative;
   display: flex;
   overflow-y: auto;
   padding: 8px;
+}
+
+.v-pagination {
+  justify-content: center;
+  padding: 16px;
+  background: white;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .products-empty-state {
@@ -307,6 +555,22 @@ const handleQuickAdd = async (searchTerm) => {
 
 .grid-settings-btn {
   min-width: 135px;
+}
+
+.clear-cache-btn {
+  min-width: 120px;
+}
+
+@media (max-width: 600px) {
+  .grid-settings-btn,
+  .clear-cache-btn {
+    min-width: auto;
+    padding: 0 12px;
+  }
+  
+  .clear-cache-btn {
+    margin-left: 4px;
+  }
 }
 
 @media (max-width: 600px) {

@@ -1,0 +1,56 @@
+# Development Instructions
+
+## Tools & Stack
+- Stack: Vue 3 (Composition API), TypeScript, Vuetify 3, Pinia, Vite
+
+## Structure
+Here is a highlevel overview of the directory structure:
+
+src/
+├── assets/
+├── components/
+├── composables/
+├── plugins/
+├── router/
+├── services/
+├── stores/
+├── styles/
+├── test/
+├── types/
+├── utils/
+├── views/
+│   ├── auth/
+│   ├── errors/
+│   ├── kitchen/
+│   ├── pos/
+│   ├── Customers.vue
+│   ├── Dashboard.vue
+│   ├── Items.vue
+│   ├── Products.vue
+│   ├── README.md
+│   └── Reports.vue
+├── App.vue
+├── main.js
+└── registerSW.js
+
+## Code Requirements
+- Provide complete, runnable code
+- Use TypeScript with strict typing
+- Follow Vue 3 Composition API patterns
+- Use Pinia for state management
+- Follow Vuetify 3 component guidelines
+- Implement proper error handling
+- Include necessary imports and dependencies
+- Optimize for performance
+- Ensure security best practices
+- Add appropriate tests
+
+## Response Format
+1. Problem statement
+2. Modified files
+3. Complete solution
+4. Key decisions
+5. Configuration changes
+6. Test considerations
+
+Use available tools when needed for file operations, documentation, repository access, or web testing.

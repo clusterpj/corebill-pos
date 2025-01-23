@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/services/api/auth'
 import { logger } from '@/utils/logger'
+import { useCompanyStore } from './company'
 
 export const useAuthStore = defineStore('auth', () => {
   // State
@@ -44,7 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
       // Load full user profile first
       await loadUserProfile()
 
-      // Navigate to select-cashier page which will handle loading cashiers
+      // Always navigate to select-cashier page after login
       router.push('/select-cashier')
 
       logger.info('User logged in successfully', { email: credentials.email })
@@ -59,12 +60,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
+    const companyStore = useCompanyStore()
     try {
       await authApi.logout()
     } catch (error) {
       logger.error('Logout failed', error)
     } finally {
       clearAuthState()
+      companyStore.clearSelections() // Clear company store selections
       router.push('/login')
     }
   }
@@ -74,7 +77,11 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = null
     isAuthenticated.value = false
     availableCashiers.value = []
+    // Clear all auth-related storage
     localStorage.removeItem('token')
+    localStorage.removeItem('selectedCustomer')
+    localStorage.removeItem('selectedStore')
+    localStorage.removeItem('selectedCashier')
   }
 
   async function loadUserProfile() {

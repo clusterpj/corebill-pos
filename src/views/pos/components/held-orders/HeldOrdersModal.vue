@@ -632,11 +632,11 @@ const handleConvertOrder = async (invoice) => {
   })
   invoice.total = finalTotal
   
-  // Also normalize item prices
+  // Also normalize item prices if they're in dollars
   if (invoice.hold_items) {
     invoice.hold_items = invoice.hold_items.map(item => ({
       ...item,
-      price: PriceUtils.ensureCents(item.price)
+      price: item.price % 1 !== 0 ? PriceUtils.ensureCents(item.price) : item.price
     }))
   }
   

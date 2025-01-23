@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useCartStore } from '../../../stores/cart-store'
 import { usePosStore } from '../../../stores/pos-store'
 import { logger } from '../../../utils/logger'
@@ -51,6 +51,23 @@ export function useOrderType() {
       logger.warn('[useOrderType] Failed to initialize from cart notes:', e)
     }
   }
+
+  // Watch for changes in customer notes and sync with cart store
+  watch(customerNotes, (newNotes) => {
+    try {
+      logger.debug('[useOrderType] Customer notes changed:', newNotes)
+      const notesObj = {
+        customerNotes: newNotes,
+        orderInfo: {
+          customer: customerInfo.value
+        },
+        timestamp: new Date().toISOString()
+      }
+      cartStore.setNotes(JSON.stringify(notesObj))
+    } catch (e) {
+      logger.error('[useOrderType] Failed to sync notes with cart store:', e)
+    }
+  })
 
   // Computed
   const isValid = computed(() => {

@@ -52,7 +52,12 @@ export const usePosStore = defineStore('pos', () => {
     // Actions
     initialize,
     ...actions,
+    
+    // Products module
     ...productsModule,
+    clearCache: productsModule.clearCache, // Explicitly expose clearCache
+    
+    // Orders module
     ...ordersModule
   }
 })

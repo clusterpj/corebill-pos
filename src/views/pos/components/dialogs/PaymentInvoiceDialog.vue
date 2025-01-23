@@ -281,6 +281,11 @@
             </v-row>
           </template>
         </v-container>
+        <PdfViewerDialog
+          v-model="showPdfViewer"
+          :pdfUrl="currentPdfUrl"
+          @closed="handlePdfViewerClosed"
+        />
       </div>
 
       <v-card-actions class="pa-4">
@@ -371,6 +376,7 @@ import { useCompanyStore } from '@/stores/company'
 import { convertHeldOrderToInvoice } from '../held-orders/utils/invoiceConverter'
 import { posApi } from '@/services/api/pos-api'
 import { PriceUtils } from '@/utils/price'
+import PdfViewerDialog from '@/components/common/PdfViewerDialog.vue'
 
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
@@ -442,6 +448,8 @@ const selectedTipPercent = ref(null)
 const customTipPercent = ref('')
 const tipAmount = ref(0)
 const tipType = ref('percentage')
+const showPdfViewer = ref(false)
+const currentPdfUrl = ref('')
 
 // Computed properties for invoice details
 const invoiceNumber = computed(() => {
@@ -512,6 +520,11 @@ const isValid = computed(() => {
 // Methods
 const formatCurrency = (amount) => {
   return PriceUtils.formatInvoiceAmount(amount)
+}
+
+const handlePdfViewerClosed = () => {
+  showPdfViewer.value = false
+  currentPdfUrl.value = ''
 }
 
 const hasPaymentFees = (methodId) => {
@@ -872,14 +885,37 @@ const processPayment = async () => {
       }
     }
     
-    // Emit success
-    emit('payment-complete', result)
-    
-    // Close dialog
-    dialog.value = false
-  } catch (err) {
-    console.error('Payment failed:', err)
-    window.toastr?.['error'](err.message || 'Failed to process payment')
+    try {
+      // Get invoice details from the result
+      const invoice = finalInvoice?.invoice?.invoice || finalInvoice?.invoice
+      
+      if (!invoice?.unique_hash) {
+        console.error('📄 [Invoice PDF] Missing invoice hash:', invoice)
+        throw new Error('Could not generate invoice PDF: Missing invoice hash')
+      }
+
+      // Get invoice PDF URL with fallback
+      const invoicePdfUrl = invoice.invoicePdfUrl || 
+        `${import.meta.env.VITE_API_URL.replace('/api/v1', '')}/invoices/pdf/${invoice.unique_hash}`
+
+      console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', invoicePdfUrl)
+      currentPdfUrl.value = invoicePdfUrl
+      showPdfViewer.value = true
+
+      // Emit success with invoice PDF URL
+      emit('payment-complete', { ...result, invoicePdfUrl })
+      dialog.value = false
+    } catch (error) {
+      console.error('📄 [Invoice PDF] Failed to display invoice:', error)
+      window.toastr?.['error'](error.message || 'Failed to display invoice PDF')
+      
+      // Still emit success since payment was successful
+      emit('payment-complete', result)
+      dialog.value = false
+    }
+  } catch (error) {
+    console.error('Payment processing error:', error)
+    window.toastr?.['error'](error.message || 'Failed to process payment')
   } finally {
     processing.value = false
   }

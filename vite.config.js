@@ -7,6 +7,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/',
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url))
+    },
+    extensions: ['.js', '.json', '.jsx', '.mjs', '.ts', '.tsx', '.vue']
+  },
   plugins: [
     vue({
       template: {
@@ -64,12 +70,6 @@ export default defineConfig({
       }
     })
   ],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
-    },
-    extensions: ['.js', '.json', '.jsx', '.mjs', '.ts', '.tsx', '.vue']
-  },
   css: {
     preprocessorOptions: {
       scss: {
