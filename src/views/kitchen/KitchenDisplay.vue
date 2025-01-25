@@ -269,6 +269,13 @@ onMounted(async () => {
   console.log('🚀 Component mounted')
   console.log('Initial activeTab value:', activeTab.value)
   await fetchOrders()
+  // Update store with fresh orders data
+  if (orders.value.length) {
+    kitchenStore.$patch({
+      orders: orders.value,
+      orderIds: orders.value.map(o => o.id)
+    })
+  }
   // Always reset to active tab after refresh unless user changed it
   if (!localStorage.getItem('kitchenActiveTab')) {
     activeTab.value = 'active'

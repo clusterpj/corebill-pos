@@ -188,9 +188,13 @@ const isCompleted = computed(() => {
 const handleComplete = async () => {
   try {
     loading.value = true
-    console.log(`Completing ${orderType.value} order ${Number(props.order.id)}`)
-    await kitchenStore.completeOrder(Number(props.order.id))
-    emit('complete', Number(props.order.id))
+    const numericOrderId = Number(props.order.id)
+    console.log(`Completing ${orderType.value} order ${numericOrderId}`)
+    if (!kitchenStore.orders.some(o => o.id === numericOrderId)) {
+      throw new Error(`Order ${numericOrderId} not found in store`)
+    }
+    await kitchenStore.completeOrder(numericOrderId)
+    emit('complete', numericOrderId)
   } catch (error) {
     console.error(`Failed to complete ${orderType.value} order:`, error)
   } finally {
@@ -201,13 +205,15 @@ const handleComplete = async () => {
 const handleItemComplete = async (itemId) => {
   try {
     loading.value = true
-    console.log(`Completing item ${Number(itemId)} in order ${Number(props.order.id)}`)
+    const numericOrderId = Number(props.order.id)
+    const numericItemId = Number(itemId)
+    console.log(`Completing item ${numericItemId} in order ${numericOrderId}`)
     
-    // Pass the raw IDs to the store
-    await kitchenStore.completeOrderItem(
-      Number(props.order.id),  // Ensure numeric order ID
-      Number(itemId)           // Ensure numeric item ID
-    )
+    if (!kitchenStore.orders.some(o => o.id === numericOrderId)) {
+      throw new Error(`Order ${numericOrderId} not found in store`)
+    }
+    
+    await kitchenStore.completeOrderItem(numericOrderId, numericItemId)
 
     // Check if all items are completed
     if (kitchenItems.value.every(item => item.pos_status === 'C')) {
