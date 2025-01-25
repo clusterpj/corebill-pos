@@ -1003,7 +1003,8 @@ const processPayment = async () => {
     console.log(' [Payment] Payment creation result:', result)
     
     // Show invoice PDF in modal
-    const invoiceId = result?.regularResults?.[0]?.payment?.invoice_id || 
+    const invoiceId = result?.terminalResults?.[0]?.data?.payment_id || 
+                     result?.regularResults?.[0]?.payment?.invoice_id || 
                      result?.invoice_id || 
                      invoiceResult?.invoice?.id || 
                      invoiceResult?.id || 

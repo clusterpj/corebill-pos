@@ -159,7 +159,7 @@ export const paymentOperations = {
           data: {
             ...response.data,
             // Map to existing expected fields
-            payment_id: response.data.TransactionNumber,
+            payment_id: response.data.payment_id,
             gateway: 'iPOSpays'
           }
         }
