@@ -8,9 +8,16 @@
           <v-icon start>mdi-check-circle</v-icon>
           Approved
         </v-chip>
-        <v-chip v-if="changeAmount > 0" color="primary" variant="flat" class="ml-2">
-          <v-icon start>mdi-cash-refund</v-icon>
-          Change Due: {{ formatCurrency(changeAmount) }}
+        <v-chip 
+          v-if="changeAmount > 0" 
+          color="primary" 
+          variant="flat" 
+          class="ml-2"
+          size="x-large"
+          style="font-size: 1.5rem; min-width: 240px;"
+        >
+          <v-icon start size="x-large">mdi-cash-refund</v-icon>
+          <strong>Change Due:</strong> {{ formatCurrency(changeAmount) }}
         </v-chip>
         <v-spacer></v-spacer>
         <v-btn icon @click="closeDialog">
