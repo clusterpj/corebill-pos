@@ -154,12 +154,11 @@ const refreshTimer = ref(null)
 const kitchenOrders = computed(() => {
   return orders.value
     .filter(order => {
-      const hasKitchenItems = order.sections?.some(section => 
-        section.section?.name === 'KITCHEN' ||
-        section.name === 'KITCHEN'
+      const hasKitchenItems = order.items?.some(item => 
+        item.section_type === 'kitchen'
       )
-      const isProcessing = order.status === 'P'
-      return hasKitchenItems && isProcessing
+      const isPending = order.pos_status === 'P'
+      return hasKitchenItems && isPending
     })
     .sort((a, b) => {
       const dateA = new Date(a.invoice_date || a.created_at || a.date)
@@ -171,8 +170,11 @@ const kitchenOrders = computed(() => {
 const completedOrders = computed(() => {
   return orders.value
     .filter(order => {
-      const isCompleted = order.status === 'C'
-      return isCompleted
+      const hasKitchenItems = order.items?.some(item => 
+        item.section_type === 'kitchen'
+      )
+      const isCompleted = order.pos_status === 'C'
+      return hasKitchenItems && isCompleted
     })
     .sort((a, b) => {
       const dateA = new Date(a.invoice_date || a.created_at || a.date)
@@ -192,9 +194,7 @@ async function fetchOrders() {
       console.log(`🔄 Processing order ${order.id}:`, order)
       return {
         ...order,
-        status: order.status || (order.type === 'C' ? 'C' : 'P'),
-        // Ensure sections is always an array
-        sections: Array.isArray(order.sections) ? order.sections : []
+        items: Array.isArray(order.items) ? order.items : []
       }
     })
     

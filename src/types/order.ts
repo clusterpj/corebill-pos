@@ -27,6 +27,18 @@ export enum OrderStatus {
   CANCELLED = 'cancelled'
 }
 
+export enum PosStatus {
+  PENDING = 'P',
+  COMPLETED = 'C'
+}
+
+export interface Section {
+  id: number
+  name: string
+  type: 'kitchen' | 'bar'
+  items?: OrderItem[]
+}
+
 export interface OrderItem {
   id: number
   name: string
@@ -35,6 +47,8 @@ export interface OrderItem {
   section_id?: number
   section_type?: 'kitchen' | 'bar'
   section_name?: string
+  pos_status?: PosStatus
+  description?: string
 }
 
 export interface Order {
@@ -51,7 +65,15 @@ export interface Order {
   notes?: string
   created_at?: Date | string
   updated_at?: Date | string
+  completed_at?: Date | string
   items: OrderItem[]
+  sections?: Section[]
+  pos_status?: PosStatus
+  
+  // Display fields
+  reference?: string
+  displayType?: string
+  description?: string
   
   // New invoice-related fields
   invoice_number?: string
@@ -69,4 +91,14 @@ export interface InvoiceResponse {
   order: Order
   invoice_number: string
   status: InvoiceStatus
+}
+
+export interface OrderStatusChangeRequest {
+  orderId: number
+  type: 'HOLD' | 'INVOICE'
+  pos_status: PosStatus
+}
+
+export interface OrderItemStatusChangeRequest extends OrderStatusChangeRequest {
+  itemId: number
 }

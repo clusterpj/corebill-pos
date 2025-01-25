@@ -3,7 +3,7 @@
   <v-card
     :class="[
       'order-card rounded-lg overflow-hidden',
-      `order-card--${order.status}`,
+      `order-card--${orderType}`,
       { 'order-card--completed': isCompleted }
     ]"
     :elevation="isCompleted ? 1 : 4"
@@ -16,13 +16,13 @@
         <div class="d-flex align-center">
           <v-chip
             size="small"
-            :color="order.type === 'Invoice' ? 'info' : 'warning'"
+            :color="order.invoice_number ? 'info' : 'warning'"
             class="mr-2"
           >
-            {{ order.displayType }}
+            {{ order.invoice_number ? 'Invoice' : 'Hold Order' }}
           </v-chip>
           <span class="text-h6 font-weight-medium">
-            {{ order.reference }}
+            {{ order.invoice_number || `Hold #${order.id}` }}
           </span>
         </div>
         <status-indicator
@@ -66,12 +66,15 @@
             <v-list-item
               v-for="item in kitchenItems"
               :key="item.id"
-              :class="{ 'item--with-note': item.description }"
+              :class="[
+                { 'item--with-note': item.description },
+                { 'item--completed': item.pos_status === 'C' }
+              ]"
             >
               <template v-slot:prepend>
                 <v-chip
                   size="small"
-                  color="primary"
+                  :color="item.pos_status === 'C' ? 'success' : 'warning'"
                   variant="flat"
                   class="quantity-chip mr-2"
                 >
@@ -80,19 +83,33 @@
               </template>
 
               <v-list-item-title class="d-flex justify-space-between align-center">
-                <span class="font-weight-medium">{{ item.name }}</span>
-                <span class="text-caption text-medium-emphasis">
-                  {{ formatPrice(item.price) }}
+                <span :class="{ 'text-decoration-line-through': item.pos_status === 'C' }">
+                  {{ item.name }}
                 </span>
+                <div class="d-flex align-center">
+                  <v-btn
+                    v-if="item.pos_status !== 'C'"
+                    icon="mdi-check"
+                    size="small"
+                    color="success"
+                    variant="text"
+                    class="mr-2"
+                    @click.stop="handleItemComplete(item.id)"
+                  />
+                  <span class="text-caption text-medium-emphasis">
+                    {{ formatPrice(item.price) }}
+                  </span>
+                </div>
               </v-list-item-title>
 
               <v-list-item-subtitle
                 v-if="item.description"
-                class="mt-1 text-warning-darken-1"
+                class="mt-1"
+                :class="item.pos_status === 'C' ? 'text-success' : 'text-warning-darken-1'"
               >
                 <v-icon
                   size="x-small"
-                  icon="mdi-note-text"
+                  :icon="item.pos_status === 'C' ? 'mdi-check-circle' : 'mdi-note-text'"
                   class="mr-1"
                 />
                 {{ item.description }}
@@ -132,8 +149,10 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import StatusIndicator from '@/components/common/StatusIndicator.vue'
-import DateDisplay from '@/components/common/DateDisplay.vue'
+import { useKitchenStore } from '@/stores/kitchen'
+import { formatPrice } from '@/utils/formatters'
+import StatusIndicator from '@/components/StatusIndicator.vue'
+import DateDisplay from '@/components/DateDisplay.vue'
 
 const props = defineProps({
   order: {
@@ -143,49 +162,59 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['complete'])
-
+const kitchenStore = useKitchenStore()
 const loading = ref(false)
-const isCompleted = computed(() => props.order.status === 'C')
+
+// Computed properties for order type handling
+const isInvoice = computed(() => Boolean(props.order?.invoice_number))
+const orderType = computed(() => isInvoice.value ? 'INVOICE' : 'HOLD')
+const orderReference = computed(() => isInvoice.value ? props.order.invoice_number : `Hold #${props.order.id}`)
 
 const kitchenItems = computed(() => {
-  console.log('Computing kitchen items for order:', props.order)
-  
-  if (!props.order.sections) {
-    console.log('No sections found for order:', props.order.id)
+  if (!props.order?.items?.length) {
+    console.log('No items found for order:', props.order?.id)
     return []
   }
-  
-  // Find the kitchen section
-  const kitchenSection = props.order.sections.find(section => {
-    const sectionName = section.section?.name || section.name
-    console.log('Checking section:', sectionName)
-    return sectionName === 'KITCHEN'
-  })
-  
-  if (!kitchenSection) {
-    console.log('No kitchen section found for order:', props.order.id)
-    return []
-  }
-  
-  console.log('Found kitchen section:', kitchenSection)
-  const items = kitchenSection.items || []
-  console.log('Kitchen items:', items)
-  
+
+  // Items are already flattened and have section_type
+  const items = props.order.items.filter(item => item.section_type === 'kitchen')
+  console.log(`Filtered kitchen items for ${orderType.value} order ${props.order.id}:`, items)
   return items
 })
 
-const formatPrice = (price) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD'
-  }).format(price / 100) // Assuming price is in cents
-}
+const isCompleted = computed(() => {
+  if (!kitchenItems.value.length) return false
+  
+  // Check if all kitchen items are completed
+  const allItemsCompleted = kitchenItems.value.every(item => item.pos_status === 'C')
+  return allItemsCompleted
+})
 
 const handleComplete = async () => {
-  if (loading.value || isCompleted.value) return
-  loading.value = true
   try {
-    await emit('complete', props.order.id)
+    loading.value = true
+    console.log(`Completing ${orderType.value} order ${props.order.id}`)
+    await kitchenStore.completeOrder(props.order.id)
+    emit('complete', props.order.id)
+  } catch (error) {
+    console.error(`Failed to complete ${orderType.value} order:`, error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const handleItemComplete = async (itemId) => {
+  try {
+    loading.value = true
+    console.log(`Completing item ${itemId} in ${orderType.value} order ${props.order.id}`)
+    await kitchenStore.completeOrderItem(props.order.id, itemId)
+
+    // Check if all items are completed
+    if (kitchenItems.value.every(item => item.pos_status === 'C')) {
+      emit('complete', props.order.id)
+    }
+  } catch (error) {
+    console.error(`Failed to complete item in ${orderType.value} order:`, error)
   } finally {
     loading.value = false
   }
@@ -204,13 +233,17 @@ const handleComplete = async () => {
   opacity: 0.85;
 }
 
+.item--completed {
+  opacity: 0.75;
+}
+
 .items-list {
   max-height: 300px;
   overflow-y: auto;
 }
 
 .quantity-chip {
-  min-width: 32px;
+  min-width: 36px;
   justify-content: center;
 }
 
