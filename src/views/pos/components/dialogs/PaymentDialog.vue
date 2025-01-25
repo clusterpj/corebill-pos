@@ -873,8 +873,16 @@ const processPayment = async () => {
 
       // Check terminal status - handle both numeric and string status values
       const terminalStatus = terminalSettings.status || terminalSettings.terminal_status
-      if (terminalStatus !== 1 && terminalStatus !== 'Online') {
-        throw new Error(`Terminal ${method.name} is not ready for payments. Current status: ${terminalStatus}`)
+      const validStatuses = [2, 'Online']; // Status 2 is "Online" per API
+      if (!validStatuses.includes(terminalStatus) || terminalSettings.enabled !== 1) {
+        const statusMap = {
+          1: 'Offline',
+          2: 'Online', 
+          3: 'Maintenance'
+        };
+        throw new Error(`Terminal ${method.name} status: ${
+          statusMap[terminalStatus] || terminalStatus
+        } (${terminalSettings.enabled ? 'Enabled' : 'Disabled'})`);
       }
     }
 
@@ -1142,8 +1150,8 @@ const processPayment = async () => {
     window.toastr?.['error'](userFriendlyError.value);
       
     analytics.track('PaymentFailed', {
-      error: userMessage,
-      declineCode: err.response?.data?.GeneralResponse?.HostResponseCode,
+      error: userFriendlyError.value, // Correct variable name
+      declineCode: err.declineCode || err.response?.data?.GeneralResponse?.HostResponseCode,
       invoiceId: props.invoice?.id
     });
   } finally {
