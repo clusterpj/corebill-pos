@@ -172,16 +172,23 @@ export const paymentOperations = {
         data: response.data
       };
     } catch (error) {
-      // Enhanced SPIn error handling
-      let displayMessage = 'Payment declined';
-      
+      // Preserve original decline message from manual throw
+      let displayMessage = error.message.includes('TERMINAL_DECLINED:') 
+        ? error.message.split(': ')[1] 
+        : 'Payment declined';
+
+      // Check for SPIn error structure
       if (error.response?.data?.error?.details?.spInResponse) {
         const spInData = error.response.data.error.details.spInResponse;
         displayMessage = spInData.decline_reason 
           ? `${spInData.message} (Reason: ${spInData.decline_reason})`
           : spInData.message;
       }
-      
+      // Handle direct API decline responses
+      else if (error.response?.data?.full_message) {
+        displayMessage = error.response.data.full_message;
+      }
+
       // Handle timeout specifically
       if (error.code === 'ECONNABORTED') {
         displayMessage = 'Terminal response timeout - check terminal connection';
@@ -190,10 +197,11 @@ export const paymentOperations = {
       logger.error('Full terminal error context:', {
         config: error.config,
         response: error.response?.data,
+        originalMessage: error.message,
         stack: error.stack
       });
 
-      throw new Error(`Terminal payment failed: ${displayMessage}`);
+      throw new Error(`TERMINAL_DECLINED: ${displayMessage}`); // Preserve error format
     } finally {
       logger.endGroup();
     }
