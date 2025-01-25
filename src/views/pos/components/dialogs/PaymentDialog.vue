@@ -404,6 +404,26 @@
 import { ref, computed, watch } from 'vue'
 import { usePayment } from '../../composables/usePayment'
 
+// Error mapping for payment failures
+const errorMap = {
+  // Terminal decline codes
+  'BLOCKED 1ST USE': 'Card requires activation - first use must be at bank ATM',
+  '05': 'Insufficient funds - please try another payment method',
+  '1015': 'Payment method restricted',
+  'CARD_ACTIVATION_REQUIRED': 'Card requires activation - first use must be at bank ATM',
+  'TIMEOUT': 'Terminal response timeout - check connection',
+  
+  // Gateway errors
+  'DECLINED': 'Payment declined by issuer',
+  'TERMINAL_NOT_FOUND': 'Payment terminal unavailable',
+  'SPIN_ERROR': 'Payment processor error',
+  'UNKNOWN': 'Payment processing failed',
+  
+  // Fallbacks
+  'TERMINAL_DECLINED: Payment declined': 'Payment declined - contact card issuer',
+  'TERMINAL_DECLINED: BLOCKED 1ST USE': 'Card requires activation - first use must be at bank ATM'
+}
+
 // Safe analytics wrapper
 const analytics = {
   track: (eventName, properties = {}) => {
@@ -1098,13 +1118,20 @@ const processPayment = async () => {
       response: err.response?.data
     };
     
-    const terminalDeclineMatch = err.message.match(/TERMINAL_DECLINED: (.*)/);
-    const rawMessage = terminalDeclineMatch?.[1] || err.message;
-    const normalizedMessage = rawMessage.trim().toUpperCase();
+    // Get base message without TERMINAL_DECLINED prefix
+    const rawMessage = err.message.replace('TERMINAL_DECLINED: ', '')
+    const normalizedMessage = rawMessage.trim().toUpperCase()
     
+    // Find matching error message
     userFriendlyError.value = errorMap[normalizedMessage] || 
                             errorMap[err.declineCode] || 
-                            'Payment could not be processed';
+                            errorMap[err.message] || 
+                            'Payment could not be processed'
+
+    // Special case for BLOCKED 1ST USE even if code is UNKNOWN
+    if (rawMessage.includes('BLOCKED 1ST USE')) {
+      userFriendlyError.value = errorMap['BLOCKED 1ST USE']
+    }
     
     showErrorDetails.value = true;
     window.toastr?.['error'](userFriendlyError.value);
