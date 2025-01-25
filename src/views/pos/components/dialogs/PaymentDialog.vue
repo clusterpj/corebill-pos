@@ -898,6 +898,7 @@ const processPayment = async () => {
     
     // Calculate the total with tip (convert from dollars to cents for API)
     const totalWithTip = invoiceTotal.value + tipAmount.value
+    const totalChange = payments.value.reduce((sum, p) => sum + p.returned, 0)
 
     console.log(' [Payment] Prepared hold invoice data:', {
       id: holdInvoice.id,
@@ -1074,6 +1075,9 @@ const processPayment = async () => {
 
       // Set PDF viewer state
       console.log('📄 [Invoice PDF] Opening PDF viewer with URL:', invoicePdfUrl)
+      currentPdfUrl.value = invoicePdfUrl
+      showPdfViewer.value = true
+      // Pass change amount to PDF viewer
       currentPdfUrl.value = invoicePdfUrl
       showPdfViewer.value = true
     } else {

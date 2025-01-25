@@ -134,6 +134,11 @@ const props = defineProps({
   changeAmount: {
     type: Number,
     default: 0
+  },
+  // Add currency formatter to template scope
+  formatCurrency: {
+    type: Function,
+    default: (amount) => PriceUtils.format(amount)
   }
 })
 
