@@ -126,32 +126,45 @@ export const paymentOperations = {
 
       const response = await apiClient.post(
         `/v2/ipos-pays/setting/${settingId}/sale`,
-        data,
         {
-          signal: controller.signal
+          ...data,
+          // Add required fields from platform logs
+          PrintReceipt: "No",
+          GetReceipt: "No",
+          CaptureSignature: false,
+          GetExtendedData: true
+        },
+        {
+          signal: controller.signal,
+          headers: {
+            'Idempotency-Key': generateIdempotencyKey(),
+            // Add auth headers required by platform
+            'X-Tpn': '7343202426', // From platform request
+            'X-Authkey': 'NH53bcE5xe' // From platform request
+          }
         }
       )
 
       clearTimeout(timeout)
 
-      // Add response structure validation
-      if (!response.data?.success && response.data?.error) {
-        const spInError = response.data.error.details?.spInResponse;
-        const errorMessage = spInError?.message || 'Terminal payment failed';
-        const errorCode = spInError?.code || 'SPIN_ERROR';
-
-        logger.error('SPIn payment rejection:', {
-          code: errorCode,
-          message: errorMessage,
+      // Updated response parsing
+      if (response.data?.success === false) {
+        const declineReason = response.data.full_message || 
+                             response.data.message ||
+                             'Payment declined'
+        
+        logger.error('Platform decline:', {
+          code: response.data?.code,
+          reason: declineReason,
           fullResponse: response.data
-        });
+        })
 
-        throw new Error(`${errorCode}: ${errorMessage}`);
+        throw new Error(`TERMINAL_DECLINED: ${declineReason}`)
       }
 
-      // Add transaction validation
-      if (!response.data?.transaction_id) {
-        throw new Error('Missing transaction ID in terminal response');
+      // Validate required transaction fields
+      if (!response.data?.TransactionNumber || !response.data?.BatchNumber) {
+        throw new Error('Incomplete terminal response')
       }
 
       return {

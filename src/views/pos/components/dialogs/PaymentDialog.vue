@@ -1051,29 +1051,33 @@ const processPayment = async () => {
       paymentResult: result
     })
   } catch (err) {
-    console.error(' [Payment] Payment failed:', err);
-      
-    // Enhanced terminal error display
-    let userMessage = err.message;
-    if (err.message.includes('SPIN_ERROR')) {
-      userMessage = err.message.replace('SPIN_ERROR: ', '');
-        
-      // Handle specific known error codes
-      if (err.message.includes('DECLINED')) {
-        userMessage = 'Card declined - please try another payment method';
-      }
-      if (err.message.includes('INSUFFICIENT_FUNDS')) {
-        userMessage = 'Insufficient funds - check account balance';
-      }
+    console.error(' [Payment] Payment failed:', err)
+    
+    // Improved decline reason handling
+    let userMessage = err.message.replace('Terminal payment failed: ', '')
+    
+    // Handle specific error formats
+    const match = userMessage.match(/TERMINAL_DECLINED: (.*)/)
+    if (match) {
+      userMessage = match[1]
     }
 
-    window.toastr?.['error'](userMessage);
-      
+    // Format known error codes
+    const errorMap = {
+      'BLOCKED 1ST USE': 'Card requires activation - use another payment method',
+      '05': 'Insufficient funds',
+      '1015': 'Payment method restricted'
+    }
+    
+    userMessage = errorMap[userMessage] || userMessage
+
+    window.toastr?.['error'](userMessage)
+    
     analytics.track('PaymentFailed', {
       error: userMessage,
-      invoiceId: props.invoice?.id,
-      terminalError: err.message.includes('SPIN_ERROR')
-    });
+      declineCode: err.response?.data?.GeneralResponse?.HostResponseCode,
+      invoiceId: props.invoice?.id
+    })
   } finally {
     processing.value = false
     
