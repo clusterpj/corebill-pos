@@ -134,63 +134,55 @@ export const paymentOperations = {
 
       clearTimeout(timeout)
 
-      if (!response.data) {
-        throw new Error('Invalid terminal payment response')
+      // Add response structure validation
+      if (!response.data?.success && response.data?.error) {
+        const spInError = response.data.error.details?.spInResponse;
+        const errorMessage = spInError?.message || 'Terminal payment failed';
+        const errorCode = spInError?.code || 'SPIN_ERROR';
+
+        logger.error('SPIn payment rejection:', {
+          code: errorCode,
+          message: errorMessage,
+          fullResponse: response.data
+        });
+
+        throw new Error(`${errorCode}: ${errorMessage}`);
       }
 
-      // Handle specific error responses
-      if (response.data.success === false) {
-        const errorMessage = response.data.message || 'Terminal payment failed'
-        const errorDetails = response.data.details || {}
-        
-        // Log detailed error information
-        logger.error('Terminal payment failed:', {
-          error: errorMessage,
-          details: errorDetails,
-          settingId,
-          paymentData: data
-        })
-
-        throw new Error(errorMessage)
+      // Add transaction validation
+      if (!response.data?.transaction_id) {
+        throw new Error('Missing transaction ID in terminal response');
       }
 
       return {
         success: true,
         data: response.data
-      }
+      };
     } catch (error) {
-      // Handle specific error types
-      if (error.name === 'AbortError') {
-        logger.error('Terminal payment timeout:', {
-          settingId,
-          duration: '30s'
-        })
-        throw new Error('Terminal payment timed out. Please check terminal connection and try again.')
+      // Enhanced SPIn error handling
+      let displayMessage = 'Payment declined';
+      
+      if (error.response?.data?.error?.details?.spInResponse) {
+        const spInData = error.response.data.error.details.spInResponse;
+        displayMessage = spInData.decline_reason 
+          ? `${spInData.message} (Reason: ${spInData.decline_reason})`
+          : spInData.message;
+      }
+      
+      // Handle timeout specifically
+      if (error.code === 'ECONNABORTED') {
+        displayMessage = 'Terminal response timeout - check terminal connection';
       }
 
-      if (error.response) {
-        // Handle HTTP errors
-        const status = error.response.status
-        if (status === 401) {
-          throw new Error('Terminal authentication failed. Please check terminal credentials.')
-        }
-        if (status === 404) {
-          throw new Error('Terminal not found. Please check terminal configuration.')
-        }
-        if (status === 500) {
-          throw new Error('Terminal processing error. Please try again.')
-        }
-      }
+      logger.error('Full terminal error context:', {
+        config: error.config,
+        response: error.response?.data,
+        stack: error.stack
+      });
 
-      // Log and rethrow other errors
-      logger.error('Terminal payment error:', {
-        error: error.message,
-        settingId,
-        paymentData: data
-      })
-      throw error
+      throw new Error(`Terminal payment failed: ${displayMessage}`);
     } finally {
-      logger.endGroup()
+      logger.endGroup();
     }
   }
 };

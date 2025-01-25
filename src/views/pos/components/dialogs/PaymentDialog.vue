@@ -1051,15 +1051,29 @@ const processPayment = async () => {
       paymentResult: result
     })
   } catch (err) {
-    console.error(' [Payment] Payment failed:', err)
-    window.toastr?.['error'](err.message || 'Failed to process payment')
-    
-    // Track payment failure
+    console.error(' [Payment] Payment failed:', err);
+      
+    // Enhanced terminal error display
+    let userMessage = err.message;
+    if (err.message.includes('SPIN_ERROR')) {
+      userMessage = err.message.replace('SPIN_ERROR: ', '');
+        
+      // Handle specific known error codes
+      if (err.message.includes('DECLINED')) {
+        userMessage = 'Card declined - please try another payment method';
+      }
+      if (err.message.includes('INSUFFICIENT_FUNDS')) {
+        userMessage = 'Insufficient funds - check account balance';
+      }
+    }
+
+    window.toastr?.['error'](userMessage);
+      
     analytics.track('PaymentFailed', {
-      error: err.message,
+      error: userMessage,
       invoiceId: props.invoice?.id,
-      totalAmount: props.invoice?.total
-    })
+      terminalError: err.message.includes('SPIN_ERROR')
+    });
   } finally {
     processing.value = false
     
