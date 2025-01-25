@@ -4,6 +4,10 @@
     <v-card>
       <v-toolbar color="primary" dark>
         <v-toolbar-title>{{ title }}</v-toolbar-title>
+        <v-chip color="success" variant="flat" class="ml-4">
+          <v-icon start>mdi-check-circle</v-icon>
+          Approved
+        </v-chip>
         <v-spacer></v-spacer>
         <v-btn icon @click="closeDialog">
           <v-icon>mdi-close</v-icon>
