@@ -1092,28 +1092,22 @@ const processPayment = async () => {
   } catch (err) {
     console.error(' [Payment] Payment failed:', err);
       
-    let userMessage = err.message;
-    const terminalDeclineMatch = userMessage.match(/TERMINAL_DECLINED: (.*)/);
-    
-    // Get decline code from error object
-    const declineCode = err.declineCode || 
-                       err.response?.data?.GeneralResponse?.HostResponseCode;
-
-    // Enhanced error mapping
-    const errorMap = {
-      'BLOCKED 1ST USE': 'This card requires activation - please use a different payment method',
-      'TERMINAL_DECLINED: BLOCKED 1ST USE': 'This card requires activation - please use a different payment method',
-      '05': 'Insufficient funds - please try another payment method',
-      '1015': 'This payment method is not accepted',
-      'DECLINED': 'Payment declined by bank - contact your card issuer',
-      'CARD_ACTIVATION_REQUIRED': 'Card requires activation - first use must be at bank ATM'
+    lastError.value = {
+      message: err.message,
+      declineCode: err.declineCode,
+      response: err.response?.data
     };
-
-    if (terminalDeclineMatch) {
-      userMessage = errorMap[terminalDeclineMatch[1]] || terminalDeclineMatch[1];
-    }
-
-    window.toastr?.['error'](userMessage);
+    
+    const terminalDeclineMatch = err.message.match(/TERMINAL_DECLINED: (.*)/);
+    const rawMessage = terminalDeclineMatch?.[1] || err.message;
+    const normalizedMessage = rawMessage.trim().toUpperCase();
+    
+    userFriendlyError.value = errorMap[normalizedMessage] || 
+                            errorMap[err.declineCode] || 
+                            'Payment could not be processed';
+    
+    showErrorDetails.value = true;
+    window.toastr?.['error'](userFriendlyError.value);
       
     analytics.track('PaymentFailed', {
       error: userMessage,
