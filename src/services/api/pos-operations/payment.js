@@ -147,7 +147,18 @@ export const paymentOperations = {
 
       clearTimeout(timeout)
 
-      // Updated response parsing
+      // Updated response parsing - check for approval first
+      if (response.data?.message === "Approved" || response.data?.success === true) {
+        logger.info('Payment approved by terminal:', {
+          transactionId: response.data?.payment_id,
+          gateway: response.data?.gateway
+        })
+        return {
+          success: true,
+          data: response.data
+        }
+      }
+
       if (response.data?.success === false) {
         const declineReason = response.data.full_message || 
                              response.data.message ||
