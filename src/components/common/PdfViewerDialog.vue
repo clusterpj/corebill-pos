@@ -8,6 +8,10 @@
           <v-icon start>mdi-check-circle</v-icon>
           Approved
         </v-chip>
+        <v-chip v-if="changeAmount > 0" color="primary" variant="flat" class="ml-2">
+          <v-icon start>mdi-cash-refund</v-icon>
+          Change Due: {{ formatCurrency(changeAmount) }}
+        </v-chip>
         <v-spacer></v-spacer>
         <v-btn icon @click="closeDialog">
           <v-icon>mdi-close</v-icon>
@@ -110,6 +114,9 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import { PriceUtils } from '@/utils/price'
+
+const formatCurrency = (amount) => PriceUtils.format(amount)
 
 const props = defineProps({
   modelValue: {
@@ -123,6 +130,10 @@ const props = defineProps({
   title: {
     type: String,
     default: 'Invoice'
+  },
+  changeAmount: {
+    type: Number,
+    default: 0
   }
 })
 
