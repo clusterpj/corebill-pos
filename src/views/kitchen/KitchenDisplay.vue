@@ -152,20 +152,17 @@ const refreshTimer = ref(null)
 
 // Computed properties
 const kitchenOrders = computed(() => {
+  // Active order filtering with kitchen-specific items
   return orders.value
-    .filter(order => {
-      const hasKitchenItems = order.items?.some(item => 
-        item.section_type === 'kitchen'
-      )
-      const isPending = order.pos_status === 'P'
-      return hasKitchenItems && isPending
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.invoice_date || a.created_at || a.date)
-      const dateB = new Date(b.invoice_date || b.created_at || b.date)
-      return dateB - dateA // Sort newest first
-    })
-})
+    .filter(order => 
+      order.items?.some(item => item.section_type === 'kitchen') &&
+      order.pos_status === 'P'
+    )
+    .sort((a, b) => 
+      new Date(b.invoice_date || b.created_at) - 
+      new Date(a.invoice_date || a.created_at)
+    );
+});
 
 const completedOrders = computed(() => {
   return orders.value

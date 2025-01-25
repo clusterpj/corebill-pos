@@ -79,13 +79,12 @@ export class KitchenService {
 
   static async fetchOrders(sectionId: number): Promise<Order[]> {
     try {
-      logger.info(`[KitchenService] Fetching all orders for section ${sectionId}`)
-      
-      // Fetch both active and completed orders
+      // Core data fetching with dual status query
+      logger.info(`[KitchenService] Fetching all orders for section ${sectionId}`);
       const [activeOrders, completedOrders] = await Promise.all([
         this.fetchOrdersByStatus(sectionId, PosStatus.PENDING),
         this.fetchOrdersByStatus(sectionId, PosStatus.COMPLETED)
-      ])
+      ]);
 
       const allOrders = [...activeOrders, ...completedOrders]
       logger.debug('Combined orders:', { count: allOrders.length })

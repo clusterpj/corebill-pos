@@ -171,18 +171,11 @@ const orderType = computed(() => isInvoice.value ? 'INVOICE' : 'HOLD')
 const orderReference = computed(() => isInvoice.value ? props.order.invoice_number : `Hold #${props.order.id}`)
 
 const kitchenItems = computed(() => {
-  if (!props.order?.items?.length) {
-    console.log('No items found for order:', props.order?.id)
-    return []
-  }
-
-  // Items are already flattened and have section_type
-  const items = props.order.items.filter(item => item.section_type === 'kitchen')
-  console.log(`Filtered kitchen items for order ${props.order.id}:`, 
-    items.map(i => ({ id: i.id, name: i.name }))
-  )
-  return items
-})
+  // Filter kitchen-specific items from order
+  return props.order?.items?.filter(item => 
+    item.section_type === 'kitchen'
+  ) || [];
+});
 
 const isCompleted = computed(() => {
   if (!kitchenItems.value.length) return false
