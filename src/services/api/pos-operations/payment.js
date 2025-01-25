@@ -147,9 +147,27 @@ export const paymentOperations = {
 
       clearTimeout(timeout)
 
-      // Updated response parsing - check for approval first
-      if (response.data?.message === "Approved" || response.data?.success === true) {
+      // Check for successful transaction first - ResultCode 1 indicates approval
+      if (response.data?.GeneralResponse?.ResultCode === "1") {
         logger.info('Payment approved by terminal:', {
+          transactionId: response.data?.TransactionNumber,
+          batchNumber: response.data?.BatchNumber,
+          amount: response.data?.Amounts?.TotalAmount
+        })
+        return {
+          success: true,
+          data: {
+            ...response.data,
+            // Map to existing expected fields
+            payment_id: response.data.TransactionNumber,
+            gateway: 'iPOSpays'
+          }
+        }
+      }
+
+      // Then check legacy approval indicators
+      if (response.data?.message === "Approved" || response.data?.success === true) {
+        logger.info('Payment approved by terminal (legacy format):', {
           transactionId: response.data?.payment_id,
           gateway: response.data?.gateway
         })
@@ -159,7 +177,8 @@ export const paymentOperations = {
         }
       }
 
-      if (response.data?.success === false) {
+      // Handle declined transactions
+      if (response.data?.success === false || response.data?.GeneralResponse?.ResultCode !== "1") {
         const declineReason = response.data.full_message || 
                              response.data.message ||
                              'Payment declined'
