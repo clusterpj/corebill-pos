@@ -178,7 +178,9 @@ const kitchenItems = computed(() => {
 
   // Items are already flattened and have section_type
   const items = props.order.items.filter(item => item.section_type === 'kitchen')
-  console.log(`Filtered kitchen items for ${orderType.value} order ${props.order.id}:`, items)
+  console.log(`Filtered kitchen items for order ${props.order.id}:`, 
+    items.map(i => ({ id: i.id, name: i.name }))
+  )
   return items
 })
 
@@ -193,9 +195,9 @@ const isCompleted = computed(() => {
 const handleComplete = async () => {
   try {
     loading.value = true
-    console.log(`Completing ${orderType.value} order ${props.order.id}`)
-    await kitchenStore.completeOrder(props.order.id)
-    emit('complete', props.order.id)
+    console.log(`Completing ${orderType.value} order ${Number(props.order.id)}`)
+    await kitchenStore.completeOrder(Number(props.order.id))
+    emit('complete', Number(props.order.id))
   } catch (error) {
     console.error(`Failed to complete ${orderType.value} order:`, error)
   } finally {
@@ -206,15 +208,24 @@ const handleComplete = async () => {
 const handleItemComplete = async (itemId) => {
   try {
     loading.value = true
-    console.log(`Completing item ${itemId} in ${orderType.value} order ${props.order.id}`)
-    await kitchenStore.completeOrderItem(props.order.id, itemId)
+    console.log(`Completing item ${Number(itemId)} in order ${Number(props.order.id)}`)
+    
+    // Pass the raw IDs to the store
+    await kitchenStore.completeOrderItem(
+      Number(props.order.id),  // Ensure numeric order ID
+      Number(itemId)           // Ensure numeric item ID
+    )
 
     // Check if all items are completed
     if (kitchenItems.value.every(item => item.pos_status === 'C')) {
-      emit('complete', props.order.id)
+      emit('complete', Number(props.order.id))
     }
   } catch (error) {
-    console.error(`Failed to complete item in ${orderType.value} order:`, error)
+    console.error(`Failed to complete item:`, {
+      orderId: props.order.id,
+      itemId,
+      error: error.message
+    })
   } finally {
     loading.value = false
   }

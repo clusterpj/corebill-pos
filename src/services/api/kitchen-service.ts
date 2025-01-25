@@ -101,7 +101,7 @@ export class KitchenService {
     try {
       logger.info(`[KitchenService] Fetching ${status} orders for section ${sectionId}`)
       
-      const response = await apiClient.post<SectionOrdersResponse>('/v1/core-pos/listordersbysection', null, {
+      const response = await apiClient.post('/v1/core-pos/listordersbysection', null, {
         params: {
           section_id: sectionId,
           status: status,
@@ -116,7 +116,7 @@ export class KitchenService {
       logger.debug(`Processing ${orders.length} orders`)
 
       // Process each order
-      const processedOrders = await Promise.all(orders.map(async (order) => {
+      const processedOrders = await Promise.all(orders.map(async (order: any) => {
         try {
           logger.debug(`Processing order ${order.id}`, { 
             type: order.type,
@@ -139,15 +139,22 @@ export class KitchenService {
           const items = await this.fetchOrderItems(order.id, orderType, status)
           logger.debug(`Fetched ${items.length} items for order ${order.id}`)
 
+          // Convert item IDs to numbers
+          const numericItems = items.map(item => ({
+            ...item,
+            id: Number(item.id)
+          }))
+
           // Skip orders without kitchen items
-          if (!items.some(item => item.section_type === 'kitchen')) {
+          if (!numericItems.some(item => item.section_type === 'kitchen')) {
             logger.debug(`Skipping order ${order.id} - no kitchen items`)
             return null
           }
 
           const processedOrder = {
             ...order,
-            items,
+            id: Number(order.id), // Ensure ID is a number
+            items: numericItems,
             pos_status: status,
             // Ensure required fields have defaults
             status: DEFAULT_ORDER_STATUS,
@@ -196,32 +203,35 @@ export class KitchenService {
         orderId
       })
 
-      const response = await apiClient.post<ApiResponse<OrderItem[]>>('/v1/core-pos/getsectionanditem', null, {
+      const response = await apiClient.post('/v1/core-pos/getsectionanditem', null, {
         params: {
-          id: orderId,
+          id: orderId,  // This is just the order ID, regardless of type
           type: type,
           pos_status: status
         }
       })
 
-      if (!response.data || !response.data.data) {
+      if (!response.data?.data) {
         logger.warn(`No items data returned for order ${orderId}`)
         return []
       }
 
-      // Flatten the nested items structure
-      const items = response.data.data.flatMap(section => {
+      // Keep the raw item ID from the response
+      const items = (response.data as ApiResponse<OrderItem[]>).data.flatMap((section: any) => {
         if (!section.items) return []
         
-        return section.items.map(item => ({
-          ...item,
+        return section.items.map((item: any) => ({
+          ...item,  // This preserves the raw id from the response
+          id: Number(item.id), // Ensure item ID is a number
           section_type: section.section_type || 'kitchen',
           pos_status: item.pos_status || section.pos_status || status,
           section: section.section
         }))
       })
 
-      logger.debug(`Processed ${items.length} items for order ${orderId}`)
+      logger.debug(`Processed ${items.length} items for order ${orderId}`, {
+        items: items.map((i: OrderItem) => ({ id: i.id, name: i.name }))
+      })
       return items
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -229,7 +239,6 @@ export class KitchenService {
         error: errorMessage,
         params: { orderId, type, status }
       })
-      // Return empty array instead of throwing to allow partial order processing
       return []
     }
   }
@@ -238,15 +247,13 @@ export class KitchenService {
     try {
       logger.info(`[KitchenService] Changing order status for order ${request.orderId} to ${request.pos_status}`)
       
-      const response = await apiClient.post<ApiResponse<Order>>('/v1/core-pos/changeordestatus', null, {
-        params: {
-          idorder: request.orderId,
-          type: request.type,
-          pos_status: request.pos_status
-        }
+      const response = await apiClient.post('/v1/core-pos/changeordestatus', {
+         idorder: request.orderId,
+         type: request.type,
+         pos_status: request.pos_status
       })
 
-      return response.data.data
+      return (response.data as ApiResponse<Order>).data
     } catch (error) {
       console.error('❌ [KitchenService] Error in changeOrderStatus:', error)
       throw errorHandler.handleApi(error, '[KitchenService] changeOrderStatus')
@@ -260,14 +267,17 @@ export class KitchenService {
         endpoint: '/v1/core-pos/changeorderstatusitem'
       })
       
-      const response = await apiClient.post<ApiResponse<OrderItem>>('/v1/core-pos/changeorderstatusitem', null, {
-        params: {
-          idorder: request.orderId,
-          iditem: request.itemId,
-          type: request.type,
-          pos_status: request.pos_status
-        }
-      })
+      // Use the raw IDs from the order and item
+      const response = await apiClient.post('/v1/core-pos/changeorderstatusitem', 
+        null,
+        {
+          params: {
+            idorder: request.orderId,
+            iditem: request.itemId,
+            type: request.type,
+            pos_status: request.pos_status
+          }
+        })
 
       if (!response.data?.data) {
         throw new KitchenApiError('No data returned from API', 'NO_DATA')
