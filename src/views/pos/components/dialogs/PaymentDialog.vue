@@ -361,6 +361,42 @@
       title="Invoice"
       @closed="handlePdfViewerClosed"
     />
+
+    <!-- Error Details Dialog -->
+    <v-dialog v-model="showErrorDetails" max-width="600px">
+      <v-card>
+        <v-card-title class="text-h6">
+          <v-icon color="error" class="mr-2">mdi-alert-circle</v-icon>
+          Payment Declined
+        </v-card-title>
+        <v-card-text>
+          <div class="text-body-1 mb-4">{{ userFriendlyError }}</div>
+          
+          <v-expansion-panels variant="accordion">
+            <v-expansion-panel title="Technical Details">
+              <v-expansion-panel-text>
+                <div class="text-caption">
+                  <div v-if="lastError.declineCode">
+                    <strong>Error Code:</strong> {{ lastError.declineCode }}
+                  </div>
+                  <div><strong>Message:</strong> {{ lastError.message }}</div>
+                  <div v-if="lastError.response">
+                    <strong>Full Response:</strong> 
+                    <pre class="mt-2">{{ JSON.stringify(lastError.response, null, 2) }}</pre>
+                  </div>
+                </div>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" @click="showErrorDetails = false">
+            Close
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -454,6 +490,9 @@ const processing = ref(false)
 const payments = ref([])
 const showPdfViewer = ref(false)
 const currentPdfUrl = ref('')
+const showErrorDetails = ref(false)
+const lastError = ref(null)
+const userFriendlyError = ref('')
 
 // PDF viewer handlers
 const handlePdfViewerClosed = () => {
@@ -1062,10 +1101,12 @@ const processPayment = async () => {
 
     // Enhanced error mapping
     const errorMap = {
-      'BLOCKED 1ST USE': 'Card requires activation - use another payment method',
-      '05': 'Insufficient funds',
-      '1015': 'Payment method restricted',
-      'DECLINED': 'Payment declined by issuer'
+      'BLOCKED 1ST USE': 'This card requires activation - please use a different payment method',
+      'TERMINAL_DECLINED: BLOCKED 1ST USE': 'This card requires activation - please use a different payment method',
+      '05': 'Insufficient funds - please try another payment method',
+      '1015': 'This payment method is not accepted',
+      'DECLINED': 'Payment declined by bank - contact your card issuer',
+      'CARD_ACTIVATION_REQUIRED': 'Card requires activation - first use must be at bank ATM'
     };
 
     if (terminalDeclineMatch) {

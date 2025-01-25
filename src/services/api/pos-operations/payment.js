@@ -172,33 +172,35 @@ export const paymentOperations = {
         data: response.data
       };
     } catch (error) {
-      // Preserve original decline message from manual throw
-      let displayMessage = error.message.includes('TERMINAL_DECLINED:') 
-        ? error.message.split(': ')[1] 
-        : 'Payment declined';
+      let displayMessage = 'Payment declined'
+      let declineCode = 'UNKNOWN'
 
-      // Check for SPIn error structure
-      if (error.response?.data?.error?.details?.spInResponse) {
-        const spInData = error.response.data.error.details.spInResponse;
-        displayMessage = spInData.decline_reason 
-          ? `${spInData.message} (Reason: ${spInData.decline_reason})`
-          : spInData.message;
-      }
-      // Handle direct API decline responses
-      else if (error.response?.data?.full_message) {
-        displayMessage = error.response.data.full_message;
+      // Handle direct API response format
+      if (error.response?.data) {
+        const responseData = error.response.data
+        
+        declineCode = responseData.code || 
+                     responseData.GeneralResponse?.HostResponseCode || 
+                     'NO_CODE'
+        
+        displayMessage = responseData.full_message || 
+                        responseData.message || 
+                        'Payment declined'
+
+        // Special case for BLOCKED 1ST USE
+        if (displayMessage.includes('BLOCKED 1ST USE')) {
+          displayMessage = 'Card requires activation - first use must be at bank ATM'
+          declineCode = 'CARD_ACTIVATION_REQUIRED'
+        }
       }
 
       // Handle timeout specifically
       if (error.code === 'ECONNABORTED') {
         displayMessage = 'Terminal response timeout - check terminal connection';
+        declineCode = 'TIMEOUT';
       }
 
-      // Extract decline code from SPIn response
-      const declineCode = error.response?.data?.error?.details?.spInResponse?.HostResponseCode || 
-                         error.response?.data?.GeneralResponse?.HostResponseCode;
-
-      // Attach decline code to error
+      // Create error with normalized message
       const errorWithCode = new Error(`TERMINAL_DECLINED: ${displayMessage}`);
       errorWithCode.declineCode = declineCode;
 
