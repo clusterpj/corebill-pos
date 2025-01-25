@@ -147,6 +147,10 @@ const POLL_INTERVAL = 30000
 const loading = ref(false)
 const orders = ref([])
 const activeTab = ref('active') // Default to 'active' tab
+const persistedTab = localStorage.getItem('kitchenActiveTab')
+if (persistedTab) {
+  activeTab.value = persistedTab
+}
 const autoRefresh = ref(true)
 const refreshTimer = ref(null)
 
@@ -256,10 +260,19 @@ watch(autoRefresh, (enabled) => {
   enabled ? startPolling() : stopPolling()
 })
 
+// Persist tab selection
+watch(activeTab, (newTab) => {
+  localStorage.setItem('kitchenActiveTab', newTab)
+})
+
 onMounted(async () => {
   console.log('🚀 Component mounted')
   console.log('Initial activeTab value:', activeTab.value)
   await fetchOrders()
+  // Always reset to active tab after refresh unless user changed it
+  if (!localStorage.getItem('kitchenActiveTab')) {
+    activeTab.value = 'active'
+  }
   if (autoRefresh.value) startPolling()
   
   // Log tab state after mount
