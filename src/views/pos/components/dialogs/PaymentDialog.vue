@@ -1055,19 +1055,21 @@ const processPayment = async () => {
       
     let userMessage = err.message;
     const terminalDeclineMatch = userMessage.match(/TERMINAL_DECLINED: (.*)/);
-      
+    
+    // Get decline code from error object
+    const declineCode = err.declineCode || 
+                       err.response?.data?.GeneralResponse?.HostResponseCode;
+
     // Enhanced error mapping
     const errorMap = {
       'BLOCKED 1ST USE': 'Card requires activation - use another payment method',
       '05': 'Insufficient funds',
       '1015': 'Payment method restricted',
-      'DECLINED': 'Payment declined by issuer',
-      'TERMINAL NOT FOUND': 'Payment terminal unavailable'
+      'DECLINED': 'Payment declined by issuer'
     };
 
     if (terminalDeclineMatch) {
-      const rawMessage = terminalDeclineMatch[1];
-      userMessage = errorMap[rawMessage] || rawMessage;
+      userMessage = errorMap[terminalDeclineMatch[1]] || terminalDeclineMatch[1];
     }
 
     window.toastr?.['error'](userMessage);

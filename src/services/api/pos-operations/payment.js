@@ -194,14 +194,21 @@ export const paymentOperations = {
         displayMessage = 'Terminal response timeout - check terminal connection';
       }
 
+      // Extract decline code from SPIn response
+      const declineCode = error.response?.data?.error?.details?.spInResponse?.HostResponseCode || 
+                         error.response?.data?.GeneralResponse?.HostResponseCode;
+
+      // Attach decline code to error
+      const errorWithCode = new Error(`TERMINAL_DECLINED: ${displayMessage}`);
+      errorWithCode.declineCode = declineCode;
+
       logger.error('Full terminal error context:', {
+        declineCode,
         config: error.config,
         response: error.response?.data,
-        originalMessage: error.message,
-        stack: error.stack
       });
 
-      throw new Error(`TERMINAL_DECLINED: ${displayMessage}`); // Preserve error format
+      throw errorWithCode;
     } finally {
       logger.endGroup();
     }
