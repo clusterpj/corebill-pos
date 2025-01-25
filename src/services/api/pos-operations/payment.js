@@ -139,8 +139,8 @@ export const paymentOperations = {
           headers: {
             'Idempotency-Key': generateIdempotencyKey(),
             // Add auth headers required by platform
-            'X-Tpn': '7343202426', // From platform request
-            'X-Authkey': 'NH53bcE5xe' // From platform request
+            'X-Tpn': terminalSettings.tpn, // Dynamic from terminal config
+            'X-Authkey': terminalSettings.auth_key // Dynamic from terminal config
           }
         }
       )
