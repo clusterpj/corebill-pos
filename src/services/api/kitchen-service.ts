@@ -244,18 +244,43 @@ export class KitchenService {
 
   static async changeOrderStatus(request: OrderStatusChangeRequest): Promise<Order> {
     try {
-      logger.info(`[KitchenService] Changing order status for order ${request.orderId} to ${request.pos_status}`)
+      // Double check the order type
+      const orderType = request.type === 'INVOICE' ? 'INVOICE' : 'HOLD'
       
-      const response = await apiClient.post('/v1/core-pos/changeordestatus', {
-         idorder: request.orderId,
-         type: request.type,
-         pos_status: request.pos_status
+      logger.debug('Changing order status with details:', {
+        orderId: request.orderId,
+        type: orderType,
+        originalType: request.type,
+        pos_status: request.pos_status
       })
+      
+      const payload = {
+        id: Number(request.orderId),
+        type: orderType,
+        pos_status: request.pos_status
+      }
 
-      return (response.data as ApiResponse<Order>).data
+      const response = await apiClient.post('/v1/core-pos/changeordestatus', payload)
+      
+      if (!response.data?.success) {
+        logger.error('Failed to update order status:', {
+          orderId: request.orderId,
+          type: orderType,
+          response: response.data
+        })
+        throw new KitchenApiError(
+          response.data?.message || 'Failed to update order status',
+          'UPDATE_FAILED'
+        )
+      }
+
+      return response.data.data
     } catch (error) {
-      console.error('❌ [KitchenService] Error in changeOrderStatus:', error)
-      throw errorHandler.handleApi(error, '[KitchenService] changeOrderStatus')
+      logger.error('Failed to change order status:', {
+        request,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+      throw errorHandler.handleApi(error, '[KitchenService] changeordestatus')
     }
   }
 
@@ -274,11 +299,19 @@ export class KitchenService {
         params: payload
       })
 
-      if (!response.data?.data) {
-        throw new KitchenApiError('No data returned from API', 'NO_DATA')
+      // Check for success message instead of expecting data
+      if (response.data?.success) {
+        // Return a simplified response since the API doesn't return item data
+        return {
+          id: Number(request.itemId),
+          pos_status: request.pos_status
+        } as OrderItem
       }
 
-      return response.data.data
+      throw new KitchenApiError(
+        response.data?.message || 'Failed to update item status',
+        'UPDATE_FAILED'
+      )
     } catch (error) {
       logger.error('Failed to change item status:', {
         request,

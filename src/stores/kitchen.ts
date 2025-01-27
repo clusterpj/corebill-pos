@@ -107,34 +107,46 @@ export const useKitchenStore = defineStore('kitchen', () => {
     }
   }
 
-  const completeOrder = async (orderId: number) => {
+  const completeOrder = async (payload: OrderStatusChangeRequest) => {
     try {
-      const order = orders.value.find(o => o.id === orderId)
+      const order = orders.value.find(o => o.id === payload.orderId)
       if (!order) {
-        throw new Error(`Order ${orderId} not found`)
+        throw new Error(`Order ${payload.orderId} not found`)
       }
 
-      // Mark order and all its items as completed
+      // Ensure we're using the correct type based on the order's properties
+      const orderType = order.invoice_number ? 'INVOICE' : 'HOLD'
+      
+      logger.info(`Completing order with type ${orderType}:`, {
+        orderId: payload.orderId,
+        originalType: payload.type,
+        hasInvoiceNumber: Boolean(order.invoice_number)
+      })
+
+      // Update order status with correct type
       await KitchenService.changeOrderStatus({
-        orderId,
-        type: order.type === 'Invoice' ? 'INVOICE' : 'HOLD',
+        orderId: payload.orderId,
+        type: orderType,
         pos_status: PosStatus.COMPLETED
       })
       
-      // Mark all items as completed
-      for (const item of order.items) {
-        await KitchenService.changeOrderItemStatus({
-          orderId,
+      // Update all items status
+      const itemPromises = order.items.map(item =>
+        KitchenService.changeOrderItemStatus({
+          orderId: payload.orderId,
           itemId: item.id,
-          type: order.type === 'Invoice' ? 'INVOICE' : 'HOLD',
+          type: orderType,
           pos_status: PosStatus.COMPLETED
         })
-      }
+      )
+      
+      await Promise.all(itemPromises)
 
       // Update local state
       const updatedOrder = {
         ...order,
         pos_status: PosStatus.COMPLETED,
+        type: orderType,
         completed_at: new Date().toISOString(),
         items: order.items.map(item => ({
           ...item,
@@ -143,15 +155,18 @@ export const useKitchenStore = defineStore('kitchen', () => {
       }
 
       // Update the order in the store
-      const orderIndex = orders.value.findIndex(o => o.id === orderId)
+      const orderIndex = orders.value.findIndex(o => o.id === payload.orderId)
       if (orderIndex !== -1) {
         orders.value[orderIndex] = updatedOrder
       }
 
       persistOrders()
-      logger.info(`Order ${orderId} marked as completed`)
+      logger.info(`Successfully completed ${orderType} order ${payload.orderId}`)
     } catch (error) {
-      logger.error(`Failed to complete order ${orderId}:`, error)
+      logger.error(`Failed to complete order:`, {
+        orderId: payload.orderId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
       throw error
     }
   }
