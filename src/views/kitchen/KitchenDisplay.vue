@@ -138,11 +138,11 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { KitchenService } from '@/services/api/kitchen-service'
 import KitchenOrderCard from './components/KitchenOrderCard.vue'
+import { useKitchenStore } from '@/stores/kitchen' // <-- Add this
 
 // Constants
 const KITCHEN_SECTION_ID = 1
-const POLL_INTERVAL = 30000
-
+const POLL_INTERVAL = 80000
 // Local state
 const loading = ref(false)
 const orders = ref([])
@@ -156,16 +156,20 @@ const refreshTimer = ref(null)
 
 // Computed properties
 const kitchenOrders = computed(() => {
-  // Active order filtering with kitchen-specific items
+  // Active order filtering with kitchen-specific items, include both HOLD and INVOICE
   return orders.value
-    .filter(order => 
-      order.items?.some(item => item.section_type === 'kitchen') &&
-      order.pos_status === 'P'
-    )
-    .sort((a, b) => 
-      new Date(b.invoice_date || b.created_at) - 
-      new Date(a.invoice_date || a.created_at)
-    );
+    .filter(order => {
+      const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
+      const isPending = order.pos_status === 'P'
+      // Include both HOLD and INVOICE orders
+      return hasKitchenItems && isPending
+    })
+    .sort((a, b) => {
+      // Sort by date, using either invoice_date or created_at
+      const dateA = new Date(a.invoice_date || a.created_at)
+      const dateB = new Date(b.invoice_date || b.created_at)
+      return dateB.getTime() - dateA.getTime()
+    });
 });
 
 const completedOrders = computed(() => {
@@ -264,6 +268,8 @@ watch(autoRefresh, (enabled) => {
 watch(activeTab, (newTab) => {
   localStorage.setItem('kitchenActiveTab', newTab)
 })
+
+const kitchenStore = useKitchenStore() // <-- Create store reference
 
 onMounted(async () => {
   console.log('🚀 Component mounted')

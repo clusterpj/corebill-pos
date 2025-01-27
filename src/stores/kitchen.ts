@@ -156,24 +156,27 @@ export const useKitchenStore = defineStore('kitchen', () => {
     }
   }
 
-  const completeOrderItem = async (orderId: number, itemId: number) => {
+  const completeOrderItem = async (payload: {
+    orderId: number,
+    itemId: number,
+    type: string,
+    pos_status: string
+  }) => {
     try {
+      const { orderId, itemId, type, pos_status } = payload
       const order = orders.value.find(o => o.id === orderId)
       if (!order) {
         throw new Error(`Order ${orderId} not found`)
       }
-
       const item = order.items.find(i => i.id === itemId)
       if (!item) {
         throw new Error(`Item ${itemId} not found in order ${orderId}`)
       }
-
-      // Determine order type based on invoice_number presence
-      const orderType = order.invoice_number ? 'INVOICE' : 'HOLD'
-      logger.debug(`Completing item ${itemId} in ${orderType} order ${orderId}`, {
+      const resolvedType = type.toUpperCase()
+      logger.debug(`Completing item ${itemId} in ${resolvedType} order ${orderId}`, {
         order: {
           id: order.id,
-          type: orderType,
+          type: resolvedType,
           invoice_number: order.invoice_number
         },
         item: {
@@ -186,8 +189,8 @@ export const useKitchenStore = defineStore('kitchen', () => {
       await KitchenService.changeOrderItemStatus({
         orderId,
         itemId,
-        type: orderType,
-        pos_status: PosStatus.COMPLETED
+        type: resolvedType,
+        pos_status
       })
 
       // Update local state
@@ -207,7 +210,7 @@ export const useKitchenStore = defineStore('kitchen', () => {
       }
 
       persistOrders()
-      logger.info(`Item ${itemId} in ${orderType} order ${orderId} marked as completed`)
+      logger.info(`Item ${itemId} in ${resolvedType} order ${orderId} marked as completed`)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       logger.error(`Failed to complete item ${itemId} in order ${orderId}:`, {

@@ -261,38 +261,30 @@ export class KitchenService {
 
   static async changeOrderItemStatus(request: OrderItemStatusChangeRequest): Promise<OrderItem> {
     try {
-      logger.info(`[KitchenService] Changing item status for order ${request.orderId}, item ${request.itemId} to ${request.pos_status}`, {
-        request,
-        endpoint: '/v1/core-pos/changeorderstatusitem'
+      const payload = {
+        idorder: Number(request.orderId),
+        iditem: Number(request.itemId),
+        type: (request.type ?? 'HOLD').toUpperCase(),
+        pos_status: request.pos_status
+      }
+
+      logger.debug('Sending item status update with payload:', payload)
+
+      const response = await apiClient.post('/v1/core-pos/changeOrderStatusItem', null, {
+        params: payload
       })
-      
-      // Use the raw IDs from the order and item
-      const response = await apiClient.post('/v1/core-pos/changeorderstatusitem', 
-        null,
-        {
-          params: {
-            idorder: request.orderId,
-            iditem: request.itemId,
-            type: request.type,
-            pos_status: request.pos_status
-          }
-        })
 
       if (!response.data?.data) {
         throw new KitchenApiError('No data returned from API', 'NO_DATA')
       }
 
-      logger.debug(`Successfully changed item status`, {
-        orderId: request.orderId,
-        itemId: request.itemId,
-        type: request.type,
-        newStatus: request.pos_status
-      })
-
       return response.data.data
     } catch (error) {
-      console.error('❌ [KitchenService] Error in changeOrderItemStatus:', error)
-      throw errorHandler.handleApi(error, '[KitchenService] changeOrderItemStatus')
+      logger.error('Failed to change item status:', {
+        request,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+      throw error
     }
   }
 

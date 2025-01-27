@@ -203,21 +203,30 @@ const handleComplete = async () => {
 }
 
 const handleItemComplete = async (itemId) => {
+  loading.value = true
+  const numericOrderId = Number(props.order.id)
+  const numericItemId = Number(itemId)
   try {
-    loading.value = true
-    const numericOrderId = Number(props.order.id)
-    const numericItemId = Number(itemId)
-    console.log(`Completing item ${numericItemId} in order ${numericOrderId}`)
-    
+    console.log(`Starting to complete item ${numericItemId} in order ${numericOrderId}`)
     if (!kitchenStore.orders.some(o => o.id === numericOrderId)) {
       throw new Error(`Order ${numericOrderId} not found in store`)
     }
     
-    await kitchenStore.completeOrderItem(numericOrderId, numericItemId)
-
+    const payload = {
+      orderId: numericOrderId,
+      itemId: numericItemId,
+      type: orderType.value,
+      pos_status: 'C'
+    }
+    console.log('Completing item with payload:', payload)
+    
+    await kitchenStore.completeOrderItem(payload)
     // Check if all items are completed
-    if (kitchenItems.value.every(item => item.pos_status === 'C')) {
+    const allItemsCompleted = kitchenItems.value.every(item => item.pos_status === 'C')
+    console.log(`All items completed status: ${allItemsCompleted}`)
+    if (allItemsCompleted) {
       emit('complete', Number(props.order.id))
+      console.log(`All items in order ${numericOrderId} are completed, emitted 'complete' event`)
     }
   } catch (error) {
     console.error(`Failed to complete item:`, {
@@ -227,6 +236,7 @@ const handleItemComplete = async (itemId) => {
     })
   } finally {
     loading.value = false
+    console.log(`Finished handling completion for item ${numericItemId} in order ${numericOrderId}`)
   }
 }
 </script>
