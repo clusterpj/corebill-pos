@@ -26,10 +26,16 @@
       <v-tabs
         v-model="activeTab"
         color="primary"
-        class="mb-4"
-        grow
+        class="mb-4 kitchen-tabs"
+        fixed-tabs
+        show-arrows
+        height="56"
       >
-        <v-tab value="active" class="text-subtitle-1">
+        <v-tab
+          value="active"
+          class="kitchen-tab text-subtitle-1 font-weight-medium"
+          :default="true"
+        >
           <v-icon icon="mdi-clock-outline" class="mr-2" />
           Active Orders
           <v-chip
@@ -41,7 +47,7 @@
             {{ kitchenOrders.length }}
           </v-chip>
         </v-tab>
-        <v-tab value="history" class="text-subtitle-1">
+        <v-tab value="history" class="kitchen-tab text-subtitle-1">
           <v-icon icon="mdi-history" class="mr-2" />
           Order History
           <v-chip
@@ -156,35 +162,36 @@ const refreshTimer = ref(null)
 
 // Computed properties
 const kitchenOrders = computed(() => {
-  // Active order filtering with kitchen-specific items, include both HOLD and INVOICE
   return orders.value
     .filter(order => {
-      const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
+      const hasKitchenItems = order.items?.some(item => 
+        item.section_type === 'kitchen' && item.pos_status === 'P'
+      )
       const isPending = order.pos_status === 'P'
-      // Include both HOLD and INVOICE orders
-      return hasKitchenItems && isPending
+      const isValidType = ['INVOICE', 'HOLD'].includes(order.type?.toUpperCase())
+      
+      return hasKitchenItems && isPending && isValidType
     })
     .sort((a, b) => {
-      // Sort by date, using either invoice_date or created_at
       const dateA = new Date(a.invoice_date || a.created_at)
       const dateB = new Date(b.invoice_date || b.created_at)
       return dateB.getTime() - dateA.getTime()
-    });
-});
+    })
+})
 
 const completedOrders = computed(() => {
   return orders.value
     .filter(order => {
-      const hasKitchenItems = order.items?.some(item => 
-        item.section_type === 'kitchen'
-      )
+      const hasKitchenItems = order.items?.some(item => item.section_type === 'kitchen')
       const isCompleted = order.pos_status === 'C'
-      return hasKitchenItems && isCompleted
+      const isValidType = ['INVOICE', 'HOLD'].includes(order.type?.toUpperCase())
+      
+      return hasKitchenItems && isCompleted && isValidType
     })
     .sort((a, b) => {
-      const dateA = new Date(a.invoice_date || a.created_at || a.date)
-      const dateB = new Date(b.invoice_date || b.created_at || b.date)
-      return dateB - dateA // Sort newest first
+      const dateA = new Date(a.completed_at || a.invoice_date || a.created_at)
+      const dateB = new Date(b.completed_at || b.invoice_date || b.created_at)
+      return dateB - dateA
     })
 })
 
@@ -248,9 +255,12 @@ async function handleOrderComplete(orderId) {
 }
 
 function startPolling() {
-  console.log('🔄 Starting polling')
   stopPolling()
-  refreshTimer.value = setInterval(fetchOrders, POLL_INTERVAL)
+  activeTab.value = 'active' // Reset to active tab
+  refreshTimer.value = setInterval(() => {
+    fetchOrders()
+    activeTab.value = 'active' // Maintain active tab
+  }, POLL_INTERVAL)
 }
 
 function stopPolling() {
@@ -266,32 +276,32 @@ watch(autoRefresh, (enabled) => {
 
 // Persist tab selection
 watch(activeTab, (newTab) => {
-  localStorage.setItem('kitchenActiveTab', newTab)
+  console.log('Tab changed to:', newTab)
 })
 
 const kitchenStore = useKitchenStore() // <-- Create store reference
 
 onMounted(async () => {
   console.log('🚀 Component mounted')
-  console.log('Initial activeTab value:', activeTab.value)
+  // Always set active tab first, before any other operations
+  activeTab.value = 'active'
+  
   await fetchOrders()
-  // Update store with fresh orders data
+  
   if (orders.value.length) {
     kitchenStore.$patch({
       orders: orders.value,
       orderIds: orders.value.map(o => o.id)
     })
   }
-  // Always reset to active tab after refresh unless user changed it
-  if (!localStorage.getItem('kitchenActiveTab')) {
-    activeTab.value = 'active'
-  }
-  if (autoRefresh.value) startPolling()
   
-  // Log tab state after mount
-  console.log('Tab state after mount:', {
+  if (autoRefresh.value) {
+    startPolling()
+  }
+  
+  console.log('📊 Mount complete:', {
     activeTab: activeTab.value,
-    kitchenOrders: kitchenOrders.value.length,
+    activeOrders: kitchenOrders.value.length,
     completedOrders: completedOrders.value.length
   })
 })
