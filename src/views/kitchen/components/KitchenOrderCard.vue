@@ -189,26 +189,31 @@ const handleComplete = async () => {
   try {
     loading.value = true
     const numericOrderId = Number(props.order.id)
-    // Explicitly determine the type based on invoice_number
     const orderType = props.order.invoice_number ? 'INVOICE' : 'HOLD'
     
     console.log('Completing order with details:', {
       orderId: numericOrderId,
       type: orderType,
-      hasInvoiceNumber: Boolean(props.order.invoice_number)
+      hasInvoiceNumber: Boolean(props.order.invoice_number),
+      itemsCount: kitchenItems.value.length
     })
     
     if (!kitchenStore.orders.some(o => o.id === numericOrderId)) {
       throw new Error(`Order ${numericOrderId} not found in store`)
     }
     
-    // Pass the correct type to the store action
-    await kitchenStore.completeOrder({
+    // Create payload with both order and items information
+    const payload = {
       orderId: numericOrderId,
       type: orderType,
-      pos_status: 'C'
-    })
+      pos_status: 'C',
+      items: kitchenItems.value.map(item => ({
+        id: Number(item.id),
+        pos_status: 'C'
+      }))
+    }
     
+    await kitchenStore.completeOrder(payload)
     emit('complete', numericOrderId)
   } catch (error) {
     console.error('Failed to complete order:', {

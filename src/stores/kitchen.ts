@@ -107,40 +107,44 @@ export const useKitchenStore = defineStore('kitchen', () => {
     }
   }
 
-  const completeOrder = async (payload: OrderStatusChangeRequest) => {
+  const completeOrder = async (payload: {
+    orderId: number,
+    type: string,
+    pos_status: string,
+    items: { id: number, pos_status: string }[]
+  }) => {
     try {
       const order = orders.value.find(o => o.id === payload.orderId)
       if (!order) {
         throw new Error(`Order ${payload.orderId} not found`)
       }
 
-      // Ensure we're using the correct type based on the order's properties
       const orderType = order.invoice_number ? 'INVOICE' : 'HOLD'
       
-      logger.info(`Completing order with type ${orderType}:`, {
+      logger.info(`Completing order and items with type ${orderType}:`, {
         orderId: payload.orderId,
-        originalType: payload.type,
-        hasInvoiceNumber: Boolean(order.invoice_number)
+        type: orderType,
+        itemsCount: payload.items.length
       })
 
-      // Update order status with correct type
+      // First, update the order status
       await KitchenService.changeOrderStatus({
         orderId: payload.orderId,
         type: orderType,
-        pos_status: PosStatus.COMPLETED
+        pos_status: payload.pos_status
       })
       
-      // Update all items status
-      const itemPromises = order.items.map(item =>
+      // Then, update all items status in parallel
+      const itemUpdatePromises = payload.items.map(item =>
         KitchenService.changeOrderItemStatus({
           orderId: payload.orderId,
           itemId: item.id,
           type: orderType,
-          pos_status: PosStatus.COMPLETED
+          pos_status: payload.pos_status
         })
       )
       
-      await Promise.all(itemPromises)
+      await Promise.all(itemUpdatePromises)
 
       // Update local state
       const updatedOrder = {
@@ -161,9 +165,9 @@ export const useKitchenStore = defineStore('kitchen', () => {
       }
 
       persistOrders()
-      logger.info(`Successfully completed ${orderType} order ${payload.orderId}`)
+      logger.info(`Successfully completed ${orderType} order ${payload.orderId} with all items`)
     } catch (error) {
-      logger.error(`Failed to complete order:`, {
+      logger.error(`Failed to complete order and items:`, {
         orderId: payload.orderId,
         error: error instanceof Error ? error.message : 'Unknown error'
       })
