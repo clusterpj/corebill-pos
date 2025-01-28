@@ -371,7 +371,8 @@ export const actions = {
       }
       
       state.contact = invoice.contact || null
-
+      console.log('Impresion de Articulos')
+      console.log('invoice', invoice)
       // Log incoming invoice data
       logger.info('Loading invoice data:', {
         id: invoice.id,
@@ -386,7 +387,7 @@ export const actions = {
         }))
       })
 
-      // Load items
+      // Load items with pos_status preservation
       state.items = invoice.items.map(item => {
         // Normalize prices from backend (e.g., 14900 becomes 149)
         const itemPrice = item.price > 1000 ? item.price / 100 : item.price
@@ -400,7 +401,8 @@ export const actions = {
           formatted_price: PriceUtils.format(itemPrice),
           quantity: itemQuantity,
           total: itemTotal,
-          formatted_total: PriceUtils.format(itemTotal)
+          formatted_total: PriceUtils.format(itemTotal),
+          pos_status: item.pos_status || 'P' // Log status
         })
 
         return {
@@ -416,9 +418,16 @@ export const actions = {
           discount_type: item.discount_type || 'fixed',
           discount: item.discount || 0,
           discount_val: item.discount_val || 0,
-          fromHeldOrder: true // Mark item as coming from held order
+          fromExistingOrder: true, // Mark as existing order item
+          pos_status: item.pos_status || 'P', // Preserve item status
+          section_id: item.section_id,
+          section_type: item.section_type,
+          fromHeldOrder: true
         }
       })
+
+      // Set order level pos_status
+      state.pos_status = invoice.pos_status || 'P'
 
       // Set other invoice properties
       state.notes = invoice.notes || ''
@@ -493,6 +502,34 @@ export const actions = {
       const customer = state.customer || {}
       const contact = state.contact || {}
 
+      // Map items with preserved status and proper item_id field
+      const mappedItems = state.items.map(item => {
+        const itemPrice = PriceUtils.normalizePrice(item.price)
+        const itemQuantity = Math.round(Number(item.quantity))
+        const itemSubtotal = itemPrice * itemQuantity
+        const itemTax = Math.round(itemSubtotal * state.taxRate)
+  
+        return {
+          item_id: item.id, // Ensure item_id is set
+          id: item.id,      // Keep original id as well
+          name: item.name,
+          description: item.description || '',
+          price: itemPrice,
+          quantity: itemQuantity,
+          unit_name: item.unit_name || 'units',
+          total: itemSubtotal,
+          tax: itemTax,
+          sub_total: itemSubtotal,
+          discount_type: item.discount_type || 'fixed',
+          discount: item.discount || 0,
+          discount_val: item.discount_val || 0,
+          // Preserve existing status or default to pending
+          pos_status: item.fromExistingOrder ? item.pos_status : 'P',
+          section_id: item.section_id,
+          section_type: item.section_type
+        }
+      })
+
       // Prepare invoice data with all required fields
       const invoiceData = {
         // Basic invoice info
@@ -507,35 +544,13 @@ export const actions = {
         due_amount: totalAmount,
         
         // Items with proper formatting
-        items: state.items.map(item => {
-          const itemPrice = PriceUtils.normalizePrice(item.price)
-          const itemQuantity = Math.round(Number(item.quantity))
-          const itemSubtotal = itemPrice * itemQuantity
-          const itemTax = Math.round(itemSubtotal * state.taxRate)
-          
-          return {
-            item_id: Number(item.id),
-            name: item.name,
-            description: item.description || '',
-            price: itemPrice,
-            quantity: itemQuantity,
-            unit_name: item.unit_name || 'units',
-            sub_total: itemSubtotal,
-            total: itemSubtotal + itemTax,
-            tax: itemTax,
-            discount: "0",
-            discount_val: 0,
-            discount_type: "fixed",
-            retention_amount: 0,
-            retention_concept: "NO_RETENTION",
-            retention_percentage: 0,
-            retentions_id: null
-          }
-        }),
+        items: mappedItems,
 
         // Status and type
         status: state.editingInvoiceStatus || 'DRAFT',
         type: state.type,
+        pos_status: state.pos_status || 'P', // Preserve order status or default to Pending
+        type: state.type?.toUpperCase() || 'HOLD', // Ensure type is uppercase
         
         // Discount
         discount_type: state.discountType || 'fixed',
