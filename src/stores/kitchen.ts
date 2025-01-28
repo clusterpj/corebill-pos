@@ -241,6 +241,21 @@ export const useKitchenStore = defineStore('kitchen', () => {
     }
   }
 
+  const addInvoice = (payload: { invoice: any; type: string }) => {
+    const newOrder: Order = {
+      id: payload.invoice.id,
+      invoice_number: payload.invoice.invoice_number,
+      status: payload.invoice.status || 'PENDING',
+      pos_status: payload.invoice.pos_status || 'PENDING',
+      type: payload.type,
+      items: payload.invoice.items || [],
+      created_at: payload.invoice.created_at || new Date().toISOString(),
+      completed_at: null
+    }
+    orders.value.unshift(newOrder)
+    persistOrders()
+  }
+
   // Persistence helpers
   const STORAGE_KEY = 'kitchen_orders'
 
@@ -279,6 +294,7 @@ export const useKitchenStore = defineStore('kitchen', () => {
     // Actions
     initializeOrders,
     completeOrder,
-    completeOrderItem
+    completeOrderItem,
+    addInvoice
   }
 })

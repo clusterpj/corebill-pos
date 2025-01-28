@@ -96,9 +96,6 @@
                     class="mr-2"
                     @click.stop="handleItemComplete(item.id)"
                   />
-                  <span class="text-caption text-medium-emphasis">
-                    {{ formatPrice(item.price) }}
-                  </span>
                 </div>
               </v-list-item-title>
 

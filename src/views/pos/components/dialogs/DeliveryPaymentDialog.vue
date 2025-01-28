@@ -72,7 +72,12 @@ import { ref, computed } from 'vue'
 import { posApi } from '@/services/api/pos-api'
 import { logger } from '@/utils/logger'
 import { useCompanyStore } from '@/stores/company'
+import { useKitchenStore } from '@/stores/kitchen' // Add this import
 import { convertHeldOrderToInvoice } from '../held-orders/utils/invoiceConverter'
+
+// Initialize stores
+const companyStore = useCompanyStore()
+const kitchenStore = useKitchenStore()
 
 const props = defineProps({
   modelValue: Boolean,
@@ -119,10 +124,26 @@ const formatCurrency = (amount) => {
   }).format(amount)
 }
 
-const closeDialog = () => {
-  emit('payment-complete', true)
-  dialog.value = false
+const closeDialog = async () => {
+  try {
+    // If there's an invoice, ensure it's added to kitchen display
+    if (props.invoice?.invoice) {
+      await kitchenStore.addInvoice({
+        invoice: props.invoice.invoice,
+        type: props.invoice.invoice.type || 'DELIVERY'
+      })
+    }
+    
+    emit('payment-complete', true)
+    dialog.value = false
+  } catch (error) {
+    logger.error('Error adding invoice to kitchen display:', error)
+    // Still close the dialog even if kitchen display fails
+    emit('payment-complete', true)
+    dialog.value = false
+  }
 }
+
 </script>
 
 <style scoped>

@@ -225,6 +225,7 @@ const props = defineProps({
 // Initialize composables and stores
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
+const kitchenStore = useKitchenStore()
 const { setOrderType, setCustomerInfo, customerNotes } = useOrderType()
 
 // Add computed properties for store and cashier
@@ -621,6 +622,12 @@ const processOrder = async () => {
 
     // Show payment dialog
     showPaymentDialog.value = true
+
+    // Add invoice to kitchen store
+    kitchenStore.addInvoice({
+      invoice: invoiceResult.invoice,
+      type: 'PICKUP'
+    })
   } catch (error) {
     logger.error('Failed to prepare pickup order:', {
       error,

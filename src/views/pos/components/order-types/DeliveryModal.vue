@@ -839,7 +839,10 @@ const processOrder = async () => {
     }
 
     // Add to kitchen display
-    kitchenStore.addDirectInvoice(invoiceResult.invoice)
+    kitchenStore.addInvoice({
+      invoice: invoiceResult.invoice,
+      type: 'DELIVERY'
+    })
 
     logger.debug('Invoice created successfully:', invoiceResult.invoice)
 
