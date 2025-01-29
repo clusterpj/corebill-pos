@@ -111,6 +111,7 @@ import { computed, watch, ref } from 'vue'
 import { logger } from '@/utils/logger'
 import { PriceUtils } from '@/utils/price'
 import ItemNoteDialog from './ItemNoteDialog.vue'
+import { useCartStore } from '@/stores/cart-store'
 
 const props = defineProps({
   items: {
@@ -119,7 +120,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit', 'remove', 'updateQuantity', 'updateNote'])
+const emit = defineEmits(['edit', 'remove', 'updateQuantity'])
 
 // Log initial cart state
 console.log('CartItemList - Initial cart state:', {
@@ -188,6 +189,8 @@ const showNoteDialog = ref(false)
 const editingItem = ref(null)
 const editingIndex = ref(null)
 
+const cartStore = useCartStore()
+
 // Handlers with logging
 const handleQuantityUpdate = (itemId, newQuantity, index) => {
   console.log('CartItemList - Updating quantity:', {
@@ -212,14 +215,22 @@ const handleRemoveItem = (itemId, index) => {
 }
 
 const handleEditNote = (item, index) => {
-  editingItem.value = item
+  console.log('Opening note dialog:', {
+    item: {
+      id: item.id,
+      name: item.name,
+      description: item.description
+    },
+    index
+  })
+  editingItem.value = { ...item } // Create a copy of the item
   editingIndex.value = index
   showNoteDialog.value = true
 }
 
 const saveItemNote = (note) => {
   if (editingItem.value && typeof editingIndex.value === 'number') {
-    emit('updateNote', editingItem.value.id, note, editingIndex.value)
+    cartStore.updateItemNote(editingItem.value.id, note, editingIndex.value)
   }
 }
 </script>

@@ -3,6 +3,7 @@ import { logger } from '../../utils/logger'
 import { prepareItemsForApi, getCurrentDate, getDueDate } from './helpers'
 import { PriceUtils } from '../../utils/price'
 import { OrderType } from '../../types/order'
+import { CartItem, HoldInvoiceItem, HoldInvoiceData, TableData } from '../../types/cart'
 
 export const invoiceActions = {
   // Invoice preparation actions
@@ -24,23 +25,26 @@ export const invoiceActions = {
       const dueDate = getDueDate()
       const orderType = state.type || OrderType.DINE_IN // Use type directly from state with default
 
-      // Format items with proper price conversions
-      const items = state.items.map(item => {
-        // Log original price
-        logger.debug('Processing item price:', {
+      // Format items with proper price conversions and type safety
+      const items: HoldInvoiceItem[] = state.items.map((item: CartItem) => {
+        // Log original price and description
+        logger.debug('Processing item:', {
           itemId: item.id,
           itemName: item.name,
+          description: item.description,
           originalPrice: item.price,
           isInDollars: PriceUtils.isInDollars(item.price)
         });
 
         const itemPrice = PriceUtils.ensureCents(item.price)
-        const itemQuantity = parseInt(item.quantity)
+        const itemQuantity = parseInt(String(item.quantity))
         const itemTotal = itemPrice * itemQuantity
 
-        // Log converted price
-        logger.debug('Price conversion result:', {
+        // Log converted price and description
+        logger.debug('Item processing result:', {
           itemId: item.id,
+          name: item.name,
+          description: item.description || '',
           originalPrice: item.price,
           convertedPrice: itemPrice,
           quantity: itemQuantity,
@@ -49,8 +53,9 @@ export const invoiceActions = {
 
         return {
           item_id: Number(item.id),
+          id: Number(item.id),
           name: item.name,
-          description: item.description || '',
+          description: item.description || '', // Ensure description is always a string
           price: itemPrice,
           quantity: itemQuantity,
           unit_name: item.unit_name || 'units',
@@ -63,14 +68,18 @@ export const invoiceActions = {
           retention_amount: 0,
           retention_concept: null,
           retention_percentage: null,
-          retentions_id: null
+          retentions_id: null,
+          section_id: item.section_id,
+          section_type: item.section_type,
+          section_name: item.section_name
         }
       })
 
-      // Log final items array
+      // Log final items array with descriptions
       logger.debug('Final items array:', items.map(item => ({
         id: item.item_id,
         name: item.name,
+        description: item.description,
         price: item.price,
         formattedPrice: PriceUtils.format(item.price),
         total: item.total,
@@ -98,7 +107,7 @@ export const invoiceActions = {
         discount: state.discountValue.toString(),
         discount_val: PriceUtils.ensureCents(getters.discountAmount),
         discount_per_item: "NO",
-        items: items,
+        items,
         invoice_template_id: 1,
         banType: true,
         invoice_pbx_modify: 0,
@@ -158,15 +167,46 @@ export const invoiceActions = {
     }
   },
 
-  prepareHoldInvoiceData(state, getters, { storeId, cashRegisterId, referenceNumber }) {
-    const data = this.prepareInvoiceData(state, getters, { storeId, cashRegisterId, referenceNumber })
-    return {
-      ...data,
-      is_hold_invoice: true,
-      hold_invoice_id: null,
-      // Ensure both table arrays are present in hold invoice
-      tables_selected: data.tables_selected || [],
-      hold_tables: data.tables_selected || [] // Use same data for both arrays
+  prepareHoldInvoiceData(state, getters, { storeId, cashRegisterId, referenceNumber }): HoldInvoiceData {
+    logger.startGroup('Cart Store: Prepare Hold Invoice Data')
+    try {
+      const data = this.prepareInvoiceData(state, getters, { storeId, cashRegisterId, referenceNumber })
+      
+      // Log items with descriptions before creating hold invoice
+      logger.debug('Items for hold invoice:', data.items.map(item => ({
+        id: item.item_id,
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        quantity: item.quantity
+      })))
+
+      const holdData: HoldInvoiceData = {
+        ...data,
+        is_hold_invoice: true,
+        hold_invoice_id: null,
+        // Ensure both table arrays are present in hold invoice
+        tables_selected: data.tables_selected || [],
+        hold_tables: data.tables_selected || [] // Use same data for both arrays
+      }
+
+      logger.debug('Final hold invoice data:', {
+        itemCount: holdData.items.length,
+        items: holdData.items.map(item => ({
+          id: item.item_id,
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          quantity: item.quantity
+        }))
+      })
+
+      return holdData
+    } catch (error) {
+      logger.error('Error preparing hold invoice data:', error)
+      throw error
+    } finally {
+      logger.endGroup()
     }
   }
 }

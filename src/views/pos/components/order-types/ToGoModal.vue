@@ -429,14 +429,28 @@ const processOrder = async () => {
       hold_items: cartStore.items.map(item => ({
         item_id: item.id,
         name: item.name,
-        description: item.description || '',
+        description: item.description || '', // Ensure description is preserved
         price: item.price,
         quantity: item.quantity,
         unit_name: item.unit_name || 'units',
-        tax: item.tax || 0
+        tax: item.tax || 0,
+        sub_total: item.price * item.quantity,
+        total: item.price * item.quantity,
+        discount: "0",
+        discount_val: 0,
+        discount_type: "fixed"
       }))
     }
-    console.log('📄 Hold invoice data:', holdInvoiceData)
+    console.log('📄 Hold invoice data:', {
+      ...holdInvoiceData,
+      hold_items: holdInvoiceData.hold_items.map(item => ({
+        id: item.item_id,
+        name: item.name,
+        description: item.description, // Log description for debugging
+        price: item.price,
+        quantity: item.quantity
+      }))
+    })
 
     console.log('✂️ Removing unsupported tip fields...')
     delete holdInvoiceData.tip
@@ -463,7 +477,14 @@ const processOrder = async () => {
           email: customerInfo.email.trim(),
           notes: customerInfo.notes,
           instructions: customerInfo.notes // Keep for backward compatibility
-        }
+        },
+        items: cartStore.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || '', // Include item descriptions in notes
+          price: item.price,
+          quantity: item.quantity
+        }))
       }
     }
     console.log('📄 Notes object:', notesObj)

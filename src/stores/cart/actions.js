@@ -60,7 +60,8 @@ export const actions = {
           item_id: product.id,
           section_id: product.section_id,
           section_type: product.section_type,
-          section_name: product.section_name
+          section_name: product.section_name,
+          description: product.description || '' // Ensure description is included
         }
         state.items.push(newItem)
         logger.info('Added new item:', {

@@ -62,10 +62,15 @@ const noteText = ref('')
 // Sync dialog with v-model
 watch(() => props.modelValue, (val) => {
   dialog.value = val
+  // Initialize note text when dialog opens
+  if (val && props.item) {
+    noteText.value = props.item.description || ''
+  }
 })
 
 watch(dialog, (val) => {
   emit('update:modelValue', val)
+  // Only clear note when dialog closes
   if (!val) {
     noteText.value = ''
   }
@@ -73,8 +78,13 @@ watch(dialog, (val) => {
 
 // Initialize note text when item changes
 watch(() => props.item, (newItem) => {
-  if (newItem) {
+  if (newItem && dialog.value) {
     noteText.value = newItem.description || ''
+    console.log('Note text initialized:', {
+      itemId: newItem.id,
+      description: newItem.description,
+      noteText: noteText.value
+    })
   }
 }, { immediate: true })
 

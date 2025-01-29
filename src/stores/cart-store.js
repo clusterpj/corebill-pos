@@ -53,6 +53,35 @@ export const useCartStore = defineStore('cart', {
       cartSync.saveCartState(this.$state)
     },
 
+    updateItemNote(itemId, note, index = null) {
+      try {
+        const item = index !== null ? this.items[index] : this.items.find(item => item.id === itemId)
+        if (item) {
+          item.description = note
+          logger.info('Updated item note:', {
+            itemId,
+            index,
+            note,
+            item: {
+              id: item.id,
+              name: item.name,
+              description: item.description
+            }
+          })
+          cartSync.saveCartState(this.$state)
+        } else {
+          logger.warn('Item not found for note update:', { itemId, index })
+        }
+      } catch (error) {
+        logger.error('Error updating item note:', {
+          error,
+          itemId,
+          index,
+          note
+        })
+      }
+    },
+
     removeItem(itemId, index = null) {
       actions.removeItem(this, { itemId, index })
       cartSync.saveCartState(this.$state)

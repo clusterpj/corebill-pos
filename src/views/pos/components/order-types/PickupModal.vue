@@ -506,16 +506,29 @@ const processOrder = async () => {
     }
 
     // Format notes with additional context
-    const formattedNotes = customerNotes.value ? JSON.stringify({
+    const formattedNotes = JSON.stringify({
       customerNotes: customerNotes.value,
+      timestamp: new Date().toISOString(),
+      orderType: ORDER_TYPES.PICKUP,
       orderInfo: {
-        customer: customerInfo,
+        customer: {
+          ...customerInfo,
+          notes: customerNotes.value,
+          instructions: customerNotes.value // Keep for backward compatibility
+        },
+        items: cartStore.items.map(item => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || '', // Include item descriptions in notes
+          price: PriceUtils.normalizePrice(item.price),
+          quantity: item.quantity,
+          total: PriceUtils.normalizePrice(item.total)
+        })),
         store: selectedStore.value?.name || '',
         cashier: selectedCashier.value?.name || '',
-        orderType: 'pickup'
-      },
-      timestamp: new Date().toISOString()
-    }) : ''
+        pickupTime: customerInfo.pickupTime
+      }
+    })
 
     // Create invoice data with required fields
     const orderData = {
@@ -529,15 +542,20 @@ const processOrder = async () => {
       items: cartStore.items.map(item => ({
         item_id: item.id,
         name: item.name,
-        description: item.description || '',
+        description: item.description || '', // Ensure description is preserved
         price: PriceUtils.normalizePrice(item.price),
         quantity: item.quantity,
         unit_name: item.unit_name || 'units',
         total: PriceUtils.normalizePrice(item.total),
         sub_total: PriceUtils.normalizePrice(item.sub_total),
-        tax: PriceUtils.normalizePrice(item.tax || 0)
+        tax: PriceUtils.normalizePrice(item.tax || 0),
+        discount: "0",
+        discount_val: 0,
+        discount_type: "fixed",
+        section_id: item.section_id,
+        section_type: item.section_type,
+        section_name: item.section_name
       })),
-
       // Boolean flags
       avalara_bool: false,
       banType: true,
@@ -596,7 +614,25 @@ const processOrder = async () => {
       tip_val: 0
     }
 
-    logger.debug('Creating pickup order with data:', orderData)
+    logger.debug('Creating pickup order with data:', {
+      type: orderData.type,
+      description: orderData.description,
+      customer: orderData.contact,
+      items: orderData.items.map(item => ({
+        id: item.item_id,
+        name: item.name,
+        description: item.description, // Log description for debugging
+        price: item.price,
+        quantity: item.quantity,
+        total: item.total
+      })),
+      pickupTime: customerInfo.pickupTime,
+      debugPrices: {
+        subtotal: cartStore.subtotal,
+        total: cartStore.total,
+        tax: cartStore.taxAmount
+      }
+    })
 
     // Create invoice
     const invoiceResult = await posApi.invoice.create(orderData)

@@ -16,10 +16,10 @@
         <div class="d-flex align-center">
           <v-chip
             size="small"
-            :color="order.invoice_number ? 'info' : 'warning'"
+            :color="getOrderTypeColor"
             class="mr-2"
           >
-            {{ order.invoice_number ? 'Invoice' : 'Hold Order' }}
+            {{ order.document_type || (order.invoice_number ? 'Invoice' : 'Hold Order') }}
           </v-chip>
           <span class="text-h6 font-weight-medium">
             {{ order.invoice_number || `Hold #${order.id}` }}
@@ -164,8 +164,27 @@ const loading = ref(false)
 
 // Computed properties for order type handling
 const isInvoice = computed(() => Boolean(props.order?.invoice_number))
-const orderType = computed(() => isInvoice.value ? 'INVOICE' : 'HOLD')
+const orderType = computed(() => props.order?.document_type || (isInvoice.value ? 'INVOICE' : 'HOLD'))
 const orderReference = computed(() => isInvoice.value ? props.order.invoice_number : `Hold #${props.order.id}`)
+
+// Get color based on order type
+const getOrderTypeColor = computed(() => {
+  const type = props.order?.document_type?.toUpperCase() || orderType.value
+  switch (type) {
+    case 'DINE IN':
+      return 'primary'
+    case 'TO-GO':
+      return 'success'
+    case 'DELIVERY':
+      return 'warning'
+    case 'PICKUP':
+      return 'info'
+    case 'INVOICE':
+      return 'secondary'
+    default:
+      return 'grey'
+  }
+})
 
 const kitchenItems = computed(() => {
   // Filter kitchen-specific items from order

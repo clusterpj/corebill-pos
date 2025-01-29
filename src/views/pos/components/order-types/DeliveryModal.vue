@@ -714,13 +714,19 @@ const processOrder = async () => {
       items: cartStore.items.map(item => ({
         item_id: item.id,
         name: item.name,
-        description: item.description || '',
+        description: item.description || '', // Ensure description is preserved
         price: PriceUtils.normalizePrice(item.price),
         quantity: item.quantity,
         unit_name: item.unit_name || 'units',
         total: PriceUtils.normalizePrice(item.total),
         sub_total: PriceUtils.normalizePrice(item.sub_total),
-        tax: PriceUtils.normalizePrice(item.tax || 0)
+        tax: PriceUtils.normalizePrice(item.tax || 0),
+        discount: "0",
+        discount_val: 0,
+        discount_type: "fixed",
+        section_id: item.section_id,
+        section_type: item.section_type,
+        section_name: item.section_name
       })),
 
       // Boolean flags
@@ -773,24 +779,32 @@ const processOrder = async () => {
 
       // Additional required fields
       notes: JSON.stringify({
-  customerNotes: customerInfo.notes,
-  timestamp: new Date().toISOString(),
-  orderType: OrderType.DELIVERY,
-  orderInfo: {
-    customer: {
-      name: customerInfo.name.trim(),
-      phone: customerInfo.phone.replace(/\D/g, ''),
-      email: customerInfo.email.trim(),
-      address: customerInfo.address,
-      unit: customerInfo.unit,
-      city: customerInfo.city,
-      state: customerInfo.state,
-      zipCode: customerInfo.zipCode,
-      notes: customerInfo.notes,
-      instructions: customerInfo.notes // Keep for backward compatibility
-    }
-  }
-}),
+        customerNotes: customerInfo.notes,
+        timestamp: new Date().toISOString(),
+        orderType: OrderType.DELIVERY,
+        orderInfo: {
+          customer: {
+            name: customerInfo.name.trim(),
+            phone: customerInfo.phone.replace(/\D/g, ''),
+            email: customerInfo.email.trim(),
+            address: customerInfo.address,
+            unit: customerInfo.unit,
+            city: customerInfo.city,
+            state: customerInfo.state,
+            zipCode: customerInfo.zipCode,
+            notes: customerInfo.notes,
+            instructions: customerInfo.notes // Keep for backward compatibility
+          },
+          items: cartStore.items.map(item => ({
+            id: item.id,
+            name: item.name,
+            description: item.description || '', // Include item descriptions in notes
+            price: PriceUtils.normalizePrice(item.price),
+            quantity: item.quantity,
+            total: PriceUtils.normalizePrice(item.total)
+          }))
+        }
+      }),
       hold_invoice_id: null,
       tip: "0",
       tip_type: "fixed",
@@ -798,7 +812,17 @@ const processOrder = async () => {
     }
 
     logger.debug('Creating hold order with data:', {
-      ...orderData,
+      type: orderData.type,
+      description: orderData.description,
+      customer: orderData.contact,
+      items: orderData.items.map(item => ({
+        id: item.item_id,
+        name: item.name,
+        description: item.description, // Log description for debugging
+        price: item.price,
+        quantity: item.quantity,
+        total: item.total
+      })),
       debugPrices: {
         subtotal: {
           raw: cartStore.subtotal,
