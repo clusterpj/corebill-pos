@@ -95,7 +95,8 @@ export const createOrdersModule = (state, posApi, posOperations) => {
         discount_type: 'fixed',
         discount: '0.00',
         discount_val: 0,
-        sub_total: PriceUtils.ensureCents(item.total)
+        sub_total: PriceUtils.ensureCents(item.total),
+        description: item.description || ''
       }))
     }
   }
