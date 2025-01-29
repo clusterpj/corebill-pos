@@ -19,8 +19,22 @@
             <div class="item-name text-body-2 font-weight-medium text-truncate">
               {{ item.name }}
             </div>
-            <div class="item-price text-caption text-grey-darken-1">
-              {{ formatPrice(item.price) }} each
+            <div class="d-flex align-center">
+              <div class="item-price text-caption text-grey-darken-1">
+                {{ formatPrice(item.price) }} each
+              </div>
+              <v-chip
+                v-if="item.description"
+                size="x-small"
+                color="info"
+                class="ml-2"
+                variant="tonal"
+              >
+                Note
+              </v-chip>
+            </div>
+            <div v-if="item.description" class="text-caption text-grey-darken-2 mt-1 item-note">
+              {{ item.description }}
             </div>
           </div>
 
@@ -51,6 +65,24 @@
                 class="touch-btn"
               />
               <v-btn
+                icon="mdi-pencil"
+                size="small"
+                variant="tonal"
+                density="comfortable"
+                color="info"
+                @click="handleEditNote(item, index)"
+                class="touch-btn"
+                :title="item.description ? 'Edit note' : 'Add note'"
+              >
+                <v-badge
+                  :content="'1'"
+                  :value="!!item.description"
+                  color="primary"
+                  offset-x="2"
+                  offset-y="2"
+                />
+              </v-btn>
+              <v-btn
                 icon="mdi-delete"
                 size="small"
                 variant="tonal"
@@ -64,13 +96,21 @@
         </div>
       </v-list-item>
     </v-list>
+
+    <!-- Note Dialog -->
+    <item-note-dialog
+      v-model="showNoteDialog"
+      :item="editingItem"
+      @save="saveItemNote"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, watch, ref } from 'vue'
 import { logger } from '@/utils/logger'
 import { PriceUtils } from '@/utils/price'
+import ItemNoteDialog from './ItemNoteDialog.vue'
 
 const props = defineProps({
   items: {
@@ -79,7 +119,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit', 'remove', 'updateQuantity'])
+const emit = defineEmits(['edit', 'remove', 'updateQuantity', 'updateNote'])
 
 // Log initial cart state
 console.log('CartItemList - Initial cart state:', {
@@ -89,7 +129,8 @@ console.log('CartItemList - Initial cart state:', {
     name: item.name,
     price: item.price,
     quantity: item.quantity,
-    total: item.price * item.quantity
+    total: item.price * item.quantity,
+    description: item.description
   }))
 })
 
@@ -105,7 +146,8 @@ watch(() => props.items, (newItems, oldItems) => {
       formatted_price: PriceUtils.format(item.price),
       quantity: item.quantity,
       total: item.price * item.quantity,
-      formatted_total: PriceUtils.format(item.price * item.quantity)
+      formatted_total: PriceUtils.format(item.price * item.quantity)[Symbol],
+      description: item.description
     }))
   })
 }, { deep: true })
@@ -141,6 +183,11 @@ const cartTotal = computed(() => {
   return total
 })
 
+// Note dialog state
+const showNoteDialog = ref(false)
+const editingItem = ref(null)
+const editingIndex = ref(null)
+
 // Handlers with logging
 const handleQuantityUpdate = (itemId, newQuantity, index) => {
   console.log('CartItemList - Updating quantity:', {
@@ -164,13 +211,16 @@ const handleRemoveItem = (itemId, index) => {
   emit('remove', itemId, index)
 }
 
-const handleEditItem = (itemId, index) => {
-  console.log('CartItemList - Editing item:', {
-    itemId,
-    index,
-    item: props.items[index]
-  })
-  emit('edit', itemId, index)
+const handleEditNote = (item, index) => {
+  editingItem.value = item
+  editingIndex.value = index
+  showNoteDialog.value = true
+}
+
+const saveItemNote = (note) => {
+  if (editingItem.value && typeof editingIndex.value === 'number') {
+    emit('updateNote', editingItem.value.id, note, editingIndex.value)
+  }
 }
 </script>
 
@@ -237,6 +287,16 @@ const handleEditItem = (itemId, index) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.item-note {
+  white-space: pre-line;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 /* Touch Optimizations */
