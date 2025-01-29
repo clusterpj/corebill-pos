@@ -83,6 +83,17 @@
                 />
               </v-btn>
               <v-btn
+                v-if="item.quantity > 1"
+                icon="mdi-content-cut"
+                size="small"
+                variant="tonal"
+                density="comfortable"
+                color="warning"
+                @click="handleSplitItem(item, index)"
+                class="touch-btn"
+                :title="'Split item'"
+              />
+              <v-btn
                 icon="mdi-delete"
                 size="small"
                 variant="tonal"
@@ -103,6 +114,13 @@
       :item="editingItem"
       @save="saveItemNote"
     />
+    <!-- Split Item Dialog -->
+    <split-item-dialog
+      v-model="showSplitDialog"
+      :item="editingItem"
+      :index="editingIndex"
+      @confirm="handleSplitConfirm"
+    />
   </div>
 </template>
 
@@ -111,6 +129,7 @@ import { computed, watch, ref } from 'vue'
 import { logger } from '@/utils/logger'
 import { PriceUtils } from '@/utils/price'
 import ItemNoteDialog from './ItemNoteDialog.vue'
+import SplitItemDialog from './SplitItemDialog.vue'
 import { useCartStore } from '@/stores/cart-store'
 
 const props = defineProps({
@@ -120,7 +139,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['edit', 'remove', 'updateQuantity'])
+const emit = defineEmits(['edit', 'remove', 'update-quantity'])
 
 // Log initial cart state
 console.log('CartItemList - Initial cart state:', {
@@ -184,8 +203,9 @@ const cartTotal = computed(() => {
   return total
 })
 
-// Note dialog state
+// Dialog controls
 const showNoteDialog = ref(false)
+const showSplitDialog = ref(false)
 const editingItem = ref(null)
 const editingIndex = ref(null)
 
@@ -202,7 +222,7 @@ const handleQuantityUpdate = (itemId, newQuantity, index) => {
     oldTotal: props.items[index].price * props.items[index].quantity,
     newTotal: props.items[index].price * newQuantity
   })
-  emit('updateQuantity', itemId, newQuantity, index)
+  emit('update-quantity', itemId, newQuantity, index)
 }
 
 const handleRemoveItem = (itemId, index) => {
@@ -232,6 +252,47 @@ const saveItemNote = (note) => {
   if (editingItem.value && typeof editingIndex.value === 'number') {
     cartStore.updateItemNote(editingItem.value.id, note, editingIndex.value)
   }
+}
+
+// Split item handling
+const handleSplitItem = (item, index) => {
+  logger.info('Opening split dialog for item:', {
+    id: item.id,
+    name: item.name,
+    quantity: item.quantity,
+    index
+  })
+  editingItem.value = item
+  editingIndex.value = index
+  showSplitDialog.value = true
+}
+
+const handleSplitConfirm = (splitQuantity, note) => {
+  if (editingItem.value === null || editingIndex.value === null) {
+    logger.error('Split confirmation failed: No item being edited')
+    return
+  }
+  
+  logger.info('Splitting item:', {
+    id: editingItem.value.id,
+    name: editingItem.value.name,
+    originalQuantity: editingItem.value.quantity,
+    splitQuantity,
+    note
+  })
+  
+  // First split the item
+  cartStore.splitItem(editingIndex.value, splitQuantity)
+  
+  // Then add the note to the new split item
+  if (note) {
+    // The new item is inserted after the original, so we use index + 1
+    cartStore.updateItemNote(editingItem.value.id, note, editingIndex.value + 1)
+  }
+  
+  showSplitDialog.value = false
+  editingItem.value = null
+  editingIndex.value = null
 }
 </script>
 

@@ -372,42 +372,41 @@ export const actions = {
       }
       
       state.contact = invoice.contact || null
-      console.log('Impresion de Articulos')
-      console.log('invoice', invoice)
+
       // Log incoming invoice data
       logger.info('Loading invoice data:', {
         id: invoice.id,
         invoice_number: invoice.invoice_number,
         customer: state.customer,
         contact: state.contact,
-        items: invoice.items.map(item => ({
-          id: item.item_id,
-          price: item.price,
-          quantity: item.quantity,
-          total: item.total
-        }))
+        itemCount: invoice.hold_items?.length || invoice.items?.length || 0
       })
 
-      // Load items with pos_status preservation
-      state.items = invoice.items.map(item => {
-        // Normalize prices from backend (e.g., 14900 becomes 149)
-        const itemPrice = item.price > 1000 ? item.price / 100 : item.price
-        const itemQuantity = parseInt(item.quantity)
+      // Determine which items array to use (hold_items for held orders, items for regular invoices)
+      const itemsToLoad = invoice.hold_items || invoice.items || []
+
+      // Load items with pos_status preservation, keeping them as separate entities
+      state.items = itemsToLoad.map(item => {
+        // Normalize price if needed (only if not from held order)
+        const itemPrice = item.fromHeldOrder ? item.price : (item.price > 1000 ? item.price / 100 : item.price)
+        const itemQuantity = parseFloat(item.quantity) || 1
         const itemTotal = itemPrice * itemQuantity
         
         logger.info('Processing invoice item:', {
-          id: item.item_id,
+          id: item.id,
+          item_id: item.item_id,
           name: item.name,
+          description: item.description,
           price: itemPrice,
           formatted_price: PriceUtils.format(itemPrice),
           quantity: itemQuantity,
           total: itemTotal,
           formatted_total: PriceUtils.format(itemTotal),
-          pos_status: item.pos_status || 'P' // Log status
+          pos_status: item.pos_status || 'P'
         })
 
         return {
-          id: item.item_id,
+          id: item.item_id || item.id,  // Use item_id for held orders, fallback to id
           name: item.name,
           description: item.description || '',
           price: itemPrice,
@@ -419,11 +418,15 @@ export const actions = {
           discount_type: item.discount_type || 'fixed',
           discount: item.discount || 0,
           discount_val: item.discount_val || 0,
-          fromExistingOrder: true, // Mark as existing order item
-          pos_status: item.pos_status || 'P', // Preserve item status
+          fromExistingOrder: true,
+          pos_status: item.pos_status || 'P',
           section_id: item.section_id,
           section_type: item.section_type,
-          fromHeldOrder: true
+          fromHeldOrder: true,
+          // Preserve the original item ID for reference
+          original_item_id: item.id,
+          // Keep any custom fields that were in the original item
+          ...item.custom_fields
         }
       })
 
@@ -443,19 +446,10 @@ export const actions = {
           type: state.discountType, 
           value: state.discountValue,
           formatted: PriceUtils.format(state.discountValue)
-        },
-        items: state.items.map(item => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          formatted_price: PriceUtils.format(item.price),
-          quantity: item.quantity,
-          total: item.total,
-          formatted_total: PriceUtils.format(item.total)
-        }))
+        }
       })
     } catch (error) {
-      logger.error('Failed to load invoice into cart:', error)
+      logger.error('Failed to load invoice:', error)
       throw error
     } finally {
       logger.endGroup()

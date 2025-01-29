@@ -393,7 +393,7 @@
 </style>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { logger } from '../../../../utils/logger'
 import { useHeldOrders } from './composables/useHeldOrders'
 import { useInvoices } from './composables/useInvoices'
@@ -692,6 +692,25 @@ const handleOrderLoaded = (invoice) => {
     invoice_number: invoice.invoice_number
   })
   updateModelValue(false) // Close the modal
+}
+
+// Add event listener for order-loaded event
+onMounted(() => {
+  window.addEventListener('order-loaded', handleOrderLoadedEvent)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('order-loaded', handleOrderLoadedEvent)
+})
+
+// Handle order loaded event
+const handleOrderLoadedEvent = (event) => {
+  if (event.detail.success) {
+    // Close the dialog
+    updateModelValue(false)
+    // Show success message if not already shown
+    window.toastr?.['success']('Order loaded successfully')
+  }
 }
 
 // Watch for dialog open to refresh the lists

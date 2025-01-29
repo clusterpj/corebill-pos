@@ -12,7 +12,7 @@
           icon="mdi-close"
           variant="text"
           size="small"
-          @click="$emit('update:modelValue', false)"
+          @click="handleCancel"
         />
       </v-card-title>
 
@@ -31,10 +31,21 @@
           :rules="[
             v => !!v || 'Quantity is required',
             v => v > 0 || 'Must be greater than 0',
-            v => v < item?.quantity || 'Must be less than current quantity'
+            v => v < (props.item?.quantity || 0) || 'Must be less than current quantity'
           ]"
           hide-details="auto"
           density="comfortable"
+          class="mb-4"
+        />
+
+        <v-textarea
+          v-model="note"
+          label="Note for Split Item"
+          placeholder="Add special instructions for the split item..."
+          rows="3"
+          auto-grow
+          density="comfortable"
+          hide-details="auto"
           class="mb-4"
         />
       </v-card-text>
@@ -43,7 +54,7 @@
         <v-spacer />
         <v-btn
           variant="text"
-          @click="$emit('update:modelValue', false)"
+          @click="handleCancel"
           class="text-none"
         >
           Cancel
@@ -62,16 +73,36 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { logger } from '@/utils/logger'
 
 const props = defineProps({
-  modelValue: Boolean,
-  item: Object
+  modelValue: {
+    type: Boolean,
+    required: true
+  },
+  item: {
+    type: Object,
+    required: true
+  },
+  index: {
+    type: Number,
+    required: true
+  }
 })
 
-const emit = defineEmits(['update:modelValue', 'split'])
+const emit = defineEmits(['update:modelValue', 'confirm'])
 
 const splitQuantity = ref(1)
+const note = ref('')
+
+// Reset form when dialog opens
+watch(() => props.modelValue, (newValue) => {
+  if (newValue) {
+    splitQuantity.value = 1
+    note.value = ''
+  }
+})
 
 const isValidQuantity = computed(() => {
   if (!props.item?.quantity) return false
@@ -79,14 +110,29 @@ const isValidQuantity = computed(() => {
   return !isNaN(qty) && qty > 0 && qty < props.item.quantity
 })
 
+const handleCancel = () => {
+  emit('update:modelValue', false)
+  splitQuantity.value = 1
+  note.value = ''
+}
+
 const handleSplit = () => {
-  if (isValidQuantity.value) {
-    emit('split', {
-      itemId: props.item.id,
-      quantity: Number(splitQuantity.value)
+  if (!isValidQuantity.value) {
+    logger.warn('Invalid split quantity:', {
+      quantity: splitQuantity.value,
+      itemQuantity: props.item?.quantity
     })
-    emit('update:modelValue', false)
-    splitQuantity.value = 1
+    return
   }
+
+  logger.info('Confirming split:', {
+    itemId: props.item.id,
+    quantity: Number(splitQuantity.value),
+    note: note.value,
+    index: props.index
+  })
+  
+  emit('confirm', Number(splitQuantity.value), note.value)
+  handleCancel()
 }
 </script>

@@ -338,60 +338,6 @@ export function useHeldOrders() {
     loadingOrder.value = invoice.id
     logger.startGroup('Loading held order')
 
-    // Helper function to detect and normalize price
-    const normalizePriceFromBackend = (price) => {
-      // If price is a string, convert to number
-      const numPrice = Number(price)
-      
-      // Log the incoming price for debugging
-      logger.debug('Normalizing price:', {
-        original: price,
-        asNumber: numPrice,
-        hasDecimals: numPrice % 1 !== 0,
-        isLargeNumber: numPrice > 1000
-      })
-
-      // Handle different price formats:
-      // 1. Prices in cents without decimals (e.g., 2499 for $24.99)
-      // 2. Prices in dollars with decimals (e.g., 24.99)
-      // 3. Prices in cents with decimals (e.g., 24.99 meant to be $0.2499)
-      
-      if (Number.isNaN(numPrice)) {
-        logger.warn('Invalid price value:', price)
-        return 0
-      }
-
-      // Case 1: If price is a large number without decimals, assume it's in cents
-      // e.g., 2499 -> $24.99
-      if (numPrice > 100 && Number.isInteger(numPrice)) {
-        const normalized = numPrice / 100
-        logger.debug('Normalized large integer price:', {
-          original: numPrice,
-          normalized,
-          formatted: PriceUtils.format(normalized)
-        })
-        return normalized
-      }
-
-      // Case 2: If price already has decimals, it's likely in the correct format
-      // e.g., 24.99 -> $24.99
-      if (numPrice % 1 !== 0) {
-        logger.debug('Price already has decimals, keeping as is:', {
-          price: numPrice,
-          formatted: PriceUtils.format(numPrice)
-        })
-        return numPrice
-      }
-
-      // Case 3: Small integer prices likely don't need normalization
-      // e.g., 25 -> $25.00
-      logger.debug('Small integer price, keeping as is:', {
-        price: numPrice,
-        formatted: PriceUtils.format(numPrice)
-      })
-      return numPrice
-    }
-
     try {
       // Validate invoice structure
       validateInvoiceData(invoice)
@@ -403,85 +349,50 @@ export function useHeldOrders() {
         itemCount: invoice.hold_items?.length
       })
 
-      // Clear current cart
-      await cartStore.clearCart()
-      logger.debug('Cart cleared successfully')
+      // Process the order through the cart store's loadInvoice function
+      try {
+        await cartStore.loadInvoice(invoice)
+        logger.debug('Order loaded successfully through cart store')
 
-      // Process items
-      logger.debug(`Processing ${invoice.hold_items.length} items`)
-      for (const item of invoice.hold_items) {
-        validateItemData(item)
+        // Process cart properties
+        await processCartProperties(invoice)
 
-        // Normalize the price from backend
-        const normalizedPrice = normalizePriceFromBackend(item.price)
-
-        logger.debug('Processing item price:', {
-          itemName: item.name,
-          originalPrice: item.price,
-          normalizedPrice,
-          formattedPrice: PriceUtils.format(normalizedPrice)
+        // Force cart store to update its state
+        await cartStore.$patch({
+          isHoldOrder: true,
+          holdOrderDescription: invoice.description
         })
+        
+        logger.debug('Order loaded successfully')
 
-        const product = {
-          id: item.item_id,
-          name: item.name,
-          description: item.description,
-          price: normalizedPrice,
-          unit_name: item.unit_name,
-          fromHeldOrder: true  // Mark item as coming from held order
-        }
+        // Emit success event
+        window.dispatchEvent(new CustomEvent('order-loaded', { 
+          detail: { 
+            success: true, 
+            orderId: invoice.id,
+            message: 'Order loaded successfully'
+          } 
+        }))
 
-        logger.debug('Adding item to cart:', {
-          productId: product.id,
-          name: product.name,
-          quantity: item.quantity,
-          price: product.price,
-          formattedPrice: PriceUtils.format(product.price)
-        })
-
-        try {
-          await cartStore.addItem(product, Number(item.quantity))
-        } catch (error) {
-          throw new Error(`Failed to add item ${product.name} to cart: ${error.message}`)
-        }
+        // Return true to indicate success
+        return true
+      } catch (error) {
+        throw new Error(`Failed to load order through cart store: ${error.message}`)
       }
-
-      // Process cart properties
-      await processCartProperties(invoice)
-      
-      logger.info('Order loaded successfully:', {
-        id: invoice.id,
-        description: invoice.description,
-        type: invoice.type,
-        itemCount: invoice.hold_items.length,
-        cartState: {
-          items: cartStore.items?.length,
-          total: cartStore.total,
-          holdInvoiceId: cartStore.holdInvoiceId
-        }
-      })
-      
-      return true
     } catch (error) {
-      logger.error('Failed to load order:', {
-        error: error.message,
-        errorStack: error.stack,
-        invoice: {
-          id: invoice?.id,
-          type: invoice?.type,
-          itemCount: invoice?.hold_items?.length
-        },
-        cartStore: {
-          methods: Object.keys(cartStore),
-          state: {
-            items: cartStore.items?.length,
-            total: cartStore.total,
-            holdInvoiceId: cartStore.holdInvoiceId
-          }
-        }
-      })
-      window.toastr?.['error'](error.message || 'Failed to load order')
-      return false
+      logger.error('Failed to load order:', error)
+      window.toastr?.['error']('Failed to load order: ' + error.message)
+
+      // Emit failure event
+      window.dispatchEvent(new CustomEvent('order-loaded', { 
+        detail: { 
+          success: false, 
+          orderId: invoice?.id,
+          error: error.message
+        } 
+      }))
+
+      throw error
     } finally {
       loadingOrder.value = null
       logger.endGroup()
