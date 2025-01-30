@@ -280,7 +280,9 @@ import { convertHeldOrderToInvoice } from '../held-orders/utils/invoiceConverter
 import { PriceUtils } from '@/utils/price'
 import { parseOrderNotes } from '../../../../stores/cart/helpers'
 import { OrderType } from '../../../../types/order'
+import { useTaxTypesStore } from '@/stores/tax-types'
 
+const taxTypesStore = useTaxTypesStore()
 const { customerNotes } = useOrderType()
 // Computed properties for store and cashier
 const selectedStore = computed(() => companyStore.selectedStore)
@@ -766,7 +768,19 @@ const processOrder = async () => {
       // Arrays
       tables_selected: [],
       packages: [],
-      taxes: [],
+      taxes: taxTypesStore.taxTypes.map(tax => ({
+          tax_type_id: Number(tax.id),
+          id: Number(tax.id),
+          company_id: Number(tax.company_id),
+          name: tax.name,
+          amount: calculateTaxAmount(cartStore.subtotal, tax.percent),
+          percent: Number(tax.percent),
+          compound_tax: Number(tax.compound_tax),
+          estimate_id: null,
+          invoice_item_id: null,
+          estimate_item_id: null,
+          item_id: null
+        })),
 
       // Amounts and calculations
       discount: "0",
@@ -916,6 +930,16 @@ const closeModal = () => {
   if (!processing.value) {
     dialog.value = false
   }
+}
+function calculateTaxAmount(baseAmount, percent) {
+  // Convert percent to decimal (e.g., 8.5% -> 0.085)
+  const taxRate = Number(percent) / 100
+  
+  // Calculate tax amount, round to nearest cent 
+  const taxAmount = Math.round(baseAmount * taxRate)
+  
+  // Return amount in cents
+  return taxAmount
 }
 </script>
 

@@ -464,96 +464,70 @@ export const actions = {
         throw new Error('No invoice being edited')
       }
 
-      if (!state.items || state.items.length === 0) {
-        throw new Error('Cannot update invoice: Cart is empty')
-      }
-
-      // Get current date and due date
-      const currentDate = new Date()
-      const dueDate = new Date(currentDate)
-      dueDate.setDate(dueDate.getDate() + 7)
-
-      // Calculate subtotal first to use in other calculations
+      // Calculate totals with proper precision
       const subtotal = state.items.reduce((sum, item) => {
-        // Use toCents to ensure correct conversion
-        const itemPrice = PriceUtils.toCents(item.price)
-        const itemQuantity = Math.round(Number(item.quantity))
+        const itemPrice = parseFloat(item.price) || 0
+        const itemQuantity = parseFloat(item.quantity) || 0
         return sum + (itemPrice * itemQuantity)
       }, 0)
 
-      // Calculate discount
+      // Calculate discount without rounding
       const discountAmount = state.discountType === '%'
-        ? Math.round(subtotal * (state.discountValue / 100))
-        : PriceUtils.normalizePrice(state.discountValue)
+        ? (subtotal * (parseFloat(state.discountValue) / 100))
+        : parseFloat(state.discountValue) || 0
 
-      // Calculate tax
+      // Calculate tax and total without intermediate rounding
       const taxableAmount = subtotal - discountAmount
-      const totalTax = Math.round(taxableAmount * state.taxRate)
-
-      // Calculate final total
+      const totalTax = taxableAmount * (parseFloat(state.taxRate) || 0)
       const totalAmount = taxableAmount + totalTax
 
-      // Get customer and contact information from state
+      // Map items preserving full precision
+      const mappedItems = state.items.map(item => ({
+        item_id: item.id,
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        price: parseFloat(item.price),
+        quantity: parseFloat(item.quantity),
+        unit_name: item.unit_name || 'units',
+        total: parseFloat(item.price) * parseFloat(item.quantity),
+        tax: (parseFloat(item.price) * parseFloat(item.quantity)) * (parseFloat(state.taxRate) || 0),
+        sub_total: parseFloat(item.price) * parseFloat(item.quantity),
+        discount_type: item.discount_type || 'fixed',
+        discount: parseFloat(item.discount) || 0,
+        discount_val: parseFloat(item.discount_val) || 0,
+        pos_status: item.fromExistingOrder ? item.pos_status : 'P',
+        section_id: item.section_id,
+        section_type: item.section_type
+      }))
+
       const customer = state.customer || {}
       const contact = state.contact || {}
 
-      // Map items with preserved status and proper item_id field
-      const mappedItems = state.items.map(item => {
-        const itemPrice = PriceUtils.normalizePrice(item.price)
-        const itemQuantity = Math.round(Number(item.quantity))
-        const itemSubtotal = itemPrice * itemQuantity
-        const itemTax = Math.round(itemSubtotal * state.taxRate)
-  
-        return {
-          item_id: item.id, // Ensure item_id is set
-          id: item.id,      // Keep original id as well
-          name: item.name,
-          description: item.description || '',
-          price: itemPrice,
-          quantity: itemQuantity,
-          unit_name: item.unit_name || 'units',
-          total: itemSubtotal,
-          tax: itemTax,
-          sub_total: itemSubtotal,
-          discount_type: item.discount_type || 'fixed',
-          discount: item.discount || 0,
-          discount_val: item.discount_val || 0,
-          // Preserve existing status or default to pending
-          pos_status: item.fromExistingOrder ? item.pos_status : 'P',
-          section_id: item.section_id,
-          section_type: item.section_type
-        }
-      })
+      // Define a safe fallback for taxTypes
+      const taxTypes = state.taxTypes || []
 
-      // Prepare invoice data with all required fields
       const invoiceData = {
-        // Basic invoice info
         invoice_number: state.editingInvoiceNumber,
-        invoice_date: currentDate.toISOString().split('T')[0],
-        due_date: dueDate.toISOString().split('T')[0],
+        invoice_date: new Date().toISOString().split('T')[0],
+        due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         
-        // Amounts
+        // Use full precision numbers
         sub_total: subtotal,
         total: totalAmount,
         tax: totalTax,
         due_amount: totalAmount,
         
-        // Items with proper formatting
         items: mappedItems,
-
-        // Status and type
         status: state.editingInvoiceStatus || 'DRAFT',
-        type: state.type,
-        pos_status: state.pos_status || 'P', // Preserve order status or default to Pending
-        type: state.type?.toUpperCase() || 'HOLD', // Ensure type is uppercase
+        pos_status: state.pos_status || 'P',
+        type: state.type?.toUpperCase() || 'HOLD',
         
-        // Discount
         discount_type: state.discountType || 'fixed',
-        discount: state.discountValue.toString(),
+        discount: state.discountValue?.toString() || '0',
         discount_val: discountAmount,
         discount_per_item: "NO",
 
-        // Additional required fields
         notes: state.notes || '',
         is_invoice_pos: 1,
         is_pdf_pos: true,
@@ -566,28 +540,34 @@ export const actions = {
         not_charge_automatically: false,
         is_edited: 1,
         
-        // Required IDs and customer information
         user_id: customer.id || companyStore.selectedCustomer?.id || 1,
         customer_id: customer.id,
         customer_name: customer.name,
         customer_email: customer.email,
-        contact: contact, // Preserve the original contact information
+        contact: contact,
         
-        // Store and company information
         store_id: companyStore.selectedStore?.id || 1,
         cash_register_id: companyStore.selectedCashier?.id || 1,
         company_id: companyStore.company?.id || 1,
         invoice_template_id: 1,
         invoice_pbx_modify: 0,
         
-        // Required arrays
         tables_selected: [],
         packages: [],
-        taxes: [],
-
-        // Additional required fields
+        taxes: taxTypes.map(tax => ({
+          tax_type_id: Number(tax.id),
+          company_id: Number(tax.company_id),
+          name: tax.name,
+          amount: calculateTaxAmount(baseAmount, tax.percent),
+          percent: Number(tax.percent),
+          compound_tax: Number(tax.compound_tax),
+          estimate_id: null,
+          invoice_item_id: null,
+          estimate_item_id: null,
+          item_id: null
+        })),
         tip: "0",
-        tip_type: "fixed", 
+        tip_type: "fixed",
         tip_val: 0,
         retention: "NO",
         retention_total: 0,
@@ -597,7 +577,6 @@ export const actions = {
         sent: 0,
         viewed: 0,
         
-        // Additional mandatory fields
         tax_per_item: "NO",
         retention_active: "NO",
         retention_percentage: 0,
@@ -610,29 +589,21 @@ export const actions = {
 
       logger.debug('Updating invoice with data:', invoiceData)
 
-      try {
-        // Call API to update invoice
-        const response = await posApi.invoice.update(state.editingInvoiceId, invoiceData)
-        
-        if (!response?.success) {
-          throw new Error(response?.message || 'Failed to update invoice')
-        }
-
-        // Clear editing state after successful update
-        state.editingInvoiceId = null
-        state.editingInvoiceNumber = null
-        state.editingInvoiceStatus = null
-
-        // Show success message
-        window.toastr?.success('Invoice updated successfully')
-
-        return response
-      } catch (error) {
-        // Show error message
-        window.toastr?.error(error.message || 'Failed to update invoice')
-        throw error
+      const response = await posApi.invoice.update(state.editingInvoiceId, invoiceData)
+      
+      if (!response?.success) {
+        throw new Error(response?.message || 'Failed to update invoice')
       }
+
+      state.editingInvoiceId = null
+      state.editingInvoiceNumber = null
+      state.editingInvoiceStatus = null
+
+      window.toastr?.success('Invoice updated successfully')
+      return response
+
     } catch (error) {
+      window.toastr?.error(error.message || 'Failed to update invoice')
       logger.error('Failed to update invoice:', error)
       throw error
     } finally {
