@@ -7,7 +7,6 @@ import { PriceUtils } from '@/utils/price'
  * @property {Array<{ id: string, price: number, quantity: number }>} items
  * @property {string} discountType
  * @property {number} discountValue
- * @property {number} taxRate
  * @property {string|null} type
  * @property {string|null} editingInvoiceId
  * @property {string|null} editingInvoiceStatus
@@ -65,11 +64,8 @@ export const getters = {
 
   /** @param {CartState} state */
   taxAmount: (state) => {
-    // Use the taxableAmount getter to get the amount after discount
-    const taxableAmount = getters.taxableAmount(state)
-    
-    // Use tax rate directly since it's already in decimal form (0.08 = 8%)
-    return Math.round(taxableAmount * state.taxRate)
+    // Removed references to state.taxRate
+    return 0
   },
 
   /** @param {CartState} state */
@@ -91,8 +87,8 @@ export const getters = {
     
     
     const taxableAmount = subtotal - discount
-    // Use tax rate directly since it's already in decimal form
-    const taxAmount = Math.round(taxableAmount * state.taxRate)
+    // Removed usage of state.taxRate
+    const taxAmount = 0
     
     return Math.round(taxableAmount + taxAmount)
   },

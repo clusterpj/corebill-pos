@@ -1,7 +1,7 @@
 import apiClient from '../client'
 import { logger } from '../../../utils/logger'
 import api from '../pos-api'
-import { handleApiError, validateHoldOrder, transformHoldInvoiceResponse } from './utils'
+import { handleApiError, validateHoldOrder, transformHoldInvoiceResponse, validateTaxData } from './utils'
 import { PaidStatus, OrderType } from '../../../types/order'
 
 export const invoiceOperations = {
@@ -95,7 +95,16 @@ export const invoiceOperations = {
         ...invoiceData,
         paid_status: invoiceData.paid_status || PaidStatus.UNPAID,
         type: invoiceData.type || OrderType.DINE_IN,
-        is_hold_invoice: true
+        is_hold_invoice: true,
+        // Ensure taxes array is properly formatted
+        taxes: Array.isArray(invoiceData.taxes) ? invoiceData.taxes.map(tax => ({
+          ...tax,
+          tax_type_id: Number(tax.tax_type_id),
+          company_id: Number(tax.company_id),
+          amount: Number(tax.amount),
+          percent: Number(tax.percent || 0),
+          compound_tax: Number(tax.compound_tax || 0)
+        })) : []
       }
 
       // Validate parameters if present
@@ -133,12 +142,25 @@ export const invoiceOperations = {
     try {
       logger.debug('Creating invoice with data:', invoiceData)
 
-      // Set default values if not provided
+      // Ensure taxes are properly formatted and validated
       const updatedData = {
         ...invoiceData,
         paid_status: invoiceData.paid_status || PaidStatus.UNPAID,
-        type: invoiceData.type || OrderType.DINE_IN
+        type: invoiceData.type || OrderType.DINE_IN,
+        // Ensure taxes array is properly formatted
+        taxes: Array.isArray(invoiceData.taxes) 
+          ? invoiceData.taxes.map(validateTaxData)
+          : []
       }
+
+      // Log tax information for debugging
+      logger.debug('Tax information:', {
+        totalTax: updatedData.tax,
+        taxesArray: updatedData.taxes,
+        validateStatus: updatedData.taxes.every(tax => 
+          tax.tax_type_id && tax.company_id && !isNaN(tax.amount)
+        )
+      })
 
       // Validate parameters if present
       if (updatedData.paid_status && !Object.values(PaidStatus).includes(updatedData.paid_status)) {

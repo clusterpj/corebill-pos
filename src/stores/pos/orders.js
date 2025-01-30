@@ -1,6 +1,7 @@
 import { logger } from '../../utils/logger'
 import { OrderType, PaidStatus } from '../../types/order'
 import { PriceUtils } from '../../utils/price' // Import PriceUtils
+import { useTaxTypesStore } from '../tax-types' // Import useTaxTypesStore
 
 const STORAGE_KEY = 'core_pos_hold_invoices'
 
@@ -74,6 +75,8 @@ export const createOrdersModule = (state, posApi, posOperations) => {
     const { holdInvoiceSettings } = state
     const currentDate = new Date()
     const dueDate = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000)
+    const taxTypesStore = useTaxTypesStore()
+    const newTaxes = taxTypesStore.availableTaxTypes
 
     return {
       ...orderData,
@@ -82,7 +85,9 @@ export const createOrdersModule = (state, posApi, posOperations) => {
       invoice_template_id: holdInvoiceSettings.value.template_id,
       banType: holdInvoiceSettings.value.banType,
       invoice_pbx_modify: holdInvoiceSettings.value.invoice_pbx_modify,
-      taxes: holdInvoiceSettings.value.taxes,
+      taxes: holdInvoiceSettings.value.taxes?.length
+        ? holdInvoiceSettings.value.taxes
+        : newTaxes,
       packages: holdInvoiceSettings.value.packages,
       invoice_date: currentDate.toISOString().split('T')[0],
       due_date: dueDate.toISOString().split('T')[0],

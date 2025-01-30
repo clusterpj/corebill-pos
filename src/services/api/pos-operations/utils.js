@@ -71,6 +71,17 @@ export const transformHoldInvoiceResponse = (data) => {
     }
   }
 
+  if (Array.isArray(data.taxes)) {
+    logger.debug('Processing tax array:', data.taxes)
+    data.taxes = data.taxes.map(tax => {
+      logger.debug('Validating tax item:', tax)
+      const validatedTax = validateTaxData(tax)
+      logger.debug('Validated tax result:', validatedTax)
+      return validatedTax
+    })
+    logger.debug('Final validated taxes:', data.taxes)
+  }
+
   return data
 }
 
@@ -123,4 +134,25 @@ export const handleApiError = (error) => {
   })
 
   throw errorResponse
+}
+
+/**
+ * Validates tax data structure and its data
+ */
+export const validateTaxData = (tax) => {
+  if (!tax.tax_type_id || !tax.company_id) {
+    throw new Error('Missing required tax fields: tax_type_id or company_id')
+  }
+  return {
+    tax_type_id: Number(tax.tax_type_id),
+    company_id: Number(tax.company_id),
+    amount: Number(tax.amount || 0),
+    percent: Number(tax.percent || 0),
+    compound_tax: Number(tax.compound_tax || 0),
+    estimate_id: tax.estimate_id || null,
+    invoice_item_id: tax.invoice_item_id || null,
+    estimate_item_id: tax.estimate_item_id || null,
+    item_id: tax.item_id || null,
+    name: tax.name || ''
+  }
 }

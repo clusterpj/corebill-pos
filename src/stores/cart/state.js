@@ -5,7 +5,7 @@ export const state = () => ({
   items: [],
   discountType: 'fixed',
   discountValue: 0,
-  taxRate: 0.08, // 8% tax rate
+  // Removed old taxRate property
   loading: false,
   error: null,
   notes: '',

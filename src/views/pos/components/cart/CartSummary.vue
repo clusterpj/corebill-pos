@@ -62,12 +62,39 @@
       <span class="amount success-text">-${{ formatPrice(discountAmount) }}</span>
     </div>
 
-    <!-- Tax Row -->
-    <div class="summary-row">
-      <span class="label">Tax ({{ (taxRate * 100).toFixed(1) }}%)</span>
-      <span class="amount">${{ formatPrice(taxAmount) }}</span>
+    <!-- Tax Rows -->
+    <div class="tax-section">
+      <template v-if="taxTypesStore.loading">
+      <div class="summary-row">
+        <span class="label">Loading taxes...</span>
+        <v-progress-circular
+        indeterminate
+        size="20"
+        width="2"
+        />
+      </div>
+      </template>
+      <template v-else-if="availableTaxTypes.length > 0">
+      {{ console.log('Available Tax Types:', availableTaxTypes) }}
+      <div v-for="tax in availableTaxTypes" :key="tax.id" class="summary-row tax-row">
+        {{ console.log('Processing tax:', tax) }}
+        {{ console.log('Calculated tax amount:', calculateTaxAmount(tax)) }}
+        <span class="label">{{ tax.name }} ({{ formatTaxPercent(tax.percent) }}%)</span>
+        <span class="amount">${{ formatPrice(calculateTaxAmount(tax)) }}</span>
+      </div>
+      <div v-if="availableTaxTypes.length > 1" class="summary-row tax-total">
+        {{ console.log('Total tax amount:', totalTaxAmount) }}
+        <span class="label">Total Tax</span>
+        <span class="amount">${{ formatPrice(totalTaxAmount) }}</span>
+      </div>
+      </template>
+      <div v-else class="summary-row tax-row">
+      {{ console.log('No tax types available') }}
+      <span class="label">No taxes configured</span>
+      <span class="amount">$0.00</span>
+      </div>
     </div>
-
+    
     <v-divider class="my-4" />
 
     <!-- Total Row -->
@@ -80,16 +107,50 @@
 
 <script setup>
 import { useCartDiscount } from '../../composables/useCartDiscount'
+import { useTaxTypesStore } from '@/stores/tax-types'
+import { onMounted, computed } from 'vue'
+import { logger } from '@/utils/logger'
+import { PriceUtils } from '@/utils/price'
 
 const props = defineProps({
   subtotal: Number,
   discountAmount: Number,
-  taxRate: Number,
-  taxAmount: Number,
   total: Number
+  // Removed taxRate and taxAmount props as they're now handled by the tax types store
 })
 
+const taxTypesStore = useTaxTypesStore()
+
 const { discountType, discountValue, updateDiscount } = useCartDiscount()
+
+const availableTaxTypes = computed(() => {
+  const taxes = taxTypesStore.availableTaxTypes
+  logger.debug('Available taxes in component:', taxes)
+  return taxes
+})
+
+const calculateTaxAmount = (tax) => {
+  const baseAmount = props.subtotal - props.discountAmount
+  // Convert percentage to decimal for calculation (e.g., 0.55% = 0.0055)
+  const taxRate = tax.percent / 100
+  return Math.round(baseAmount * taxRate)
+}
+
+const totalTaxAmount = computed(() => {
+  return availableTaxTypes.value.reduce((sum, tax) => {
+    return sum + calculateTaxAmount(tax)
+  }, 0)
+})
+
+const formatTaxPercent = (percent) => {
+  // Display as actual percentage (e.g., 0.55% instead of 55%)
+  return percent.toFixed(2)
+}
+
+onMounted(async () => {
+  logger.debug('CartSummary mounted, fetching tax types')
+  await taxTypesStore.fetchTaxTypes()
+})
 
 // Format price for display, converting from cents to dollars if needed
 const formatPrice = (amount) => {
@@ -191,5 +252,22 @@ const formatPrice = (amount) => {
   .discount-value-input {
     width: 100%;
   }
+}
+
+.tax-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.tax-row {
+  margin-bottom: 4px;
+}
+
+.tax-total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.12);
 }
 </style>
