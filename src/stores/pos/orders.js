@@ -77,7 +77,8 @@ export const createOrdersModule = (state, posApi, posOperations) => {
     const dueDate = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000)
     const taxTypesStore = useTaxTypesStore()
     const newTaxes = taxTypesStore.availableTaxTypes
-
+    console.log('New Taxes OrderData', newTaxes)
+    console.log('HoldInvoiceSettings', holdInvoiceSettings)
     return {
       ...orderData,
       ...holdInvoiceSettings.value.print_settings,
@@ -85,9 +86,7 @@ export const createOrdersModule = (state, posApi, posOperations) => {
       invoice_template_id: holdInvoiceSettings.value.template_id,
       banType: holdInvoiceSettings.value.banType,
       invoice_pbx_modify: holdInvoiceSettings.value.invoice_pbx_modify,
-      taxes: holdInvoiceSettings.value.taxes?.length
-        ? holdInvoiceSettings.value.taxes
-        : newTaxes,
+      taxes: orderData.taxes || [],
       packages: holdInvoiceSettings.value.packages,
       invoice_date: currentDate.toISOString().split('T')[0],
       due_date: dueDate.toISOString().split('T')[0],
@@ -181,8 +180,9 @@ export const createOrdersModule = (state, posApi, posOperations) => {
       if (!description) {
         throw new Error('Order description is required for update')
       }
-
+      console.log('Validate orderData', orderData)
       validateHoldInvoiceData(orderData)
+      console.log('Prepare orderData', orderData)
       const formattedData = prepareHoldInvoiceData(orderData)
       
       logger.debug('Updating hold invoice with data:', formattedData)

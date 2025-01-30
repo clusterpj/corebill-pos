@@ -32,66 +32,76 @@ export function useCart() {
   }
 
   // Preserve the exact update functionality as specified
-  const updateOrder = async () => {
-    try {
-      const description = cartStore.holdOrderDescription
-      logger.debug('Attempting to update order:', {
-        description,
-        hasDescription: !!description,
-        cartState: {
-          items: cartStore.items?.length,
-          total: cartStore.total,
-          holdInvoiceId: cartStore.holdInvoiceId,
-          taxes: taxTypesStore.availableTaxTypes
-        }
-      })
-
-      if (!description) {
-        throw new Error('No order description found')
-      }
-
-      updating.value = true
-
-      // Ensure tax types are loaded
-      if (!taxTypesStore.taxTypes.length) {
-        await taxTypesStore.fetchTaxTypes()
-      }
-
-      // Prepare the order data with current tax rates
-      const orderData = cartStore.prepareHoldInvoiceData(
-        posStore.selectedStore,
-        posStore.selectedCashier,
-        description
-      )
-
-      // Log tax information for debugging
-      logger.debug('Updating order with tax details:', {
-        subtotal: orderData.sub_total,
-        discount: orderData.discount_val,
-        taxes: orderData.taxes,
-        totalTax: orderData.tax,
-        total: orderData.total
-      })
-
-      // Update the hold invoice using description as identifier
-      const response = await posStore.updateHoldInvoice(description, orderData)
-
-      if (response.success) {
-        window.toastr?.['success']('Order updated successfully')
-        // Clear the hold invoice ID after successful update
-        cartStore.setHoldInvoiceId(null)
-        // Clear the cart after successful update
-        cartStore.clearCart()
-      } else {
-        throw new Error(response.message || 'Failed to update order')
-      }
-    } catch (error) {
-      logger.error('Failed to update order:', error)
-      window.toastr?.['error'](error.message || 'Failed to update order')
-    } finally {
-      updating.value = false
-    }
-  }
+  const updateOrder = async () => {                                                         
+    try {                                                                                   
+      const description = cartStore.holdOrderDescription                                    
+                                                                                            
+      if (!description) {                                                                   
+        throw new Error('No order description found')                                       
+      }                                                                                     
+                                                                                            
+      updating.value = true                                                                 
+                                                                                            
+      // Ensure tax types are loaded                                                        
+      if (!taxTypesStore.taxTypes.length) {                                                 
+        await taxTypesStore.fetchTaxTypes()                                                 
+      }                                                                                     
+                                                                                            
+      // Calculate base amount for taxes                                                    
+      const baseAmount = cartStore.subtotal - cartStore.discountAmount                      
+                                                                                            
+      // Format tax data correctly before sending                                           
+      const taxes = taxTypesStore.availableTaxTypes.map(tax => ({                           
+        tax_type_id: Number(tax.id),                                                        
+        company_id: Number(tax.company_id),                                                 
+        name: tax.name,                                                                     
+        amount: Math.round(baseAmount * (tax.percent / 100)),                               
+        percent: Number(tax.percent),                                                       
+        compound_tax: Number(tax.compound_tax),                                             
+        estimate_id: null,                                                                  
+        invoice_item_id: null,                                                              
+        estimate_item_id: null,                                                             
+        item_id: null                                                                       
+      }))                                                                                   
+                                                                                            
+      // Prepare the order data with formatted taxes                                        
+      const orderData = {                                                                   
+        ...cartStore.prepareHoldInvoiceData(                                                
+          posStore.selectedStore,                                                           
+          posStore.selectedCashier,                                                         
+          description                                                                       
+        ),                                                                                  
+        taxes // Override with correctly formatted taxes                                    
+      }                                                                                     
+                                                                                            
+      // Calculate total tax amount                                                         
+      orderData.tax = taxes.reduce((sum, tax) => sum + tax.amount, 0)                       
+                                                                                            
+      logger.debug('Updating order with formatted taxes:', {                                
+        taxes,                                                                              
+        totalTax: orderData.tax,                                                            
+        baseAmount                                                                          
+      })                                                                                    
+                                                                                            
+      // Update the hold invoice using description as identifier                            
+      const response = await posStore.updateHoldInvoice(description, orderData)             
+                                                                                            
+      if (response.success) {                                                               
+        window.toastr?.['success']('Order updated successfully')                            
+        // Clear the hold invoice ID after successful update                                
+        cartStore.setHoldInvoiceId(null)                                                    
+        // Clear the cart after successful update                                           
+        cartStore.clearCart()                                                               
+      } else {                                                                              
+        throw new Error(response.message || 'Failed to update order')                       
+      }                                                                                     
+    } catch (error) {                                                                       
+      logger.error('Failed to update order:', error)                                        
+      window.toastr?.['error'](error.message || 'Failed to update order')                   
+    } finally {                                                                             
+      updating.value = false                                                                
+    }                                                                                       
+  }                                  
 
   return {
     cartStore,

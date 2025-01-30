@@ -177,15 +177,31 @@ export const invoiceActions = {
 
   prepareHoldInvoiceData(state, getters, { storeId, cashRegisterId, referenceNumber }) {
     const data = this.prepareInvoiceData(state, getters, { storeId, cashRegisterId, referenceNumber })
+    const baseAmount = getters.subtotal - getters.discountAmount
+    const taxTypesStore = useTaxTypesStore()
+
+    // Format taxes correctly
+    const taxes = taxTypesStore.availableTaxTypes.map(tax => ({
+      tax_type_id: Number(tax.id),
+      company_id: Number(tax.company_id),
+      name: tax.name,
+      amount: Math.round(baseAmount * (tax.percent / 100)),
+      percent: Number(tax.percent),
+      compound_tax: Number(tax.compound_tax),
+      estimate_id: null,
+      invoice_item_id: null,
+      estimate_item_id: null,
+      item_id: null
+    }))
+
     return {
       ...data,
       is_hold_invoice: true,
       hold_invoice_id: null,
-      // Ensure taxes array is properly copied over
-      taxes: Array.isArray(data.taxes) ? data.taxes : [],
-      // Ensure both table arrays are present in hold invoice
+      taxes,
+      tax: taxes.reduce((sum, tax) => sum + tax.amount, 0),
       tables_selected: data.tables_selected || [],
-      hold_tables: data.tables_selected || [] // Use same data for both arrays
+      hold_tables: data.tables_selected || []
     }
   }
 }
