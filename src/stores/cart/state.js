@@ -34,7 +34,7 @@ export const mutations = {
       state.holdOrderDescription = null
     }
   },
-
+    
   setHoldOrderDescription(state, description) {
     state.holdOrderDescription = description
   },

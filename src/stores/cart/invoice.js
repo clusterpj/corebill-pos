@@ -81,6 +81,7 @@ export const invoiceActions = {
 
       const taxTypesStore = useTaxTypesStore()
       const taxTypes = taxTypesStore.availableTaxTypes
+      const baseAmount = getters.subtotal - getters.discountAmount
 
       const invoice = {
         print_pdf: false,
@@ -115,7 +116,7 @@ export const invoiceActions = {
           tax_type_id: Number(tax.id),
           company_id: Number(tax.company_id),
           name: tax.name,
-          amount: PriceUtils.ensureCents(calculateTaxAmount(getters.subtotal - getters.discountAmount, tax.percent)),
+          amount: calculateTaxAmount(baseAmount, tax.percent),
           percent: Number(tax.percent),
           compound_tax: Number(tax.compound_tax),
           estimate_id: null,
@@ -190,7 +191,6 @@ export const invoiceActions = {
 }
 
 function calculateTaxAmount(baseAmount, taxPercent) {
-  // Convert percentage to decimal for calculation (e.g., 0.55% = 0.0055)
   const taxRate = taxPercent / 100
   return Math.round(baseAmount * taxRate)
 }

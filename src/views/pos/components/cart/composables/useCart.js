@@ -1,11 +1,13 @@
 import { ref } from 'vue'
 import { useCartStore } from '../../../../../stores/cart-store'
 import { usePosStore } from '../../../../../stores/pos-store'
+import { useTaxTypesStore } from '../../../../../stores/tax-types'
 import { logger } from '../../../../../utils/logger'
 
 export function useCart() {
   const cartStore = useCartStore()
   const posStore = usePosStore()
+  const taxTypesStore = useTaxTypesStore()
   const updating = ref(false)
 
   const clearOrder = () => {
@@ -39,7 +41,8 @@ export function useCart() {
         cartState: {
           items: cartStore.items?.length,
           total: cartStore.total,
-          holdInvoiceId: cartStore.holdInvoiceId
+          holdInvoiceId: cartStore.holdInvoiceId,
+          taxes: taxTypesStore.availableTaxTypes
         }
       })
 
@@ -49,12 +52,26 @@ export function useCart() {
 
       updating.value = true
 
-      // Prepare the order data from the current cart state
+      // Ensure tax types are loaded
+      if (!taxTypesStore.taxTypes.length) {
+        await taxTypesStore.fetchTaxTypes()
+      }
+
+      // Prepare the order data with current tax rates
       const orderData = cartStore.prepareHoldInvoiceData(
         posStore.selectedStore,
         posStore.selectedCashier,
         description
       )
+
+      // Log tax information for debugging
+      logger.debug('Updating order with tax details:', {
+        subtotal: orderData.sub_total,
+        discount: orderData.discount_val,
+        taxes: orderData.taxes,
+        totalTax: orderData.tax,
+        total: orderData.total
+      })
 
       // Update the hold invoice using description as identifier
       const response = await posStore.updateHoldInvoice(description, orderData)

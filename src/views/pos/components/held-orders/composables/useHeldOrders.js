@@ -14,6 +14,7 @@ import {
 } from '../utils/formatters'
 import { parseOrderNotes } from '../../../../../stores/cart/helpers'
 import { PriceUtils } from '../../../../../utils/price'
+import { useTaxTypesStore } from '../../../../../stores/tax-types'
 
 const HISTORY_STORAGE_KEY = 'core_pos_order_history'
 
@@ -23,6 +24,7 @@ export function useHeldOrders() {
   const { holdInvoices, holdInvoiceSettings } = storeToRefs(posStore)
   const { fetchPaymentMethods } = usePayment()
   const { releaseTablesAfterPayment } = useTableManagement()
+  const taxTypesStore = useTaxTypesStore()
 
   // State
   const loading = ref(false)
@@ -149,7 +151,9 @@ export function useHeldOrders() {
         paid_at: new Date().toISOString(),
         payment_details: paymentResult,
         tables_selected: originalHoldInvoice.value.tables_selected || [],
-        hold_tables: originalHoldInvoice.value.hold_tables || []
+        hold_tables: originalHoldInvoice.value.hold_tables || [],
+        taxes: originalHoldInvoice.value.taxes || [],
+        tax: originalHoldInvoice.value.tax || 0
       }
 
       // Add to history
@@ -202,18 +206,26 @@ export function useHeldOrders() {
       }
 
       convertingOrder.value = invoice.id
-      originalHoldInvoice.value = invoice // Store the original hold invoice
       
-      // Get payment methods before showing dialog
-      console.log('Fetching payment methods')
+      // Process invoice with current tax rates
+      const processedInvoice = processPaymentData(invoice)
+      originalHoldInvoice.value = processedInvoice
+
+      // Log tax information
+      logger.debug('Converting order with tax details:', {
+        subtotal: processedInvoice.sub_total,
+        discount: processedInvoice.discount_val,
+        taxes: processedInvoice.taxes,
+        totalTax: processedInvoice.tax,
+        total: processedInvoice.total
+      })
+
       await fetchPaymentMethods()
 
-      // Show payment dialog directly with held order data
-      console.log('Setting up payment dialog')
       currentInvoice.value = {
-        invoice: invoice,
-        invoicePrefix: invoice.invoice_prefix || 'INV',
-        nextInvoiceNumber: invoice.id
+        invoice: processedInvoice,
+        invoicePrefix: processedInvoice.invoice_prefix || 'INV',
+        nextInvoiceNumber: processedInvoice.id
       }
       showPaymentDialog.value = true
       
@@ -436,6 +448,56 @@ export function useHeldOrders() {
       window.toastr?.['error']('Failed to fetch hold invoices')
     } finally {
       loading.value = false
+    }
+  }
+
+  const processPaymentData = (invoice) => {
+    const baseAmount = invoice.sub_total - (invoice.discount_val || 0)
+    // Transform taxes to correct format
+    const taxes = taxTypesStore.availableTaxTypes.map(tax => ({
+      tax_type_id: Number(tax.id),
+      company_id: Number(tax.company_id),
+      name: tax.name,
+      amount: Math.round(baseAmount * (tax.percent / 100)),
+      percent: Number(tax.percent),
+      compound_tax: Number(tax.compound_tax),
+      estimate_id: null,
+      invoice_item_id: null,
+      estimate_item_id: null,
+      item_id: null
+    }))
+
+    const totalTax = taxes.reduce((sum, tax) => sum + tax.amount, 0)
+
+    return {
+      ...invoice,
+      taxes,
+      tax: totalTax,
+      total: invoice.sub_total - (invoice.discount_val || 0) + totalTax
+    }
+  }
+
+  // Update processOrderTaxes to use correct tax format
+  const processOrderTaxes = (invoice) => {
+    const baseAmount = invoice.sub_total - (invoice.discount_val || 0)
+    
+    const taxes = taxTypesStore.availableTaxTypes.map(tax => ({
+      tax_type_id: Number(tax.id),
+      company_id: Number(tax.company_id),
+      name: tax.name,
+      amount: Math.round(baseAmount * (tax.percent / 100)),
+      percent: Number(tax.percent),
+      compound_tax: Number(tax.compound_tax),
+      estimate_id: null,
+      invoice_item_id: null,
+      estimate_item_id: null,
+      item_id: null
+    }))
+
+    return {
+      ...invoice,
+      taxes,
+      tax: taxes.reduce((sum, tax) => sum + tax.amount, 0)
     }
   }
 

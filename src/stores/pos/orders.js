@@ -113,13 +113,50 @@ export const createOrdersModule = (state, posApi, posOperations) => {
 
     try {
       validateHoldInvoiceData(orderData)
-      const formattedData = prepareHoldInvoiceData(orderData)
       
-      logger.debug('Holding order with data:', formattedData)
+      // Get current tax types
+      const taxTypesStore = useTaxTypesStore()
+      const availableTaxes = taxTypesStore.availableTaxTypes
+
+      // Calculate tax amounts for each tax type
+      const taxes = availableTaxes.map(tax => {
+        const baseAmount = orderData.sub_total - (orderData.discount_val || 0)
+        const taxRate = tax.percent / 100 // Convert percent to decimal (e.g., 0.55% = 0.0055)
+        return {
+          tax_type_id: Number(tax.id),
+          company_id: Number(tax.company_id),
+          name: tax.name,
+          amount: Math.round(baseAmount * taxRate),
+          percent: Number(tax.percent),
+          compound_tax: Number(tax.compound_tax),
+          estimate_id: null,
+          invoice_item_id: null,
+          estimate_item_id: null,
+          item_id: null
+        }
+      })
+
+      // Merge taxes into order data
+      const formattedData = {
+        ...prepareHoldInvoiceData(orderData),
+        taxes,
+        // Recalculate total tax amount
+        tax: taxes.reduce((sum, tax) => sum + tax.amount, 0)
+      }
+      
+      logger.debug('Holding order with data:', {
+        ...formattedData,
+        taxDetails: {
+          taxableAmount: orderData.sub_total - (orderData.discount_val || 0),
+          taxes: formattedData.taxes,
+          totalTax: formattedData.tax
+        }
+      })
+
       const response = await posApi.holdInvoice.create(formattedData)
       
       if (response.success) {
-        await fetchHoldInvoices() // Refresh the list
+        await fetchHoldInvoices()
         logger.info('Order held successfully:', response.data)
         return { success: true, data: response.data }
       }
