@@ -22,7 +22,9 @@ export const useCartStore = defineStore('cart', {
 
     currentTaxes() {
       const taxTypesStore = useTaxTypesStore()
-      return taxTypesStore.availableTaxTypes
+      const taxes = taxTypesStore.availableTaxTypes
+      logger.debug('Current taxes in cart store:', taxes)
+      return taxes
     },
 
     taxAmount() {

@@ -65,10 +65,19 @@
                     </template>
                   </v-list-item>
 
-                  <v-list-item density="compact">
+                  <v-list-item v-for="tax in availableTaxes" :key="tax.id" density="compact">
                     <template v-slot:title>
                       <div class="d-flex justify-space-between">
-                        <span>Tax ({{ (cartTaxRate * 100).toFixed(1) }}%)</span>
+                        <span>{{ tax.name }} ({{ tax.percent.toFixed(2) }}%)</span>
+                        <span>{{ formatPrice(calculateTaxAmount(tax)) }}</span>
+                      </div>
+                    </template>
+                  </v-list-item>
+                  
+                  <v-list-item v-if="availableTaxes.length > 1" density="compact">
+                    <template v-slot:title>
+                      <div class="d-flex justify-space-between font-weight-medium">
+                        <span>Total Tax</span>
                         <span>{{ formatPrice(cartTaxAmount) }}</span>
                       </div>
                     </template>
@@ -103,6 +112,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useCartStore } from '@/stores/cart-store'
 import { useCompanyStore } from '@/stores/company'
+import { useTaxTypesStore } from '@/stores/tax-types'
 import { storeToRefs } from 'pinia'
 import { logger } from '@/utils/logger'
 import { cartSync } from '@/services/cartSync'
@@ -112,9 +122,24 @@ logger.info('CustomerDisplay component initializing...')
 
 const cartStore = useCartStore()
 const companyStore = useCompanyStore()
+const taxTypesStore = useTaxTypesStore()
 const isRefreshing = ref(false)
 let refreshInterval: number | null = null
 let updateTimeout: number | null = null
+
+// Get available tax types
+const availableTaxes = computed(() => {
+  logger.debug('Computing available taxes:', taxTypesStore.availableTaxTypes)
+  return taxTypesStore.availableTaxTypes || []
+})
+
+// Calculate individual tax amount
+const calculateTaxAmount = (tax) => {
+  const baseAmount = cartSubtotal.value - cartDiscountAmount.value
+  const amount = Math.round(baseAmount * (tax.percent / 100))
+  logger.debug('Calculating tax amount:', { tax, baseAmount, amount })
+  return amount
+}
 
 // Get current store from company store
 const currentStore = computed(() => {
@@ -194,10 +219,13 @@ const stopAutoRefresh = () => {
 }
 
 onMounted(async () => {
-  logger.info('CustomerDisplay mounted, initializing cart sync...')
+  logger.info('CustomerDisplay mounted, initializing...')
   
   // Initialize from storage first
   cartStore.initializeFromStorage()
+  
+  // Fetch tax types
+  await taxTypesStore.fetchTaxTypes()
   
   // Subscribe to cart updates
   unsubscribeFromCartSync = cartSync.subscribeToUpdates((newState) => {
