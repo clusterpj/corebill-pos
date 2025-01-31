@@ -97,30 +97,30 @@
                 </v-col>
 
                 <v-col cols="12" md="8">
-                  <!-- Payment Methods Selection -->
-                  <div class="text-subtitle-1 mb-3 font-weight-medium">Select Payment Method</div>
-                  <template v-if="paymentMethods.length > 0">
+                    <!-- Payment Methods Selection -->
+                    <div class="text-subtitle-1 mb-3 font-weight-medium">Select Payment Method</div>
+                    <template v-if="paymentMethods.length > 0">
                     <v-row class="payment-methods-grid">
                       <v-col v-for="method in paymentMethods" 
-                             :key="method.id" 
-                             cols="6" 
-                             sm="4">
-                        <v-btn
-                          block
-                          :color="isMethodSelected(method.id) ? 'primary' : undefined"
-                          :variant="isMethodSelected(method.id) ? 'flat' : 'outlined'"
-                          class="payment-method-btn"
-                          height="64"
-                          @click="selectPaymentMethod(method.id)"
-                          :disabled="isMethodDisabled(method.id)"
-                        >
-                          <v-icon :icon="getPaymentMethodIcon(method.name)" class="mr-2"></v-icon>
-                          {{ method.name }}
-                        </v-btn>
+                         :key="method.id" 
+                         cols="6" 
+                         sm="4">
+                      <v-btn
+                        block
+                        :color="isMethodSelected(method.id) ? 'primary' : undefined"
+                        :variant="isMethodSelected(method.id) ? 'flat' : 'outlined'"
+                        class="payment-method-btn"
+                        height="64"
+                        @click="selectPaymentMethod(method.id)"
+                        :disabled="payments.length > 0 && !isMethodSelected(method.id)"
+                      >
+                        <v-icon :icon="getPaymentMethodIcon(method.name)" class="mr-2"></v-icon>
+                        {{ method.name }}
+                      </v-btn>
                       </v-col>
                     </v-row>
-                  </template>
-                  <template v-else>
+                    </template>
+                    <template v-else>
                     <v-alert
                       type="warning"
                       variant="tonal"
@@ -128,135 +128,119 @@
                     >
                       No payment methods available. Please configure payment methods in settings.
                     </v-alert>
-                  </template>
+                    </template>
 
-                  <!-- Active Payment Methods -->
-                  <div v-if="payments.length > 0" class="active-payments-section">
+                    <!-- Active Payment Methods -->
+                    <div v-if="payments.length > 0" class="active-payments-section">
                     <div v-for="(payment, index) in payments" :key="index" class="payment-section">
                       <v-card variant="outlined" class="pa-4">
-                        <div class="d-flex align-center mb-4">
-                          <v-icon :icon="getPaymentMethodIcon(getPaymentMethod(payment.method_id)?.name)" class="mr-2"></v-icon>
-                          <span class="text-h6">{{ getPaymentMethod(payment.method_id)?.name }}</span>
-                          <v-spacer></v-spacer>
-                          <v-btn
-                            icon="mdi-close"
-                            variant="text"
-                            density="comfortable"
-                            @click="removePayment(index)"
-                          ></v-btn>
+                      <div class="d-flex align-center mb-4">
+                        <v-icon :icon="getPaymentMethodIcon(getPaymentMethod(payment.method_id)?.name)" class="mr-2"></v-icon>
+                        <span class="text-h6">{{ getPaymentMethod(payment.method_id)?.name }}</span>
+                        <v-spacer></v-spacer>
+                        <v-btn
+                        icon="mdi-close"
+                        variant="text"
+                        density="comfortable"
+                        @click="removePayment(index)"
+                        ></v-btn>
+                      </div>
+
+                      <!-- Amount Display -->
+                      <div class="amount-display">
+                        <div class="amount-display__label">Amount</div>
+                        <div class="amount-display__value-container"
+                           :class="{ 'is-error': !isValidAmount(payment) }">
+                        <div class="amount-display__amount">
+                          <span class="amount-display__currency">$</span>{{ PriceUtils.toDollars(payment.amount).toFixed(2) }}
+                        </div>
+                        </div>
+                        <transition name="fade">
+                        <div v-if="!isValidAmount(payment)" class="amount-display__error">
+                          <v-icon icon="mdi-alert-circle" size="small" color="error" class="mr-1" />
+                          Full payment amount is required
+                        </div>
+                        </transition>
+                      </div>
+
+                      <!-- Cash Payment Fields -->
+                      <template v-if="isCashOnly(payment.method_id)">
+                        <!-- Denominations Grid -->
+                        <div v-if="getDenominations(payment.method_id)?.length" class="mb-4">
+                        <div class="text-subtitle-2 mb-2">Quick Amount Selection</div>
+                        <v-row>
+                          <v-col v-for="money in getDenominations(payment.method_id)" 
+                            :key="money.id" 
+                            cols="4" 
+                            class="pa-1">
+                          <v-btn block
+                              variant="outlined"
+                              class="denomination-btn"
+                              size="small"
+                              @click="handleDenominationClick(money, index)">
+                            {{ formatCurrency(PriceUtils.toCents(money.amount)) }}
+                          </v-btn>
+                          </v-col>
+                        </v-row>
                         </div>
 
-                        <!-- Amount Display -->
+                        <!-- Received Amount -->
                         <div class="amount-display">
-                          <div class="amount-display__label">Amount</div>
-                          <div class="amount-display__value-container"
-                               :class="{ 'is-error': !isValidAmount(payment) }">
-                            <div class="amount-display__amount">
-                              <span class="amount-display__currency">$</span>{{ PriceUtils.toDollars(payment.amount).toFixed(2) }}
-                            </div>
-                          </div>
-                          <transition name="fade">
-                            <div v-if="!isValidAmount(payment)" class="amount-display__error">
-                              <v-icon icon="mdi-alert-circle" size="small" color="error" class="mr-1" />
-                              Full payment amount is required
-                            </div>
-                          </transition>
-                        </div>
-
-                        <!-- Cash Payment Fields -->
-                        <template v-if="isCashOnly(payment.method_id)">
-                          <!-- Denominations Grid -->
-                          <div v-if="getDenominations(payment.method_id)?.length" class="mb-4">
-                            <div class="text-subtitle-2 mb-2">Quick Amount Selection</div>
-                            <v-row>
-                              <v-col v-for="money in getDenominations(payment.method_id)" 
-                                    :key="money.id" 
-                                    cols="4" 
-                                    class="pa-1">
-                                <v-btn block
-                                      variant="outlined"
-                                      class="denomination-btn"
-                                      size="small"
-                                      @click="handleDenominationClick(money, index)">
-                                  {{ formatCurrency(PriceUtils.toCents(money.amount)) }}
-                                </v-btn>
-                              </v-col>
-                            </v-row>
-                          </div>
-
-                          <!-- Received Amount -->
-                          <div class="amount-display">
-                            <div class="amount-display__label">Amount Received</div>
-                            <div class="amount-display__value-container"
-                                 :class="{ 'is-error': !isValidReceivedAmount(payment) }">
-                              <div class="amount-display__amount">
-                                <span class="amount-display__currency">$</span>
-                                <input
-                                  v-model="payment.displayReceived"
-                                  type="number"
-                                  class="amount-display__input"
-                                  step="0.01"
-                                  min="0"
-                                  @input="calculateChange(index)"
-                                />
-                              </div>
-                            </div>
-                            <transition name="fade">
-                              <div v-if="!isValidReceivedAmount(payment)" class="amount-display__error">
-                                <v-icon icon="mdi-alert-circle" size="small" color="error" class="mr-1" />
-                                Received amount must be greater than or equal to payment amount
-                              </div>
-                            </transition>
-                          </div>
-                        </template>
-
-                        <!-- Payment Fees -->
-                        <div v-if="hasPaymentFees(payment.method_id)" class="text-caption mb-2">
-                          <div class="d-flex justify-space-between">
-                            <span>Service Fee:</span>
-                            <strong>{{ formatCurrency(payment.fees) }}</strong>
-                          </div>
-                          <div class="text-grey">
-                            {{ getFeeDescription(payment.method_id, payment.amount) }}
+                        <div class="amount-display__label">Amount Received</div>
+                        <div class="amount-display__value-container"
+                           :class="{ 'is-error': !isValidReceivedAmount(payment) }">
+                          <div class="amount-display__amount">
+                          <span class="amount-display__currency">$</span>
+                          <input
+                            v-model="payment.displayReceived"
+                            type="number"
+                            class="amount-display__input"
+                            step="0.01"
+                            min="0"
+                            @input="calculateChange(index)"
+                          />
                           </div>
                         </div>
+                        <transition name="fade">
+                          <div v-if="!isValidReceivedAmount(payment)" class="amount-display__error">
+                          <v-icon icon="mdi-alert-circle" size="small" color="error" class="mr-1" />
+                          Received amount must be greater than or equal to payment amount
+                          </div>
+                        </transition>
+                        </div>
+                      </template>
 
-                        <!-- Payment Amount Display -->
-                        <div class="d-flex justify-space-between mb-2">
-                          <span>Payment Amount:</span>
-                          <strong>${{ PriceUtils.toDollars(payment.amount).toFixed(2) }}</strong>
+                      <!-- Payment Fees -->
+                      <div v-if="hasPaymentFees(payment.method_id)" class="text-caption mb-2">
+                        <div class="d-flex justify-space-between">
+                        <span>Service Fee:</span>
+                        <strong>{{ formatCurrency(payment.fees) }}</strong>
                         </div>
-                        <div v-if="payment.displayReceived" class="d-flex justify-space-between mb-2">
-                          <span>Amount Received:</span>
-                          <strong>${{ Number(payment.displayReceived).toFixed(2) }}</strong>
+                        <div class="text-grey">
+                        {{ getFeeDescription(payment.method_id, payment.amount) }}
                         </div>
-                        <div v-if="payment.returned > 0" class="d-flex justify-space-between mb-2">
-                          <span>Change:</span>
-                          <strong>${{ PriceUtils.toDollars(payment.returned).toFixed(2) }}</strong>
-                        </div>
-                        <div v-if="payment.fees" class="d-flex justify-space-between">
-                          <span>Fees:</span>
-                          <strong>{{ formatCurrency(payment.fees) }}</strong>
-                        </div>
+                      </div>
 
-                        <v-divider v-if="index < payments.length - 1" class="my-4"></v-divider>
+                      <!-- Payment Amount Display -->
+                      <div class="d-flex justify-space-between mb-2">
+                        <span>Payment Amount:</span>
+                        <strong>${{ PriceUtils.toDollars(payment.amount).toFixed(2) }}</strong>
+                      </div>
+                      <div v-if="payment.displayReceived" class="d-flex justify-space-between mb-2">
+                        <span>Amount Received:</span>
+                        <strong>${{ Number(payment.displayReceived).toFixed(2) }}</strong>
+                      </div>
+                      <div v-if="payment.returned > 0" class="d-flex justify-space-between mb-2">
+                        <span>Change:</span>
+                        <strong>${{ PriceUtils.toDollars(payment.returned).toFixed(2) }}</strong>
+                      </div>
+                      <div v-if="payment.fees" class="d-flex justify-space-between">
+                        <span>Fees:</span>
+                        <strong>{{ formatCurrency(payment.fees) }}</strong>
+                      </div>
                       </v-card>
                     </div>
-
-                    <!-- Add Payment Method Button -->
-                    <v-btn
-                      v-if="canAddMorePayments"
-                      block
-                      color="primary"
-                      variant="outlined"
-                      @click="addPayment"
-                      class="mt-4"
-                      height="48"
-                    >
-                      <v-icon start>mdi-plus</v-icon>
-                      Add Another Payment Method
-                    </v-btn>
-                  </div>
+                    </div>
                 </v-col>
               </v-row>
 
