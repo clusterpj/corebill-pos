@@ -355,110 +355,55 @@ export const actions = {
   loadInvoice(state, invoice) {
     logger.startGroup('Cart Store: Loading Invoice')
     try {
-      // Validate invoice structure
-      if (!invoice || typeof invoice !== 'object') {
-        throw new Error('Invalid invoice data - must be an object')
-      }
-
       // Clear existing cart first
       this.clearCart(state)
         
-      // Set editing invoice details with validation
-      state.editingInvoiceId = Number(invoice.id) || null
-      state.editingInvoiceNumber = String(invoice.invoice_number || '')
-      state.editingInvoiceStatus = String(invoice.status || 'DRAFT')
-
-      // Preserve customer and contact information with fallbacks
-      const customer = {
-        id: Number(invoice.customer?.id || invoice.user_id || 0),
-        name: String(invoice.contact?.name || invoice.customer?.name || invoice.name || ''),
-        email: String(invoice.contact?.email || invoice.customer?.email || invoice.email || ''),
-        phone: String(invoice.contact?.phone || invoice.customer?.phone || invoice.phone || '')
+      // Set editing invoice details
+      state.editingInvoiceId = invoice.id
+      state.editingInvoiceNumber = invoice.invoice_number
+      state.editingInvoiceStatus = invoice.status
+      
+      // Preserve customer and contact information
+      state.customer = {
+        id: invoice.customer?.id || invoice.user_id,
+        name: invoice.contact?.name || invoice.customer?.name || invoice.name,
+        email: invoice.contact?.email || invoice.customer?.email || invoice.email,
+        phone: invoice.contact?.phone || invoice.customer?.phone || invoice.phone
       }
       
-      state.customer = customer
       state.contact = invoice.contact || null
 
-      // Log incoming invoice data with more detail
+      // Log incoming invoice data
       logger.info('Loading invoice data:', {
-        id: state.editingInvoiceId,
-        invoice_number: state.editingInvoiceNumber,
-        status: state.editingInvoiceStatus,
-        customer: {
-          id: customer.id,
-          name: customer.name,
-          email: customer.email,
-          phone: customer.phone
-        },
+        id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        customer: state.customer,
         contact: state.contact,
-        itemCount: invoice.hold_items?.length || invoice.items?.length || 0,
-        total: invoice.total,
-        subtotal: invoice.subtotal,
-        tax: invoice.tax,
-        discount: invoice.discount
+        itemCount: invoice.hold_items?.length || invoice.items?.length || 0
       })
 
-      // Determine which items array to use with validation
-      const itemsToLoad = Array.isArray(invoice.hold_items) 
-        ? invoice.hold_items 
-        : Array.isArray(invoice.items)
-          ? invoice.items
-          : []
+      // Determine which items array to use (hold_items for held orders, items for regular invoices)
+      const itemsToLoad = invoice.hold_items || invoice.items || []
 
-      // Load items with proper type safety and validation
+      // Load items with pos_status preservation, keeping them as separate entities
       state.items = itemsToLoad.map(item => {
-        if (!item || typeof item !== 'object') {
-          logger.warn('Skipping invalid item:', item)
-          return null
-        }
-
-        // Normalize price using PriceUtils for consistency
-        const itemPrice = PriceUtils.ensureCents(item.price)
-        const itemQuantity = Math.max(0, parseFloat(item.quantity) || 1)
+        // Normalize price if needed (only if not from held order)
+        const itemPrice = item.fromHeldOrder ? item.price : (item.price > 1000 ? item.price / 100 : item.price)
+        const itemQuantity = parseFloat(item.quantity) || 1
         const itemTotal = itemPrice * itemQuantity
         
-        // Validate required fields
-        if (!item.id && !item.item_id) {
-          logger.warn('Item missing ID:', item)
-          return null
-        }
-
-        const processedItem = {
-          id: Number(item.item_id || item.id),
-          name: String(item.name || ''),
-          description: String(item.description || ''),
+        logger.info('Processing invoice item:', {
+          id: item.id,
+          item_id: item.item_id,
+          name: item.name,
+          description: item.description,
           price: itemPrice,
+          formatted_price: PriceUtils.format(itemPrice),
           quantity: itemQuantity,
-          unit_name: String(item.unit_name || 'units'),
-          tax: PriceUtils.ensureCents(item.tax || 0),
           total: itemTotal,
-          sub_total: itemTotal,
-          discount_type: String(item.discount_type || 'fixed'),
-          discount: parseFloat(item.discount) || 0,
-          discount_val: parseFloat(item.discount_val) || 0,
-          fromExistingOrder: true,
-          pos_status: String(item.pos_status || 'P'),
-          section_id: Number(item.section_id || 0),
-          section_type: String(item.section_type || ''),
-          fromHeldOrder: Boolean(item.fromHeldOrder),
-          original_item_id: Number(item.id || 0),
-          ...(item.custom_fields || {})
-        }
-
-        logger.info('Processed invoice item:', {
-          id: processedItem.id,
-          name: processedItem.name,
-          description: processedItem.description,
-          price: processedItem.price,
-          formatted_price: PriceUtils.format(processedItem.price),
-          quantity: processedItem.quantity,
-          total: processedItem.total,
-          formatted_total: PriceUtils.format(processedItem.total),
-          pos_status: processedItem.pos_status
+          formatted_total: PriceUtils.format(itemTotal),
+          pos_status: item.pos_status || 'P'
         })
-
-        return processedItem
-      }).filter(Boolean) // Remove any null items from invalid entries
 
         return {
           id: item.item_id || item.id,  // Use item_id for held orders, fallback to id
