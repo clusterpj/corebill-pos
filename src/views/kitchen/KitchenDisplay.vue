@@ -153,10 +153,6 @@ const POLL_INTERVAL = 80000
 const loading = ref(false)
 const orders = ref([])
 const activeTab = ref('active') // Default to 'active' tab
-const persistedTab = localStorage.getItem('kitchenActiveTab')
-if (persistedTab) {
-  activeTab.value = persistedTab
-}
 const autoRefresh = ref(true)
 const refreshTimer = ref(null)
 
@@ -270,8 +266,11 @@ function stopPolling() {
   }
 }
 
-watch(autoRefresh, (enabled) => {
-  enabled ? startPolling() : stopPolling()
+// Polling is now handled by useKitchenOrders composable
+
+// Reset to active tab after each fetch
+watch(() => orders.value, () => {
+  activeTab.value = 'active'
 })
 
 // Persist tab selection

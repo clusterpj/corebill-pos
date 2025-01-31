@@ -5,7 +5,7 @@ import { logger } from '@/utils/logger'
 import { errorHandler } from '@/utils/errorHandler'
 import { KitchenService } from '@/services/api/kitchen-service'
 
-export function useKitchenOrders() {
+export function useKitchenOrders(autoRefresh) {
   const posStore = usePosStore()
   const kitchenStore = useKitchenStore()
   const loading = ref(false)
@@ -87,15 +87,40 @@ export function useKitchenOrders() {
     }
   }
 
-  // Set up polling for real-time updates
+  // Set up polling based on autoRefresh state
+  const startPolling = () => {
+    if (!pollingInterval) {
+      fetchOrders()
+      pollingInterval = setInterval(async () => {
+        await fetchOrders()
+        watchForNewOrders()
+      }, 30000) // Poll every 30 seconds
+      logger.info('Kitchen orders polling initialized')
+    }
+  }
+
+  const stopPolling = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+      pollingInterval = null
+      logger.info('Kitchen orders polling stopped')
+    }
+  }
+
+  // Initialize polling based on autoRefresh state
   onMounted(() => {
-    fetchOrders()
-    pollingInterval = setInterval(async () => {
-      await fetchOrders()
-      watchForNewOrders()
-    }, 30000) // Poll every 30 seconds
-    logger.info('Kitchen orders polling initialized')
+    fetchOrders() // Initial fetch
+    if (autoRefresh?.value) {
+      startPolling()
+    }
   })
+
+  // Watch for autoRefresh changes
+  if (autoRefresh) {
+    watch(autoRefresh, (enabled) => {
+      enabled ? startPolling() : stopPolling()
+    })
+  }
 
   onUnmounted(() => {
     if (pollingInterval) {
