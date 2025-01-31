@@ -114,8 +114,7 @@ import { PriceUtils } from '@/utils/price'
 
 const props = defineProps({
   subtotal: Number,
-  discountAmount: Number,
-  total: Number
+  discountAmount: Number
   // Removed taxRate and taxAmount props as they're now handled by the tax types store
 })
 
@@ -140,6 +139,10 @@ const totalTaxAmount = computed(() => {
   return availableTaxTypes.value.reduce((sum, tax) => {
     return sum + calculateTaxAmount(tax)
   }, 0)
+})
+
+const total = computed(() => {
+  return props.subtotal + totalTaxAmount.value
 })
 
 const formatTaxPercent = (percent) => {
