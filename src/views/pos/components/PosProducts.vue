@@ -111,13 +111,6 @@
               class="products-grid"
             />
             
-            <v-pagination
-              v-model="currentPage"
-              :length="totalPages"
-              :total-visible="7"
-              class="mt-4"
-              @update:model-value="handlePageChange"
-            />
           </div>
 
           <!-- Empty State -->
