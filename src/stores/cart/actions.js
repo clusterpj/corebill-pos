@@ -480,10 +480,30 @@ export const actions = {
           fromHeldOrder: true,
           // Preserve the original item ID for reference
           original_item_id: item.id,
+        return {
+          id: item.item_id || item.id,  // Use item_id for held orders, fallback to id
+          name: item.name,
+          description: item.description || '',
+          price: itemPrice,
+          quantity: itemQuantity,
+          unit_name: item.unit_name || 'units',
+          tax: item.tax || 0,
+          total: itemTotal,
+          sub_total: itemTotal,
+          discount_type: item.discount_type || 'fixed',
+          discount: item.discount || 0,
+          discount_val: item.discount_val || 0,
+          fromExistingOrder: true,
+          pos_status: item.pos_status || 'P',
+          section_id: item.section_id,
+          section_type: item.section_type,
+          fromHeldOrder: true,
+          // Preserve the original item ID for reference
+          original_item_id: item.id,
           // Keep any custom fields that were in the original item
           ...item.custom_fields
         }
-      })
+      }).filter(Boolean) // Remove any null items from invalid entries
 
       // Set order level pos_status
       state.pos_status = invoice.pos_status || 'P'
