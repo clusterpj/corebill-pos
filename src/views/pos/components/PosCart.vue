@@ -189,46 +189,66 @@ import { logger } from '../../../utils/logger'
 import EditItemDialog from './cart/EditItemDialog.vue'
 import OrderNotes from './cart/OrderNotes.vue'
 import { useCart } from './cart/composables/useCart'
+import { useCompanyStore } from '../../../stores/company'
 
 const { cartStore, updating, clearOrder, updateQuantity, removeItem, updateOrder, splitItem } = useCart()
+const companyStore = useCompanyStore()
 
 const handleUpdateInvoice = async () => {
-  try {
-    if (!cartStore.items || cartStore.items.length === 0) {
-      window.toastr?.error('Cannot update invoice: Cart is empty')
-      return
-    }
-    
-    // Preserve original customer and company information
-    const originalInvoice = cartStore.currentInvoice || {}
-    const updateData = {
-      ...cartStore.currentInvoice,
-      contact_id: originalInvoice.contact_id || originalInvoice.customer_id,
-      company_id: originalInvoice.company_id,
-      first_name: originalInvoice.first_name,
-      last_name: originalInvoice.last_name,
-      email: originalInvoice.email,
-      phone: originalInvoice.phone
-    }
 
-    // Defensive checks
-    if (!updateData.company_id) {
-      console.warn('No company_id found in original invoice')
-      updateData.company_id = cartStore.currentCompanyId // Fallback to current company
-    }
+console.log('handleUpdateInvoice  inicio-------------------------------------');
+ try {
+   // Verificar si el carrito está vacío
+   console.log('Verificando si el carrito está vacío');
+   if (!cartStore.items || cartStore.items.length === 0) {
+     console.error('OrderInvoicesTable - No se puede actualizar la factura: El carrito está vacío');
+     window.toastr?.error('Cannot update invoice: Cart is empty');
+     return;
+   }
 
-    if (!updateData.contact_id) {
-      console.warn('No contact_id found in original invoice')
-    }
+   // Obtener información de la empresa y cliente
+   console.log('Obteniendo información de empresa y cliente');
+   const defaultCompanyId = import.meta.env.VITE_DEFAULT_COMPANY_ID || 1;
+   
+   // Asegurar que tenemos un company_id válido
+   const company_id = companyStore.selectedCompany?.id || defaultCompanyId;
+   console.log('Company ID seleccionado:', company_id);
 
-    await cartStore.updateInvoice(updateData)
-    clearOrder()
-  } catch (error) {
-    console.error('Failed to update invoice:', error)
-    window.toastr?.error('Failed to update invoice: ' + (error.message || 'Unknown error'))
-  }
-}
+   // Obtener información del cliente
+   const customer = companyStore.selectedCustomer || {};
+   console.log('Cliente seleccionado:', customer);
 
+   // Construir datos de actualización con valores por defecto
+   const updateData = {
+     ...cartStore.currentInvoice,
+     company_id,
+     contact_id: customer.id || 4, // 4 es típicamente el ID del cliente por defecto 'Walk-in Customer'
+     customer_id: customer.id || 4,
+     customer_name: customer.name || 'Walk-in Customer',
+     first_name: customer.firstName || '',
+     last_name: customer.lastName || '',
+     email: customer.email || '',
+     phone: customer.phone || '',
+     contact: customer || {}
+   };
+
+   console.log('Datos de actualización preparados:', updateData);
+
+   // Actualizar la factura
+   console.log('Actualizando la factura con los siguientes datos:', updateData);
+   await cartStore.updateInvoice(updateData);
+   console.log('Factura actualizada exitosamente');
+
+   // Limpiar el pedido
+   console.log('Limpiando el pedido');
+   clearOrder();
+ } catch (error) {
+   console.error('No se pudo actualizar la factura:', error);
+   window.toastr?.error('Failed to update invoice: ' + (error.message || 'Unknown error'));
+ }
+ 
+  console.log('handleUpdateInvoice fin-------------------------------------');
+};
 
 // Local state for edit dialog
 const showEditDialog = ref(false)

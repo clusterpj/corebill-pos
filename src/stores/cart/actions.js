@@ -2,6 +2,7 @@ import { logger } from '../../utils/logger'
 import { PriceUtils } from '../../utils/price'
 import { posApi } from '../../services/api/pos-api'
 import { useCompanyStore } from '../company'
+import { useTaxTypesStore } from '../tax-types'
 
 export const actions = {
   addItem(state, product, quantity = 1) {
@@ -476,9 +477,23 @@ export const actions = {
         ? (subtotal * (parseFloat(state.discountValue) / 100))
         : parseFloat(state.discountValue) || 0
 
-      // Calculate tax and total without intermediate rounding
+      // Get available tax types and calculate total tax
+      const taxTypesStore = useTaxTypesStore()
+      const availableTaxes = taxTypesStore.availableTaxTypes || []
+      
+      // Calculate taxable amount
       const taxableAmount = subtotal - discountAmount
-      const totalTax = taxableAmount * (parseFloat(state.taxRate) || 0)
+      
+      // Calculate tax for each tax type
+      const taxes = availableTaxes.map(tax => ({
+        id: tax.id,
+        name: tax.name,
+        rate: tax.percent / 100,
+        amount: Math.round(taxableAmount * (tax.percent / 100))
+      }))
+      
+      // Sum up all tax amounts
+      const totalTax = taxes.reduce((sum, tax) => sum + tax.amount, 0)
       const totalAmount = taxableAmount + totalTax
 
       // Map items preserving full precision
@@ -554,13 +569,13 @@ export const actions = {
         
         tables_selected: [],
         packages: [],
-        taxes: taxTypes.map(tax => ({
-          tax_type_id: Number(tax.id),
-          company_id: Number(tax.company_id),
+        taxes: taxes.map(tax => ({
+          tax_type_id: tax.id,
+          company_id: companyStore.company?.id || 1,
           name: tax.name,
-          amount: calculateTaxAmount(baseAmount, tax.percent),
-          percent: Number(tax.percent),
-          compound_tax: Number(tax.compound_tax),
+          amount: tax.amount,
+          percent: tax.rate * 100,
+          compound_tax: 0,
           estimate_id: null,
           invoice_item_id: null,
           estimate_item_id: null,

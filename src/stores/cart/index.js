@@ -12,6 +12,7 @@ export const useCartStore = defineStore('cart', {
     holdInvoiceId: null,
     holdOrderDescription: null,
     selectedTables: [],
+    currentInvoice: null,
   }),
 
   getters: {
@@ -26,11 +27,13 @@ export const useCartStore = defineStore('cart', {
 
     taxAmount() {
       const baseAmount = this.subtotal - this.discountAmount
-      return this.currentTaxes.reduce((sum, tax) => {
-        // Convert percentage to decimal for calculation (e.g., 0.55% = 0.0055)
+      // Calculate total tax amount without rounding individual taxes
+      const totalTax = this.currentTaxes.reduce((sum, tax) => {
         const taxRate = tax.percent / 100
-        return sum + Math.round(baseAmount * taxRate)
+        return sum + (baseAmount * taxRate)
       }, 0)
+      // Round the final total tax amount
+      return Math.round(totalTax)
     },
 
     discountAmount: (state) => {
