@@ -260,7 +260,7 @@ watch(() => props.pdfUrl, (newUrl) => {
   }
 }, { immediate: true })
 
-const printDialog = ref(false)
+const printDialog = ref(true)
 const printing = ref(false)
 const loadingPrinters = ref(false)
 const availablePrinters = ref([])

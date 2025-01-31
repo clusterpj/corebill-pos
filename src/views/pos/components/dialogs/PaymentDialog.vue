@@ -663,7 +663,7 @@ const getPaymentMethodIcon = (methodName) => {
     'Mobile Payment': 'mdi-cellphone',
     'Bank Transfer': 'mdi-bank',
   }
-  return icons[methodName] || 'mdi-currency-usd'
+  return icons[methodName] || 'mdi-cellphone'
 }
 
 const isMethodSelected = (methodId) => {
